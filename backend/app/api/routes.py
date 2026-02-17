@@ -1,4 +1,5 @@
 import logging
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -214,7 +215,7 @@ async def trace_tools(request: Request, session_id: str, req: TraceRequest, user
         raise HTTPException(status_code=500, detail="AI tracing failed. Please try again.")
 
     session.polygons = polygons
-    session.mask_image_path = mask_path
+    session.mask_image_path = _rel(mask_path, up) if mask_path else None
     user_sessions.set(session_id, session)
 
     mask_url = None
@@ -259,7 +260,7 @@ async def trace_from_mask(request: Request, session_id: str, mask: UploadFile, u
         ))
 
     session.polygons = polygons
-    session.mask_image_path = str(mask_path)
+    session.mask_image_path = _rel(mask_path, up)
     user_sessions.set(session_id, session)
 
     return TraceResponse(
@@ -1010,4 +1011,31 @@ async def download_bin_threemf(request: Request, bin_id: str, user_id: str = Dep
         media_type="application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
         filename=f"tracefinity-{bin_id[:8]}.3mf",
     )
+
+
+def _dir_size(path: Path) -> int:
+    total = 0
+    for dirpath, _, filenames in os.walk(path):
+        for f in filenames:
+            total += os.path.getsize(os.path.join(dirpath, f))
+    return total
+
+
+@router.get("/admin/storage-stats")
+async def storage_stats(request: Request):
+    if settings.proxy_secret:
+        if request.headers.get("x-proxy-secret") != settings.proxy_secret:
+            raise HTTPException(status_code=403)
+
+    storage = settings.storage_path
+    users = [d for d in storage.iterdir() if d.is_dir()]
+
+    per_user = []
+    total = 0
+    for user_dir in sorted(users):
+        size = _dir_size(user_dir)
+        total += size
+        per_user.append({"userId": user_dir.name, "bytes": size})
+
+    return {"totalBytes": total, "users": per_user}
 
