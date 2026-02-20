@@ -4,8 +4,8 @@
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background: #0a0a0b;
-  color: #f4f4f5;
+  background: #0a0f1a;
+  color: #f1f5f9;
 }
 
 /* focus states for accessibility */
@@ -24,12 +24,12 @@ body {
 @layer components {
   .btn-primary {
     @apply relative overflow-hidden bg-accent text-white font-medium rounded-[10px] transition-colors hover:bg-accent-hover disabled:opacity-50;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.18);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      0 0 1px rgba(0, 0, 0, 0.1),
-      0 2px 2px rgba(0, 0, 0, 0.07),
-      0 4px 3px rgba(0, 0, 0, 0.04);
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.12),
+      0 1px 3px rgba(0, 0, 0, 0.15),
+      0 4px 6px rgba(0, 0, 0, 0.08);
   }
 
   .btn-secondary {
@@ -54,10 +54,10 @@ body {
     border-radius: 5px;
     background: linear-gradient(
       to right,
-      rgba(31, 111, 189, 0.8) 0%,
-      rgba(31, 111, 189, 0.8) var(--slider-pct, 0%),
-      #191a1d var(--slider-pct, 0%),
-      #191a1d 100%
+      rgba(90, 180, 222, 0.8) 0%,
+      rgba(90, 180, 222, 0.8) var(--slider-pct, 0%),
+      #222a35 var(--slider-pct, 0%),
+      #222a35 100%
     );
   }
 
@@ -67,9 +67,9 @@ body {
     height: 28px;
     border-radius: 4px;
     background: #ebecec;
-    border: 1px solid #1f6fbd;
+    border: 1px solid #3096bc;
     cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
   }
 
   input[type="range"]::-webkit-slider-thumb:hover {
@@ -81,10 +81,10 @@ body {
     border-radius: 5px;
     background: linear-gradient(
       to right,
-      rgba(31, 111, 189, 0.8) 0%,
-      rgba(31, 111, 189, 0.8) var(--slider-pct, 0%),
-      #191a1d var(--slider-pct, 0%),
-      #191a1d 100%
+      rgba(90, 180, 222, 0.8) 0%,
+      rgba(90, 180, 222, 0.8) var(--slider-pct, 0%),
+      #222a35 var(--slider-pct, 0%),
+      #222a35 100%
     );
   }
 
@@ -93,9 +93,9 @@ body {
     height: 28px;
     border-radius: 4px;
     background: #ebecec;
-    border: 1px solid #1f6fbd;
+    border: 1px solid #3096bc;
     cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
   }
 
   input[type="range"]::-moz-range-thumb:hover {

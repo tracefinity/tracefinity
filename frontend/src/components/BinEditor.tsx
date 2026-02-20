@@ -489,7 +489,7 @@ export function BinEditor({
           style={{ overflow: 'visible' }}
           onClick={handleBackgroundClick}
         >
-          <rect x="0" y="0" width={displayWidth} height={displayHeight} fill="rgb(25, 26, 29)" rx="4" />
+          <rect x="0" y="0" width={displayWidth} height={displayHeight} fill="rgb(30, 41, 59)" rx="4" />
           {Array.from({ length: gridX + 1 }).map((_, i) => (
             <line
               key={`v${i}`}
@@ -531,8 +531,8 @@ export function BinEditor({
                 <path
                   d={pathData}
                   fillRule="evenodd"
-                  fill={isSelected ? 'rgb(52, 52, 58)' : 'rgb(63, 63, 70)'}
-                  stroke={isSelected ? 'rgb(161, 161, 170)' : 'rgb(113, 113, 122)'}
+                  fill={isSelected ? 'rgb(51, 65, 85)' : 'rgb(71, 85, 105)'}
+                  stroke={isSelected ? 'rgb(148, 163, 184)' : 'rgb(100, 116, 139)'}
                   strokeWidth={handleStroke}
                   className="cursor-move"
                   onMouseDown={handleToolMouseDown(tool.id)}
@@ -554,14 +554,14 @@ export function BinEditor({
                       {shape === 'circle' && (
                         <circle
                           cx={x} cy={y} r={r}
-                          fill="rgb(52, 52, 58)" stroke="rgb(25, 26, 29)" strokeWidth={1}
+                          fill="rgb(51, 65, 85)" stroke="rgb(30, 41, 59)" strokeWidth={1}
                           className="pointer-events-none"
                         />
                       )}
                       {(shape === 'square' || shape === 'rectangle') && (
                         <rect
                           x={x - w / 2} y={y - h / 2} width={w} height={h}
-                          fill="rgb(52, 52, 58)" stroke="rgb(25, 26, 29)" strokeWidth={1}
+                          fill="rgb(51, 65, 85)" stroke="rgb(30, 41, 59)" strokeWidth={1}
                           className="pointer-events-none"
                         />
                       )}
@@ -609,11 +609,11 @@ export function BinEditor({
               <g>
                 <line
                   x1={centerX} y1={centerY} x2={maxX + handleOffset * 0.6} y2={centerY}
-                  stroke="rgb(31, 111, 189)" strokeWidth={handleStroke} strokeDasharray={`${handleR * 0.3},${handleR * 0.2}`}
+                  stroke="rgb(90, 180, 222)" strokeWidth={handleStroke} strokeDasharray={`${handleR * 0.3},${handleR * 0.2}`}
                 />
                 <circle
                   cx={maxX + handleOffset} cy={centerY} r={handleR}
-                  fill="rgb(31, 111, 189)" stroke="white" strokeWidth={handleStroke}
+                  fill="rgb(90, 180, 222)" stroke="white" strokeWidth={handleStroke}
                   className="cursor-grab"
                   onMouseDown={handleRotateMouseDown(tool.id)}
                   onClick={stopClick}

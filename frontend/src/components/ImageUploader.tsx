@@ -70,7 +70,7 @@ export function ImageUploader({ onUpload, disabled }: Props) {
       />
       <Upload className="w-8 h-8 mx-auto text-text-muted mb-3" />
       {isDragging ? (
-        <p className="text-sm text-blue-400">Drop the image here</p>
+        <p className="text-sm text-accent">Drop the image here</p>
       ) : (
         <div>
           <p className="text-sm text-text-secondary mb-1">

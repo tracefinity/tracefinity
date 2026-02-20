@@ -316,7 +316,7 @@ export function PolygonEditor({
               onClick={() => handleModeChange('vertex')}
               className={`p-2 rounded ${
                 editMode === 'vertex' || editMode === 'select'
-                  ? 'bg-accent-muted text-blue-400'
+                  ? 'bg-accent-muted text-accent'
                   : 'hover:bg-border text-text-secondary'
               }`}
               title="Move vertices"
@@ -327,7 +327,7 @@ export function PolygonEditor({
               onClick={() => handleModeChange('add-vertex')}
               className={`p-2 rounded ${
                 editMode === 'add-vertex'
-                  ? 'bg-accent-muted text-blue-400'
+                  ? 'bg-accent-muted text-accent'
                   : 'hover:bg-border text-text-secondary'
               }`}
               title="Add vertex"
@@ -338,7 +338,7 @@ export function PolygonEditor({
               onClick={() => handleModeChange('delete-vertex')}
               className={`p-2 rounded ${
                 editMode === 'delete-vertex'
-                  ? 'bg-accent-muted text-blue-400'
+                  ? 'bg-accent-muted text-accent'
                   : 'hover:bg-border text-text-secondary'
               }`}
               title="Delete vertex"
@@ -415,8 +415,8 @@ export function PolygonEditor({
                 <path
                   d={pathData}
                   fillRule="evenodd"
-                  fill={isSelected ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.15)'}
-                  stroke={isSelected ? 'rgb(37, 99, 235)' : 'rgb(59, 130, 246)'}
+                  fill={isSelected ? 'rgba(90, 180, 222, 0.3)' : 'rgba(90, 180, 222, 0.15)'}
+                  stroke={isSelected ? 'rgb(72, 168, 214)' : 'rgb(90, 180, 222)'}
                   strokeWidth={uiScale * (isSelected ? 2 : 1)}
                   className="cursor-pointer"
                   onClick={handlePolygonClick(poly.id)}
@@ -475,7 +475,7 @@ export function PolygonEditor({
                         cy={point.y}
                         r={uiScale * 8}
                         fill={editMode === 'delete-vertex' ? 'rgb(239, 68, 68)' : '#27272a'}
-                        stroke={editMode === 'delete-vertex' ? 'rgb(185, 28, 28)' : 'rgb(37, 99, 235)'}
+                        stroke={editMode === 'delete-vertex' ? 'rgb(185, 28, 28)' : 'rgb(72, 168, 214)'}
                         strokeWidth={uiScale * 2}
                         className="pointer-events-none"
                       />

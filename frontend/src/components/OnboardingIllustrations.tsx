@@ -23,13 +23,13 @@ export function PhotoIllustration() {
       <path d="M130 48 L132 70 L135 72 L132 95 L128 95 L125 72 L128 70 L130 48Z" fill="#475569" />
 
       {/* camera icon above */}
-      <rect x="85" y="2" width="30" height="20" rx="3" fill="#2475c6" />
+      <rect x="85" y="2" width="30" height="20" rx="3" fill="#5ab4de" />
       <circle cx="100" cy="13" r="5" fill="#0a0f1a" />
-      <circle cx="100" cy="13" r="3" fill="#2475c6" />
-      <rect x="93" y="3" width="8" height="3" rx="1" fill="#1d6bb5" />
+      <circle cx="100" cy="13" r="3" fill="#5ab4de" />
+      <rect x="93" y="3" width="8" height="3" rx="1" fill="#48a8d6" />
 
       {/* downward arrow from camera */}
-      <path d="M100 24 L96 28 L104 28Z" fill="#2475c6" />
+      <path d="M100 24 L96 28 L104 28Z" fill="#5ab4de" />
     </svg>
   )
 }
@@ -48,16 +48,16 @@ export function CornersIllustration() {
         [50, 30], [160, 25], [170, 110], [35, 115],
       ].map(([cx, cy], i) => (
         <g key={i}>
-          <circle cx={cx} cy={cy} r="7" fill="#2475c6" />
+          <circle cx={cx} cy={cy} r="7" fill="#5ab4de" />
           <circle cx={cx} cy={cy} r="3" fill="white" />
         </g>
       ))}
 
       {/* dotted alignment lines */}
-      <line x1="50" y1="30" x2="160" y2="25" stroke="#2475c6" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
-      <line x1="160" y1="25" x2="170" y2="110" stroke="#2475c6" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
-      <line x1="170" y1="110" x2="35" y2="115" stroke="#2475c6" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
-      <line x1="35" y1="115" x2="50" y2="30" stroke="#2475c6" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
+      <line x1="50" y1="30" x2="160" y2="25" stroke="#5ab4de" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
+      <line x1="160" y1="25" x2="170" y2="110" stroke="#5ab4de" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
+      <line x1="170" y1="110" x2="35" y2="115" stroke="#5ab4de" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
+      <line x1="35" y1="115" x2="50" y2="30" stroke="#5ab4de" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
 
       {/* drag arrows on one corner */}
       <path d="M173 106 L183 100" stroke="#64748b" strokeWidth="1.5" markerEnd="url(#arrowhead)" />
@@ -81,8 +81,8 @@ export function TraceIllustration() {
       <path d="M55 40 L53 75 L50 78 L53 105 L57 105 L60 78 L57 75 L55 40Z" fill="#475569" />
 
       {/* arrow in the middle */}
-      <path d="M95 70 L105 70" stroke="#2475c6" strokeWidth="2" />
-      <path d="M103 65 L110 70 L103 75" fill="#2475c6" />
+      <path d="M95 70 L105 70" stroke="#5ab4de" strokeWidth="2" />
+      <path d="M103 65 L110 70 L103 75" fill="#5ab4de" />
 
       {/* right panel: mask */}
       <rect x="112" y="15" width="80" height="110" rx="3" fill="#f1f5f9" />
@@ -91,7 +91,7 @@ export function TraceIllustration() {
       <path d="M159 40 L157 75 L154 78 L157 105 L161 105 L164 78 L161 75 L159 40Z" fill="#0a0f1a" />
 
       {/* "AI" label on arrow */}
-      <text x="102" y="62" textAnchor="middle" fill="#2475c6" fontSize="9" fontWeight="600">AI</text>
+      <text x="102" y="62" textAnchor="middle" fill="#5ab4de" fontSize="9" fontWeight="600">AI</text>
     </svg>
   )
 }
@@ -117,10 +117,10 @@ export function OrganiseIllustration() {
 
       {/* download arrow */}
       <g transform="translate(165, 55)">
-        <rect x="-10" y="-10" width="30" height="30" rx="15" fill="#2475c6" opacity="0.15" />
-        <path d="M5 -4 L5 6" stroke="#2475c6" strokeWidth="2" strokeLinecap="round" />
-        <path d="M0 3 L5 8 L10 3" stroke="#2475c6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <line x1="0" y1="11" x2="10" y2="11" stroke="#2475c6" strokeWidth="2" strokeLinecap="round" />
+        <rect x="-10" y="-10" width="30" height="30" rx="15" fill="#5ab4de" opacity="0.15" />
+        <path d="M5 -4 L5 6" stroke="#5ab4de" strokeWidth="2" strokeLinecap="round" />
+        <path d="M0 3 L5 8 L10 3" stroke="#5ab4de" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <line x1="0" y1="11" x2="10" y2="11" stroke="#5ab4de" strokeWidth="2" strokeLinecap="round" />
       </g>
 
       {/* ".STL" label */}
@@ -144,7 +144,7 @@ export function CornersHint() {
       {[
         [30, 12], [120, 10], [125, 48], [25, 50],
       ].map(([cx, cy], i) => (
-        <circle key={i} cx={cx} cy={cy} r="4" fill="#2475c6" />
+        <circle key={i} cx={cx} cy={cy} r="4" fill="#5ab4de" />
       ))}
 
       {/* arrow from cursor to corner */}
@@ -165,9 +165,9 @@ export function TraceHint() {
       <path d="M35 18 L35 40 Q35 44 42 44 Q49 44 49 40 L49 18 Q49 14 42 12 Q35 14 35 18Z" fill="#475569" />
 
       {/* arrow */}
-      <path d="M92 30 L118 30" stroke="#2475c6" strokeWidth="1.5" />
-      <path d="M115 26 L121 30 L115 34" fill="#2475c6" />
-      <text x="105" y="25" textAnchor="middle" fill="#2475c6" fontSize="7" fontWeight="600">AI</text>
+      <path d="M92 30 L118 30" stroke="#5ab4de" strokeWidth="1.5" />
+      <path d="M115 26 L121 30 L115 34" fill="#5ab4de" />
+      <text x="105" y="25" textAnchor="middle" fill="#5ab4de" fontSize="7" fontWeight="600">AI</text>
 
       {/* mask side */}
       <rect x="125" y="12" width="70" height="36" rx="2" fill="#e2e8f0" />
@@ -185,7 +185,7 @@ export function EditHint() {
       <polygon
         points="40,15 90,12 95,48 35,50"
         fill="none"
-        stroke="#2475c6"
+        stroke="#5ab4de"
         strokeWidth="1.5"
       />
 
@@ -193,11 +193,11 @@ export function EditHint() {
       {[
         [40, 15], [90, 12], [95, 48], [35, 50],
       ].map(([cx, cy], i) => (
-        <circle key={i} cx={cx} cy={cy} r="3" fill="#2475c6" />
+        <circle key={i} cx={cx} cy={cy} r="3" fill="#5ab4de" />
       ))}
 
       {/* dragging one vertex */}
-      <circle cx="95" cy="48" r="5" fill="#2475c6" opacity="0.3" />
+      <circle cx="95" cy="48" r="5" fill="#5ab4de" opacity="0.3" />
       <path d="M100 48 L115 42" stroke="#64748b" strokeWidth="1" strokeDasharray="3 2" />
       {/* cursor */}
       <path d="M115 38 L115 50 L119 46 L124 52 L126 50 L121 44 L125 44Z" fill="#94a3b8" />

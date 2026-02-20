@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Move, Plus, Minus, Undo2, Redo2, Trash2, Circle, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw } from 'lucide-react'
+import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, ChevronDown } from 'lucide-react'
 import type { Point, FingerHole } from '@/types'
 import { polygonPathData } from '@/lib/svg'
 
@@ -47,6 +47,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, onPointsChange,
   const [snapEnabled, setSnapEnabled] = useState(true)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [cutoutOpen, setCutoutOpen] = useState(false)
   const spaceHeld = useRef(false)
   const didPanRef = useRef(false)
 
@@ -428,8 +429,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, onPointsChange,
     })
   }
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    // only reset on background double-click (not on elements that stopPropagation)
+  const handleResetZoom = () => {
     setZoom(1)
     setPan({ x: 0, y: 0 })
   }
@@ -543,133 +543,145 @@ export function ToolEditor({ points, fingerHoles, interiorRings, onPointsChange,
 
   const isCutoutMode = editMode === 'finger-hole' || editMode === 'circle' || editMode === 'square' || editMode === 'rectangle'
 
+  const cutoutModeIcon = editMode === 'finger-hole' ? <Fingerprint className="w-4.5 h-4.5" />
+    : editMode === 'circle' ? <Circle className="w-4.5 h-4.5" />
+    : editMode === 'square' ? <Square className="w-4.5 h-4.5" />
+    : editMode === 'rectangle' ? <RectangleHorizontal className="w-4.5 h-4.5" />
+    : <Plus className="w-4.5 h-4.5" />
+
+  const cutoutModeLabel = editMode === 'finger-hole' ? 'Finger hole'
+    : editMode === 'circle' ? 'Circle'
+    : editMode === 'square' ? 'Square'
+    : editMode === 'rectangle' ? 'Rectangle'
+    : 'Cutout'
+
   return (
     <div className="h-full flex flex-col gap-3">
       {/* toolbar */}
-      <div className="flex items-center gap-4 flex-shrink-0">
-        <div className="flex gap-1 bg-elevated rounded-lg p-1 border border-border">
+      <div className="flex items-center gap-3 flex-shrink-0">
+        {/* mode selector: segmented control */}
+        <div className="flex bg-elevated rounded-lg p-0.5 border border-border">
           <button
             onClick={() => setEditMode('select')}
-            className={`p-2 rounded ${editMode === 'select' ? 'bg-accent-muted text-blue-400' : 'hover:bg-border text-text-secondary'}`}
-            title="Move vertices / cutouts"
+            className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+              editMode === 'select' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
+            }`}
+            title="Select and drag vertices / cutouts"
           >
-            <Move className="w-5 h-5" />
+            <MousePointer2 className="w-4 h-4" />
+            Select
           </button>
           <button
             onClick={() => setEditMode('add-vertex')}
-            className={`p-2 rounded ${editMode === 'add-vertex' ? 'bg-accent-muted text-blue-400' : 'hover:bg-border text-text-secondary'}`}
-            title="Add vertex"
+            className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+              editMode === 'add-vertex' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
+            }`}
+            title="Add vertex on edge"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
+            Add point
           </button>
           <button
             onClick={() => setEditMode('delete-vertex')}
-            className={`p-2 rounded ${editMode === 'delete-vertex' ? 'bg-accent-muted text-blue-400' : 'hover:bg-border text-text-secondary'}`}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+              editMode === 'delete-vertex' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
+            }`}
             title="Delete vertex"
             disabled={displayPoints.length <= 3}
           >
-            <Minus className="w-5 h-5" />
+            <Minus className="w-4 h-4" />
+            Remove
           </button>
+          <div className="relative">
+            <button
+              onClick={() => setCutoutOpen(prev => !prev)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                isCutoutMode ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
+              }`}
+            >
+              {cutoutModeIcon}
+              <span>{cutoutModeLabel}</span>
+              <ChevronDown className="w-3 h-3 opacity-60" />
+            </button>
+            {cutoutOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setCutoutOpen(false)} />
+                <div className="absolute top-full left-0 mt-1 bg-elevated border border-border rounded-lg shadow-lg z-20 py-1 min-w-[160px]">
+                  {([
+                    { mode: 'finger-hole' as EditMode, icon: <Fingerprint className="w-4 h-4" />, label: 'Finger hole', size: '15mm' },
+                    { mode: 'circle' as EditMode, icon: <Circle className="w-4 h-4" />, label: 'Circle', size: '10mm' },
+                    { mode: 'square' as EditMode, icon: <Square className="w-4 h-4" />, label: 'Square', size: '20mm' },
+                    { mode: 'rectangle' as EditMode, icon: <RectangleHorizontal className="w-4 h-4" />, label: 'Rectangle', size: '30x20mm' },
+                  ]).map(item => (
+                    <button
+                      key={item.mode}
+                      onClick={() => { setEditMode(item.mode); setCutoutOpen(false) }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-border ${
+                        editMode === item.mode ? 'text-accent' : 'text-text-primary'
+                      }`}
+                    >
+                      {item.icon}
+                      <span>{item.label}</span>
+                      <span className="text-text-muted text-xs ml-auto">{item.size}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="h-6 w-px bg-border-subtle" />
-
-        <div className="flex gap-1 bg-elevated rounded-lg p-1 border border-border">
+        {/* utility actions: smaller, no background pill */}
+        <div className="flex items-center gap-0.5 text-text-muted">
           <button
-            onClick={() => setEditMode('finger-hole')}
-            className={`p-2 rounded ${editMode === 'finger-hole' ? 'bg-accent-muted text-blue-400' : 'hover:bg-border text-text-secondary'}`}
-            title="Add finger hole (15mm)"
+            onClick={() => rotateAll(-90)}
+            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary"
+            title="Rotate 90° counter-clockwise"
           >
-            <Fingerprint className="w-5 h-5" />
+            <RotateCcw className="w-4 h-4" />
           </button>
           <button
-            onClick={() => setEditMode('circle')}
-            className={`p-2 rounded ${editMode === 'circle' ? 'bg-accent-muted text-blue-400' : 'hover:bg-border text-text-secondary'}`}
-            title="Add circle cutout (10mm)"
+            onClick={() => rotateAll(90)}
+            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary"
+            title="Rotate 90° clockwise"
           >
-            <Circle className="w-5 h-5" />
+            <RotateCw className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => setEditMode('square')}
-            className={`p-2 rounded ${editMode === 'square' ? 'bg-accent-muted text-blue-400' : 'hover:bg-border text-text-secondary'}`}
-            title="Add square cutout (20mm)"
-          >
-            <Square className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setEditMode('rectangle')}
-            className={`p-2 rounded ${editMode === 'rectangle' ? 'bg-accent-muted text-blue-400' : 'hover:bg-border text-text-secondary'}`}
-            title="Add rectangle cutout (30x20mm)"
-          >
-            <RectangleHorizontal className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="h-6 w-px bg-border-subtle" />
-
-        <div className="flex items-center gap-1">
+          <div className="h-4 w-px bg-border-subtle mx-1" />
           <button
             onClick={handleUndo}
             disabled={!canUndo}
-            className="p-2 rounded hover:bg-border text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed"
             title="Undo (Ctrl+Z)"
           >
-            <Undo2 className="w-5 h-5" />
+            <Undo2 className="w-4 h-4" />
           </button>
           <button
             onClick={handleRedo}
             disabled={!canRedo}
-            className="p-2 rounded hover:bg-border text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed"
             title="Redo (Ctrl+Shift+Z)"
           >
-            <Redo2 className="w-5 h-5" />
+            <Redo2 className="w-4 h-4" />
+          </button>
+          <div className="h-4 w-px bg-border-subtle mx-1" />
+          <button
+            onClick={() => setSnapEnabled(!snapEnabled)}
+            className={`p-1.5 rounded transition-colors ${
+              snapEnabled ? 'text-accent' : 'hover:bg-border/50 hover:text-text-secondary'
+            }`}
+            title={`Snap to ${SNAP_GRID}mm grid${snapEnabled ? ' (on)' : ' (off)'}`}
+          >
+            <Magnet className="w-4 h-4" />
           </button>
         </div>
-
-        <button
-          onClick={() => setSnapEnabled(!snapEnabled)}
-          className={`p-2 rounded flex items-center gap-1 ${snapEnabled ? 'bg-green-900/30 text-green-400' : 'bg-elevated text-text-muted'}`}
-          title={`Snap to grid (${SNAP_GRID}mm)`}
-        >
-          <Magnet className="w-5 h-5" />
-          <span className="text-xs font-medium">{snapEnabled ? 'ON' : 'OFF'}</span>
-        </button>
-
-        <div className="h-6 w-px bg-border-subtle" />
-
-        <div className="flex gap-1 bg-elevated rounded-lg p-1 border border-border">
-          <button
-            onClick={() => rotateAll(-90)}
-            className="p-2 rounded hover:bg-border text-text-secondary"
-            title="Rotate 90° counter-clockwise"
-          >
-            <RotateCw className="w-5 h-5 -scale-x-100" />
-          </button>
-          <button
-            onClick={() => rotateAll(90)}
-            className="p-2 rounded hover:bg-border text-text-secondary"
-            title="Rotate 90° clockwise"
-          >
-            <RotateCw className="w-5 h-5" />
-          </button>
-        </div>
-
-        <span className="text-sm text-text-muted">
-          {editMode === 'select' && 'Drag vertices or cutouts to move them'}
-          {editMode === 'add-vertex' && 'Click on an edge to add a vertex'}
-          {editMode === 'delete-vertex' && 'Click a vertex to remove it'}
-          {editMode === 'finger-hole' && 'Click to add finger hole (15mm)'}
-          {editMode === 'circle' && 'Click to add circle (10mm)'}
-          {editMode === 'square' && 'Click to add square (20mm)'}
-          {editMode === 'rectangle' && 'Click to add rectangle (30x20mm)'}
-        </span>
 
         {selection?.type === 'hole' && (
           <button
             onClick={handleDeleteHole}
-            className="ml-auto px-3 py-1.5 text-sm text-red-400 hover:bg-red-900/20 rounded border border-red-800 flex items-center gap-1"
+            className="ml-auto px-3 py-1.5 text-xs font-medium text-white bg-red-700 hover:bg-red-600 rounded-lg flex items-center gap-1 shadow-sm"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5" />
             Delete
           </button>
         )}
@@ -698,7 +710,6 @@ export function ToolEditor({ points, fingerHoles, interiorRings, onPointsChange,
           style={{ overflow: 'hidden', backgroundColor: 'rgb(30, 41, 59)' }}
           onClick={handleBackgroundClick}
           onMouseDown={handleSvgMouseDown}
-          onDoubleClick={handleDoubleClick}
         >
           {/* background fill */}
           <rect x={zvbX} y={zvbY} width={zvbW} height={zvbH} fill="rgb(30, 41, 59)" />
@@ -756,7 +767,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, onPointsChange,
                 />
                 <circle
                   cx={midX} cy={midY} r={5}
-                  fill="rgb(34, 197, 94)" stroke="#27272a" strokeWidth={2}
+                  fill="rgb(34, 197, 94)" stroke="#1e293b" strokeWidth={2}
                   className="pointer-events-none"
                 />
               </g>
@@ -770,8 +781,8 @@ export function ToolEditor({ points, fingerHoles, interiorRings, onPointsChange,
               cx={p.x * DISPLAY_SCALE}
               cy={p.y * DISPLAY_SCALE}
               r={8}
-              fill={editMode === 'delete-vertex' ? 'rgb(239, 68, 68)' : selection?.type === 'vertex' && selection.pointIdx === idx ? 'rgb(37, 99, 235)' : '#27272a'}
-              stroke={editMode === 'delete-vertex' ? 'rgb(185, 28, 28)' : 'rgb(37, 99, 235)'}
+              fill={editMode === 'delete-vertex' ? 'rgb(239, 68, 68)' : selection?.type === 'vertex' && selection.pointIdx === idx ? 'rgb(72, 168, 214)' : '#1e293b'}
+              stroke={editMode === 'delete-vertex' ? 'rgb(185, 28, 28)' : 'rgb(72, 168, 214)'}
               strokeWidth={2}
               className={editMode === 'delete-vertex' ? 'cursor-pointer' : 'cursor-move'}
               onMouseDown={handleVertexMouseDown(idx)}
@@ -779,31 +790,62 @@ export function ToolEditor({ points, fingerHoles, interiorRings, onPointsChange,
             />
           ))}
 
-          {/* polygon rotate handle */}
+          {/* bounding box with corner rotation zones */}
           {editMode === 'select' && displayPoints.length > 0 && (() => {
-            const cx = centroid.x * DISPLAY_SCALE
-            const topY = bounds.minY * DISPLAY_SCALE
-            const armLen = 25
+            const s = zvbW / 800
+            const pad = 8 * s
+            let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity
+            for (const p of displayPoints) {
+              bMinX = Math.min(bMinX, p.x); bMinY = Math.min(bMinY, p.y)
+              bMaxX = Math.max(bMaxX, p.x); bMaxY = Math.max(bMaxY, p.y)
+            }
+            for (const fh of displayHoles) {
+              const r = fh.shape === 'rectangle' ? Math.max(fh.width || 0, fh.height || 0) / 2 : fh.radius
+              bMinX = Math.min(bMinX, fh.x - r); bMinY = Math.min(bMinY, fh.y - r)
+              bMaxX = Math.max(bMaxX, fh.x + r); bMaxY = Math.max(bMaxY, fh.y + r)
+            }
+            const dMinX = bMinX * DISPLAY_SCALE - pad
+            const dMinY = bMinY * DISPLAY_SCALE - pad
+            const dMaxX = bMaxX * DISPLAY_SCALE + pad
+            const dMaxY = bMaxY * DISPLAY_SCALE + pad
+            const cornerSize = 28 * s
+            const corners = [
+              { x: dMinX, y: dMinY },
+              { x: dMaxX, y: dMinY },
+              { x: dMaxX, y: dMaxY },
+              { x: dMinX, y: dMaxY },
+            ]
             return (
               <g>
-                <line
-                  x1={cx} y1={topY}
-                  x2={cx} y2={topY - armLen}
-                  stroke="rgba(59, 130, 246, 0.6)" strokeWidth={2} strokeDasharray="4,4"
+                <rect
+                  x={dMinX} y={dMinY}
+                  width={dMaxX - dMinX} height={dMaxY - dMinY}
+                  fill="none" stroke="rgba(90, 180, 222, 0.3)" strokeWidth={1.5 * s}
+                  strokeDasharray={`${6 * s},${4 * s}`}
+                  className="pointer-events-none"
                 />
-                <circle
-                  cx={cx} cy={topY - armLen - 12}
-                  r={12}
-                  fill="rgb(59, 130, 246)" stroke="white" strokeWidth={2}
-                  className="cursor-grab"
-                  onMouseDown={handleRotatePolygonMouseDown}
-                  onClick={stopClick}
-                />
-                <text
-                  x={cx} y={topY - armLen - 7.5}
-                  textAnchor="middle" fill="white" fontSize="15"
-                  className="pointer-events-none select-none"
-                >&#x21BB;</text>
+                {corners.map((c, i) => {
+                  const dx = i === 0 || i === 3 ? 1 : -1
+                  const dy = i < 2 ? 1 : -1
+                  const len = 12 * s
+                  return (
+                    <g key={i}>
+                      <path
+                        d={`M${c.x + dx * len},${c.y} L${c.x},${c.y} L${c.x},${c.y + dy * len}`}
+                        fill="none" stroke="rgba(90, 180, 222, 0.6)" strokeWidth={2 * s}
+                        className="pointer-events-none"
+                      />
+                      <rect
+                        x={c.x - cornerSize / 2} y={c.y - cornerSize / 2}
+                        width={cornerSize} height={cornerSize}
+                        fill="transparent"
+                        className="cursor-grab"
+                        onMouseDown={handleRotatePolygonMouseDown}
+                        onClick={stopClick}
+                      />
+                    </g>
+                  )
+                })}
               </g>
             )
           })()}
@@ -826,7 +868,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, onPointsChange,
                   <circle
                     cx={x} cy={y} r={r}
                     fill={isSelected ? 'rgb(30, 41, 59)' : 'rgb(51, 65, 85)'}
-                    stroke={isSelected ? 'rgb(59, 130, 246)' : 'rgb(30, 41, 59)'}
+                    stroke={isSelected ? 'rgb(90, 180, 222)' : 'rgb(30, 41, 59)'}
                     strokeWidth={(isSelected ? 3 : 1) / zoom}
                     className={editMode === 'select' ? 'cursor-move' : 'cursor-default'}
                     onMouseDown={handleHoleMouseDown(fh.id)}
@@ -837,7 +879,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, onPointsChange,
                   <rect
                     x={x - w / 2} y={y - h / 2} width={w} height={h}
                     fill={isSelected ? 'rgb(30, 41, 59)' : 'rgb(51, 65, 85)'}
-                    stroke={isSelected ? 'rgb(59, 130, 246)' : 'rgb(30, 41, 59)'}
+                    stroke={isSelected ? 'rgb(90, 180, 222)' : 'rgb(30, 41, 59)'}
                     strokeWidth={(isSelected ? 3 : 1) / zoom}
                     className={editMode === 'select' ? 'cursor-move' : 'cursor-default'}
                     onMouseDown={handleHoleMouseDown(fh.id)}
@@ -861,32 +903,34 @@ export function ToolEditor({ points, fingerHoles, interiorRings, onPointsChange,
             const h = shape === 'rectangle' && fh.height ? fh.height * DISPLAY_SCALE : r * 2
             const resizeOffset = shape === 'circle' ? r : w / 2
             const topEdge = shape === 'circle' ? r : h / 2
+            const s = zvbW / 800
+            const hr = 18 * s
 
             return (
               <g transform={rotation !== 0 ? `rotate(${rotation} ${x} ${y})` : undefined}>
                 <circle
-                  cx={x + resizeOffset} cy={y} r={8}
-                  fill="rgb(59, 130, 246)" stroke="white" strokeWidth={2}
+                  cx={x + resizeOffset} cy={y} r={12 * s}
+                  fill="rgb(90, 180, 222)" stroke="white" strokeWidth={2 * s}
                   className="cursor-ew-resize"
                   onMouseDown={handleResizeMouseDown(fh.id)}
                   onClick={stopClick}
                 />
                 <line
                   x1={x} y1={y}
-                  x2={x} y2={y - topEdge - 13}
-                  stroke="rgba(59, 130, 246, 0.6)" strokeWidth={2} strokeDasharray="4,4"
+                  x2={x} y2={y - topEdge - 20 * s}
+                  stroke="rgba(90, 180, 222, 0.6)" strokeWidth={2 * s} strokeDasharray={`${6 * s},${5 * s}`}
                 />
                 <circle
-                  cx={x} cy={y - topEdge - 25}
-                  r={12}
-                  fill="rgb(59, 130, 246)" stroke="white" strokeWidth={2}
+                  cx={x} cy={y - topEdge - 20 * s - hr}
+                  r={hr}
+                  fill="rgb(90, 180, 222)" stroke="white" strokeWidth={2 * s}
                   className="cursor-grab"
                   onMouseDown={handleHoleRotateMouseDown(fh.id)}
                   onClick={stopClick}
                 />
                 <text
-                  x={x} y={y - topEdge - 20.5}
-                  textAnchor="middle" fill="white" fontSize="15"
+                  x={x} y={y - topEdge - 20 * s - hr * 0.4}
+                  textAnchor="middle" fill="white" fontSize={hr * 1.3}
                   className="pointer-events-none select-none"
                 >&#x21BB;</text>
               </g>
@@ -896,13 +940,26 @@ export function ToolEditor({ points, fingerHoles, interiorRings, onPointsChange,
       </div>
 
       {/* bottom bar */}
-      <div className="flex items-center justify-between text-sm flex-shrink-0">
+      <div className="flex items-center justify-between text-xs flex-shrink-0">
         <span className="text-text-muted">
           {displayPoints.length} vertices, {displayHoles.length} cutout{displayHoles.length !== 1 ? 's' : ''}
         </span>
         <span className="text-text-muted">
-          {Math.round(zoom * 100)}%{zoom !== 1 && ' · double-click to reset'}
+          {editMode === 'select' && 'Drag vertices or cutouts to move'}
+          {editMode === 'add-vertex' && 'Click an edge to add a vertex'}
+          {editMode === 'delete-vertex' && 'Click a vertex to remove it'}
+          {editMode === 'finger-hole' && 'Click to place finger hole'}
+          {editMode === 'circle' && 'Click to place circle'}
+          {editMode === 'square' && 'Click to place square'}
+          {editMode === 'rectangle' && 'Click to place rectangle'}
         </span>
+        {zoom !== 1 ? (
+          <button onClick={handleResetZoom} className="text-text-muted hover:text-text-secondary">
+            {Math.round(zoom * 100)}% · reset
+          </button>
+        ) : (
+          <span className="text-text-muted">{Math.round(zoom * 100)}%</span>
+        )}
       </div>
     </div>
   )

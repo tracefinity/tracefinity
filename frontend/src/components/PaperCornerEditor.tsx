@@ -163,8 +163,8 @@ export function PaperCornerEditor({ imageUrl, corners, onCornersChange }: Props)
               points={corners
                 .map((c) => `${c.x * displayScale},${c.y * displayScale}`)
                 .join(' ')}
-              fill="rgba(59, 130, 246, 0.1)"
-              stroke="rgb(59, 130, 246)"
+              fill="rgba(90, 180, 222, 0.1)"
+              stroke="rgb(90, 180, 222)"
               strokeWidth={2}
             />
           )}
@@ -185,7 +185,7 @@ export function PaperCornerEditor({ imageUrl, corners, onCornersChange }: Props)
                 cy={corner.y * displayScale}
                 r={HANDLE_RADIUS}
                 fill="#27272a"
-                stroke="rgb(59, 130, 246)"
+                stroke="rgb(90, 180, 222)"
                 strokeWidth={2}
                 className="pointer-events-none"
               />

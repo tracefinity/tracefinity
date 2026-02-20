@@ -298,7 +298,7 @@ export function BinPreview3D({ stlUrl, splitUrls }: Props) {
           onClick={() => setRenderMode(m => m === 'solid' ? 'edges' : 'solid')}
           className={`p-1.5 rounded transition-colors ${
             renderMode === 'edges'
-              ? 'bg-accent-muted text-blue-400'
+              ? 'bg-accent-muted text-accent'
               : 'bg-surface/80 hover:bg-elevated text-text-secondary hover:text-text-primary'
           }`}
           title="Toggle edges"
