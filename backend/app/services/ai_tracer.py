@@ -48,6 +48,10 @@ class AITracer:
         mask_output_path: str | None = None,
     ) -> tuple[list[Polygon], str | None]:
         """trace tools using Gemini mask generation. returns (polygons, mask_path)"""
+        import os
+        if os.environ.get("E2E_TEST_MODE"):
+            return self._mock_trace(mask_output_path)
+
         mask_path = await self._generate_mask_gemini(image_path, api_key, mask_output_path)
 
         if not mask_path:
@@ -78,6 +82,35 @@ class AITracer:
                     interior_rings=interior_rings,
                 )
             )
+
+        return polygons, mask_output_path
+
+    def _mock_trace(self, mask_output_path: str | None) -> tuple[list[Polygon], str | None]:
+        """return pre-recorded fixture data instead of calling Gemini"""
+        import shutil
+        fixtures = Path(__file__).resolve().parent.parent.parent / "tests" / "fixtures"
+        mock_mask = fixtures / "mock_mask.png"
+        mock_json = fixtures / "mock_polygons.json"
+
+        if mask_output_path and mock_mask.exists():
+            Path(mask_output_path).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(mock_mask), mask_output_path)
+
+        polygons = []
+        if mock_json.exists():
+            data = json.loads(mock_json.read_text())
+            for p in data:
+                points = [Point(x=pt["x"], y=pt["y"]) for pt in p["points"]]
+                interior_rings = [
+                    [Point(x=pt["x"], y=pt["y"]) for pt in ring]
+                    for ring in p.get("interior_rings", [])
+                ]
+                polygons.append(Polygon(
+                    id=p.get("id", str(uuid.uuid4())),
+                    points=points,
+                    label=p.get("label", "tool"),
+                    interior_rings=interior_rings,
+                ))
 
         return polygons, mask_output_path
 
