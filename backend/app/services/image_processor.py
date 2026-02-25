@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import cv2
+import logging
 import numpy as np
 from pathlib import Path
 from typing import Literal
+
+logger = logging.getLogger(__name__)
 
 PAPER_SIZES = {
     "a4": (210, 297),
@@ -56,34 +59,51 @@ class ImageProcessor:
         min_area: float, max_area: float, margin: int, h: int, w: int
     ) -> list[tuple[float, float]] | None:
         """detect paper by finding bright white region"""
-        # try multiple thresholds, strictest first
+        # try all thresholds and pick the largest valid candidate
+        best_result = None
+        best_area = 0
         for thresh_val in [200, 190, 180]:
-            result = self._try_brightness_threshold(
+            result, area = self._try_brightness_threshold(
                 gray, thresh_val, min_area, max_area, margin, h, w
             )
-            if result:
-                return result
-        return None
+            if result and area > best_area:
+                best_result = result
+                best_area = area
+        return best_result
 
     def _try_brightness_threshold(
         self, gray: np.ndarray, thresh_val: int,
         min_area: float, max_area: float, margin: int, h: int, w: int
-    ) -> list[tuple[float, float]] | None:
-        """try to find paper at a specific brightness threshold"""
+    ) -> tuple[list[tuple[float, float]] | None, float]:
+        """try to find paper at a specific brightness threshold. returns (corners, area)."""
         _, thresh = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY)
 
-        # minimal morphology - just close small gaps
-        kernel = np.ones((3, 3), np.uint8)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
+        # two-stage close: small kernel for noise, large kernel to bridge tool gaps
+        small_kernel = np.ones((3, 3), np.uint8)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, small_kernel, iterations=1)
+        large_k = max(5, int(max(h, w) * 0.02) | 1)  # ~2% of image, must be odd
+        large_kernel = np.ones((large_k, large_k), np.uint8)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, large_kernel, iterations=1)
 
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        for contour in sorted(contours, key=cv2.contourArea, reverse=True)[:10]:
+        # build candidate list: individual contours + merged convex hull
+        # the hull bridges gaps where tools split paper into separate bright regions
+        candidates = list(sorted(contours, key=cv2.contourArea, reverse=True)[:10])
+        min_fragment = (h * w) * 0.005
+        fragments = [c for c in contours if cv2.contourArea(c) >= min_fragment]
+        if len(fragments) >= 2:
+            hull = cv2.convexHull(np.vstack(fragments))
+            candidates.insert(0, hull)
+
+        best = None
+        best_area = 0
+
+        for contour in candidates:
             area = cv2.contourArea(contour)
             if area < min_area or area > max_area:
                 continue
 
-            # use minimum area rectangle for better fit
             rect = cv2.minAreaRect(contour)
             box = cv2.boxPoints(rect)
             box = np.int32(box)
@@ -95,12 +115,13 @@ class ImageProcessor:
             if np.any(box[:, 1] < box_margin) or np.any(box[:, 1] > h - box_margin):
                 continue
 
-            # verify most of the rectangle interior is bright
             rect_mask = np.zeros(gray.shape, dtype=np.uint8)
             cv2.fillPoly(rect_mask, [box], 255)
             bright_pixels = cv2.countNonZero(cv2.bitwise_and(thresh, rect_mask))
             total_pixels = cv2.countNonZero(rect_mask)
-            if total_pixels == 0 or bright_pixels / total_pixels < 0.7:
+            fill_ratio = bright_pixels / total_pixels if total_pixels > 0 else 0
+            if fill_ratio < 0.35:
+                logger.debug("paper candidate rejected: fill_ratio=%.2f at thresh=%d", fill_ratio, thresh_val)
                 continue
 
             # check aspect ratio is paper-like (A4=0.707, Letter=0.77)
@@ -111,11 +132,20 @@ class ImageProcessor:
             if aspect < 0.55 or aspect > 0.85:
                 continue
 
-            # order corners properly
-            corners = self._order_corners(box.astype(float))
-            return [(float(c[0]), float(c[1])) for c in corners]
+            # prefer the largest valid candidate
+            if area > best_area:
+                best = (box, aspect, fill_ratio)
+                best_area = area
 
-        return None
+        if best:
+            box, aspect, fill_ratio = best
+            corners = self._order_corners(box.astype(float))
+            result = [(float(c[0]), float(c[1])) for c in corners]
+            logger.info("paper detected: thresh=%d aspect=%.2f fill=%.2f area=%.0f", thresh_val, aspect, fill_ratio, best_area)
+            return result, best_area
+
+        logger.debug("no paper found at thresh=%d", thresh_val)
+        return None, 0
 
     def _find_paper_contour(
         self, edges: np.ndarray, min_area: float, max_area: float, margin: int, h: int, w: int
