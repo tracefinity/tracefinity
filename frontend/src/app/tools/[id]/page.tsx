@@ -36,7 +36,7 @@ export default function ToolPage() {
   const { saving, saved } = useDebouncedSave(
     async () => {
       if (!tool) return
-      await updateTool(toolId, { name, points: tool.points, finger_holes: tool.finger_holes, smoothed: tool.smoothed, smooth_level: tool.smooth_level })
+      await updateTool(toolId, { name, points: tool.points, finger_holes: tool.finger_holes, interior_rings: tool.interior_rings, smoothed: tool.smoothed, smooth_level: tool.smooth_level })
     },
     [tool, name, toolId],
     150,
@@ -57,6 +57,10 @@ export default function ToolPage() {
 
   const handleSmoothLevelChange = useCallback((smooth_level: number) => {
     setTool(prev => prev ? { ...prev, smooth_level } : null)
+  }, [])
+
+  const handleInteriorRingsChange = useCallback((interior_rings: Point[][]) => {
+    setTool(prev => prev ? { ...prev, interior_rings } : null)
   }, [])
 
   const handleNameChange = (newName: string) => {
@@ -124,6 +128,7 @@ export default function ToolPage() {
           onFingerHolesChange={handleFingerHolesChange}
           onSmoothedChange={handleSmoothedChange}
           onSmoothLevelChange={handleSmoothLevelChange}
+          onInteriorRingsChange={handleInteriorRingsChange}
         />
       </div>
     </div>

@@ -596,6 +596,8 @@ async def update_tool(request: Request, tool_id: str, req: ToolUpdateRequest, us
         tool.points = req.points
     if req.finger_holes is not None:
         tool.finger_holes = req.finger_holes
+    if req.interior_rings is not None:
+        tool.interior_rings = req.interior_rings
     if req.smoothed is not None:
         tool.smoothed = req.smoothed
     if req.smooth_level is not None:

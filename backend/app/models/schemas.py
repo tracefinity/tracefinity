@@ -209,6 +209,7 @@ class ToolUpdateRequest(BaseModel):
     name: str | None = None
     points: list[Point] | None = None
     finger_holes: list[FingerHole] | None = None
+    interior_rings: list[list[Point]] | None = None
     smoothed: bool | None = None
     smooth_level: float | None = None
 

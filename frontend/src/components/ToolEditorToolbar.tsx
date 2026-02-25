@@ -1,11 +1,11 @@
 'use client'
 
 import { ReactNode } from 'react'
-import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, ChevronDown } from 'lucide-react'
+import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, ChevronDown, PaintBucket } from 'lucide-react'
 import type { FingerHole } from '@/types'
 import { SNAP_GRID } from '@/lib/constants'
 
-export type EditMode = 'select' | 'add-vertex' | 'delete-vertex' | 'finger-hole' | 'circle' | 'square' | 'rectangle'
+export type EditMode = 'select' | 'add-vertex' | 'delete-vertex' | 'finger-hole' | 'circle' | 'square' | 'rectangle' | 'fill-ring'
 
 export type Selection =
   | { type: 'vertex'; pointIdx: number }
@@ -35,6 +35,7 @@ interface Props {
   handleDeleteHole: () => void
   displayPointsCount: number
   rotateAll: (angleDeg: number) => void
+  hasInteriorRings: boolean
 }
 
 export function ToolEditorToolbar({
@@ -45,7 +46,7 @@ export function ToolEditorToolbar({
   cutoutOpen, setCutoutOpen,
   isCutoutMode, cutoutModeIcon, cutoutModeLabel,
   selection, selectedHole, handleDeleteHole,
-  displayPointsCount, rotateAll,
+  displayPointsCount, rotateAll, hasInteriorRings,
 }: Props) {
   return (
     <>
@@ -122,6 +123,18 @@ export function ToolEditorToolbar({
               </>
             )}
           </div>
+          {hasInteriorRings && (
+            <button
+              onClick={() => setEditMode('fill-ring')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                editMode === 'fill-ring' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
+              }`}
+              title="Fill in interior holes"
+            >
+              <PaintBucket className="w-4 h-4" />
+              Fill in
+            </button>
+          )}
         </div>
 
         {/* utility actions */}

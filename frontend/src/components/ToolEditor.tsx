@@ -20,6 +20,7 @@ interface Props {
   onFingerHolesChange: (holes: FingerHole[]) => void
   onSmoothedChange: (smoothed: boolean) => void
   onSmoothLevelChange: (level: number) => void
+  onInteriorRingsChange?: (rings: Point[][]) => void
 }
 
 const PADDING_MM = 20
@@ -36,9 +37,10 @@ type DragState =
 interface HistoryEntry {
   points: Point[]
   fingerHoles: FingerHole[]
+  interiorRings: Point[][]
 }
 
-export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoothLevel, onPointsChange, onFingerHolesChange, onSmoothedChange, onSmoothLevelChange }: Props) {
+export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoothLevel, onPointsChange, onFingerHolesChange, onSmoothedChange, onSmoothLevelChange, onInteriorRingsChange }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [selection, setSelection] = useState<Selection>(null)
   const [editMode, setEditMode] = useState<EditMode>('select')
@@ -54,10 +56,13 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const historyOnChange = useCallback((entry: HistoryEntry) => {
     onPointsChange(entry.points)
     onFingerHolesChange(entry.fingerHoles)
-  }, [onPointsChange, onFingerHolesChange])
+    onInteriorRingsChange?.(entry.interiorRings)
+  }, [onPointsChange, onFingerHolesChange, onInteriorRingsChange])
+
+  const currentRings = interiorRings ?? []
 
   const { set: pushHistory, undo: handleUndo, redo: handleRedo, canUndo, canRedo } = useHistory<HistoryEntry>(
-    { points, fingerHoles },
+    { points, fingerHoles, interiorRings: currentRings },
     historyOnChange
   )
 
@@ -85,6 +90,8 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   useEffect(() => { dragHolesRef.current = dragHoles }, [dragHoles])
   useEffect(() => { onPointsRef.current = onPointsChange }, [onPointsChange])
   useEffect(() => { onHolesRef.current = onFingerHolesChange }, [onFingerHolesChange])
+  const currentRingsRef = useRef(currentRings)
+  useEffect(() => { currentRingsRef.current = currentRings }, [currentRings])
   const zoomRef = useRef(zoom)
   const panRef = useRef(pan)
   useEffect(() => { zoomRef.current = zoom }, [zoom])
@@ -244,10 +251,10 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       const dx = fh.x - cx, dy = fh.y - cy
       return { ...fh, x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos, rotation: ((fh.rotation || 0) + angleDeg) % 360 }
     })
-    pushHistory({ points: newPts, fingerHoles: newHoles })
+    pushHistory({ points: newPts, fingerHoles: newHoles, interiorRings: currentRings })
     onPointsRef.current(newPts)
     onHolesRef.current(newHoles)
-  }, [pushHistory])
+  }, [pushHistory, currentRings])
 
   const handleRotatePolygonMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -283,7 +290,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       if (points.length <= 3) return
       const updated = [...points]
       updated.splice(pointIdx, 1)
-      pushHistory({ points: updated, fingerHoles })
+      pushHistory({ points: updated, fingerHoles, interiorRings: currentRings })
       onPointsChange(updated)
       return
     }
@@ -297,19 +304,19 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     const pos = screenToMm(e.clientX, e.clientY)
     const updated = [...points]
     updated.splice(edgeIdx + 1, 0, pos)
-    pushHistory({ points: updated, fingerHoles })
+    pushHistory({ points: updated, fingerHoles, interiorRings: currentRings })
     onPointsChange(updated)
   }
 
   // hole interactions
   const handleHoleMouseDown = (holeId: string) => (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (editMode !== 'select') {
+    if (editMode !== 'select' && editMode !== 'fill-ring') {
       const pos = screenToMm(e.clientX, e.clientY)
       const cutout = createCutout(pos.x, pos.y)
       if (cutout) {
         const updated = [...fingerHoles, cutout]
-        pushHistory({ points, fingerHoles: updated })
+        pushHistory({ points, fingerHoles: updated, interiorRings: currentRings })
         onFingerHolesChange(updated)
       }
       return
@@ -352,7 +359,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       const cutout = createCutout(snapToGrid(pos.x), snapToGrid(pos.y))
       if (cutout) {
         const updated = [...fingerHoles, cutout]
-        pushHistory({ points, fingerHoles: updated })
+        pushHistory({ points, fingerHoles: updated, interiorRings: currentRings })
         onFingerHolesChange(updated)
       }
       return
@@ -456,7 +463,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       const finalHoles = dragHolesRef.current ?? holesRef.current
       if (dragPointsRef.current) onPointsRef.current(finalPoints)
       if (dragHolesRef.current) onHolesRef.current(finalHoles)
-      pushHistory({ points: finalPoints, fingerHoles: finalHoles })
+      pushHistory({ points: finalPoints, fingerHoles: finalHoles, interiorRings: currentRingsRef.current })
       setDragPoints(null)
       setDragHoles(null)
     }
@@ -477,7 +484,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const handleDeleteHole = () => {
     if (selection?.type !== 'hole') return
     const updated = fingerHoles.filter(fh => fh.id !== selection.holeId)
-    pushHistory({ points, fingerHoles: updated })
+    pushHistory({ points, fingerHoles: updated, interiorRings: currentRings })
     onFingerHolesChange(updated)
     setSelection(null)
   }
@@ -485,6 +492,13 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const selectedHole = selection?.type === 'hole'
     ? displayHoles.find(fh => fh.id === selection.holeId)
     : null
+
+  const handleFillRing = useCallback((ringIndex: number) => {
+    if (!onInteriorRingsChange) return
+    const updated = currentRings.filter((_, i) => i !== ringIndex)
+    pushHistory({ points, fingerHoles, interiorRings: updated })
+    onInteriorRingsChange(updated)
+  }, [currentRings, points, fingerHoles, pushHistory, onInteriorRingsChange])
 
   const isCutoutMode = editMode === 'finger-hole' || editMode === 'circle' || editMode === 'square' || editMode === 'rectangle'
 
@@ -525,6 +539,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
         handleDeleteHole={handleDeleteHole}
         displayPointsCount={displayPoints.length}
         rotateAll={rotateAll}
+        hasInteriorRings={currentRings.length > 0}
       />
       <ToolEditorCanvas
         svgRef={svgRef}
@@ -554,6 +569,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
         handleResizeMouseDown={handleResizeMouseDown}
         handleHoleRotateMouseDown={handleHoleRotateMouseDown}
         handleRotatePolygonMouseDown={handleRotatePolygonMouseDown}
+        onRingClick={handleFillRing}
         bounds={bounds}
         handleResetZoom={handleResetZoom}
       />

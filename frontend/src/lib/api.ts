@@ -181,7 +181,7 @@ export async function getTool(toolId: string): Promise<Tool> {
 
 export async function updateTool(
   toolId: string,
-  updates: { name?: string; points?: Point[]; finger_holes?: import('@/types').FingerHole[]; smoothed?: boolean; smooth_level?: number }
+  updates: { name?: string; points?: Point[]; finger_holes?: import('@/types').FingerHole[]; interior_rings?: Point[][]; smoothed?: boolean; smooth_level?: number }
 ): Promise<void> {
   await fetchApi(`/api/tools/${toolId}`, {
     method: 'PUT',

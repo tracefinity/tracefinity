@@ -1,6 +1,6 @@
 'use client'
 
-import { RefObject } from 'react'
+import { RefObject, useState } from 'react'
 import type { Point, FingerHole } from '@/types'
 import { polygonPathData, smoothPathData } from '@/lib/svg'
 import { DISPLAY_SCALE } from '@/lib/constants'
@@ -43,6 +43,7 @@ interface Props {
   handleResizeMouseDown: (holeId: string) => (e: React.MouseEvent) => void
   handleHoleRotateMouseDown: (holeId: string) => (e: React.MouseEvent) => void
   handleRotatePolygonMouseDown: (e: React.MouseEvent) => void
+  onRingClick: (ringIndex: number) => void
 
   // bottom bar
   bounds: { minX: number; minY: number; maxX: number; maxY: number }
@@ -57,10 +58,11 @@ export function ToolEditorCanvas({
   points, editMode, selection,
   handleEdgeClick, handleVertexMouseDown,
   displayHoles, handleHoleMouseDown, handleResizeMouseDown, handleHoleRotateMouseDown,
-  handleRotatePolygonMouseDown,
+  handleRotatePolygonMouseDown, onRingClick,
   bounds, handleResetZoom,
 }: Props) {
   const stopClick = (e: React.MouseEvent) => e.stopPropagation()
+  const [hoveredRing, setHoveredRing] = useState<number | null>(null)
 
   return (
     <>
@@ -114,6 +116,23 @@ export function ToolEditorCanvas({
             stroke="rgb(148, 163, 184)"
             strokeWidth={2 / zoom}
           />
+
+          {/* per-ring hit areas for fill-ring mode */}
+          {editMode === 'fill-ring' && interiorRings?.map((ring, idx) => {
+            const d = ring.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x * DISPLAY_SCALE} ${p.y * DISPLAY_SCALE}`).join(' ') + ' Z'
+            return (
+              <path
+                key={`ring-hit-${idx}`}
+                d={d}
+                fill={hoveredRing === idx ? 'rgba(34, 197, 94, 0.5)' : 'transparent'}
+                stroke="none"
+                className="cursor-pointer"
+                onMouseEnter={() => setHoveredRing(idx)}
+                onMouseLeave={() => setHoveredRing(null)}
+                onClick={(e) => { e.stopPropagation(); onRingClick(idx) }}
+              />
+            )
+          })}
 
           {/* edge click targets for add-vertex mode */}
           {editMode === 'add-vertex' && displayPoints.map((p, idx) => {
@@ -289,6 +308,7 @@ export function ToolEditorCanvas({
           {editMode === 'circle' && 'Click to place circle'}
           {editMode === 'square' && 'Click to place square'}
           {editMode === 'rectangle' && 'Click to place rectangle'}
+          {editMode === 'fill-ring' && 'Click a hole to fill it in'}
         </span>
         {zoom !== 1 ? (
           <button onClick={handleResetZoom} className="text-text-muted hover:text-text-secondary">
