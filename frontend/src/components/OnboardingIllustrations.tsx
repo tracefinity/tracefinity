@@ -181,29 +181,30 @@ export function EditHint() {
     <svg viewBox="0 0 220 60" fill="none" className="w-full">
       <rect x="5" y="5" width="210" height="50" rx="3" fill="#0f172a" />
 
-      {/* polygon outline */}
+      {/* kept outline */}
       <polygon
-        points="40,15 90,12 95,48 35,50"
-        fill="none"
+        points="25,15 65,13 68,48 22,50"
+        fill="rgba(90, 180, 222, 0.15)"
         stroke="#5ab4de"
         strokeWidth="1.5"
       />
+      {/* tick */}
+      <path d="M72 14 L76 19 L84 10" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
 
-      {/* vertices */}
-      {[
-        [40, 15], [90, 12], [95, 48], [35, 50],
-      ].map(([cx, cy], i) => (
-        <circle key={i} cx={cx} cy={cy} r="3" fill="#5ab4de" />
-      ))}
-
-      {/* dragging one vertex */}
-      <circle cx="95" cy="48" r="5" fill="#5ab4de" opacity="0.3" />
-      <path d="M100 48 L115 42" stroke="#64748b" strokeWidth="1" strokeDasharray="3 2" />
-      {/* cursor */}
-      <path d="M115 38 L115 50 L119 46 L124 52 L126 50 L121 44 L125 44Z" fill="#94a3b8" />
+      {/* removed outline */}
+      <polygon
+        points="105,16 140,14 143,47 102,49"
+        fill="rgba(239, 68, 68, 0.1)"
+        stroke="#64748b"
+        strokeWidth="1.5"
+        strokeDasharray="4 3"
+      />
+      {/* cross */}
+      <path d="M147 13 L155 21 M155 13 L147 21" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
 
       {/* label */}
-      <text x="160" y="32" fill="#64748b" fontSize="8">drag to adjust</text>
+      <text x="185" y="30" fill="#64748b" fontSize="7" textAnchor="middle">review &amp;</text>
+      <text x="185" y="40" fill="#64748b" fontSize="7" textAnchor="middle">pick</text>
     </svg>
   )
 }

@@ -58,6 +58,8 @@ export default function TracePage() {
   const [showPrompt, setShowPrompt] = useState(false)
   const [traceStatus, setTraceStatus] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [includedPolygons, setIncludedPolygons] = useState<Set<string>>(new Set())
+  const [hoveredPolygon, setHoveredPolygon] = useState<string | null>(null)
   const maskInputRef = useRef<HTMLInputElement>(null)
   const statusInterval = useRef<NodeJS.Timeout | null>(null)
 
@@ -232,10 +234,11 @@ export default function TracePage() {
   }, [])
 
   async function handleSaveToLibrary() {
+    if (includedPolygons.size === 0) return
     setSaving(true)
     setError(null)
     try {
-      await saveToolsFromSession(sessionId)
+      await saveToolsFromSession(sessionId, Array.from(includedPolygons))
       router.push('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'failed to save tools')
@@ -454,17 +457,43 @@ export default function TracePage() {
             <div className="space-y-3">
               <EditHint />
               <p className="text-xs text-text-muted">
-                Click a polygon to select it. Drag vertices to adjust.
-                {polygons.length === 0 && ' No tools were detected.'}
+                {polygons.length === 0
+                  ? 'No tools were detected.'
+                  : includedPolygons.size === 0
+                    ? 'Click outlines to select which tools to save.'
+                    : `${includedPolygons.size} of ${polygons.length} selected. Click to add or remove.`}
               </p>
 
               {polygons.length > 0 && (
-                <div className="text-xs text-text-secondary space-y-0.5">
-                  {polygons.map((p) => (
-                    <div key={p.id} className="flex justify-between">
-                      <span>{p.label}</span>
-                    </div>
-                  ))}
+                <div className="text-xs space-y-0.5">
+                  {polygons.map((p) => {
+                    const isIncluded = includedPolygons.has(p.id)
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          const next = new Set(includedPolygons)
+                          if (next.has(p.id)) next.delete(p.id)
+                          else next.add(p.id)
+                          setIncludedPolygons(next)
+                        }}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${
+                          isIncluded
+                            ? 'bg-accent-muted text-accent'
+                            : hoveredPolygon === p.id
+                              ? 'bg-elevated text-text-primary'
+                              : 'text-text-muted hover:bg-elevated hover:text-text-secondary'
+                        }`}
+                      >
+                        <div className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0 transition-colors ${
+                          isIncluded ? 'bg-accent border-accent' : 'border-border-subtle'
+                        }`}>
+                          {isIncluded && <Check className="w-2.5 h-2.5 text-white" />}
+                        </div>
+                        <span className="truncate">{p.label}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -535,11 +564,11 @@ export default function TracePage() {
             <>
               <button
                 onClick={handleSaveToLibrary}
-                disabled={polygons.length === 0 || saving}
+                disabled={includedPolygons.size === 0 || saving}
                 className="btn-primary w-full py-2 text-sm inline-flex items-center justify-center gap-1.5"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                {saving ? 'Saving...' : 'Save to Library'}
+                {saving ? 'Saving...' : includedPolygons.size === 0 ? 'Select tools to save' : `Save ${includedPolygons.size} tool${includedPolygons.size === 1 ? '' : 's'}`}
               </button>
               <button
                 onClick={() => setStep('trace')}
@@ -569,6 +598,10 @@ export default function TracePage() {
             polygons={polygons}
             onPolygonsChange={handlePolygonsChange}
             editable={step === 'edit'}
+            included={step === 'edit' ? includedPolygons : undefined}
+            onIncludedChange={step === 'edit' ? setIncludedPolygons : undefined}
+            hovered={step === 'edit' ? hoveredPolygon : undefined}
+            onHoveredChange={step === 'edit' ? setHoveredPolygon : undefined}
           />
         )}
       </div>

@@ -37,6 +37,7 @@ from app.models.schemas import (
     ToolSummary,
     ToolListResponse,
     ToolUpdateRequest,
+    SaveToolsRequest,
     SaveToolsResponse,
     PlacedTool,
     BinModel,
@@ -648,7 +649,7 @@ async def download_tool_svg(request: Request, tool_id: str, user_id: str = Depen
 
 
 @router.post("/sessions/{session_id}/save-tools", response_model=SaveToolsResponse)
-async def save_tools_from_session(request: Request, session_id: str, user_id: str = Depends(get_user_id)):
+async def save_tools_from_session(request: Request, session_id: str, body: SaveToolsRequest = SaveToolsRequest(), user_id: str = Depends(get_user_id)):
     """convert session polygons to library tools (px -> mm, centered at origin)"""
     user_sessions, user_tools, _ = get_stores(user_id)
     up = _user_path(user_id)
@@ -659,6 +660,11 @@ async def save_tools_from_session(request: Request, session_id: str, user_id: st
     sf = session.scale_factor
     tool_ids = []
 
+    polys = session.polygons
+    if body.polygon_ids is not None:
+        id_set = set(body.polygon_ids)
+        polys = [p for p in polys if p.id in id_set]
+
     src_img = None
     if session.corrected_image_path:
         try:
@@ -666,7 +672,7 @@ async def save_tools_from_session(request: Request, session_id: str, user_id: st
         except Exception:
             pass
 
-    for poly in session.polygons:
+    for poly in polys:
         centered, fholes, interior_rings = polygon_scaler.scale_and_centre(poly, sf)
         if not centered:
             continue

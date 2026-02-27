@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { Point, Polygon } from '@/types'
-import { Undo2, Redo2, Trash2, Plus, Minus, Move, MousePointer2 } from 'lucide-react'
+import { Undo2, Redo2, Trash2, Plus, Minus, Move } from 'lucide-react'
 import { polygonPathData } from '@/lib/svg'
 import { useHistory } from '@/hooks/useHistory'
 
@@ -11,6 +11,10 @@ interface Props {
   polygons: Polygon[]
   onPolygonsChange: (polygons: Polygon[]) => void
   editable?: boolean
+  included?: Set<string>
+  onIncludedChange?: (ids: Set<string>) => void
+  hovered?: string | null
+  onHoveredChange?: (id: string | null) => void
 }
 // base sizes for SVG UI elements, designed for ~800px viewBox width
 const BASE_VIEW_WIDTH = 800
@@ -25,6 +29,10 @@ export function PolygonEditor({
   polygons,
   onPolygonsChange,
   editable = true,
+  included,
+  onIncludedChange,
+  hovered,
+  onHoveredChange,
 }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -32,7 +40,18 @@ export function PolygonEditor({
   const [fitted, setFitted] = useState({ width: 0, height: 0 })
   // scale UI elements relative to image size so they're visible on large photos
   const uiScale = imageSize.width > 0 ? imageSize.width / BASE_VIEW_WIDTH : 1
-  const [selected, setSelected] = useState<string | null>(null)
+
+  // active polygon for vertex editing (internal)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  // fallback single-select when no inclusion tracking
+  const [internalSelected, setInternalSelected] = useState<string | null>(null)
+
+  const hasInclusion = included !== undefined
+  const isIncluded = useCallback((id: string) => {
+    if (hasInclusion) return included!.has(id)
+    return internalSelected === id
+  }, [hasInclusion, included, internalSelected])
+
   const [editMode, setEditMode] = useState<EditMode>('select')
   const [dragging, setDragging] = useState<DragState>(null)
 
@@ -103,7 +122,26 @@ export function PolygonEditor({
     e.stopPropagation()
     if (!editable) return
 
-    setSelected(selected === id ? null : id)
+    if (editMode !== 'select') {
+      // in editing modes, set active for vertex editing
+      setActiveId(activeId === id ? null : id)
+    } else if (hasInclusion && onIncludedChange) {
+      // toggle inclusion
+      const next = new Set(included!)
+      if (next.has(id)) {
+        next.delete(id)
+        if (activeId === id) setActiveId(null)
+      } else {
+        next.add(id)
+        setActiveId(id)
+      }
+      onIncludedChange(next)
+    } else {
+      // fallback single-select
+      const newSel = internalSelected === id ? null : id
+      setInternalSelected(newSel)
+      setActiveId(newSel)
+    }
   }
 
   const handleEdgeClick = (polyId: string, edgeIdx: number) => (e: React.MouseEvent) => {
@@ -222,19 +260,27 @@ export function PolygonEditor({
   }, [dragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd])
 
   const handleBackgroundClick = () => {
-    setSelected(null)
+    setActiveId(null)
   }
 
   const handleDeletePolygon = (id: string) => {
     updatePolygons(polygons.filter((p) => p.id !== id))
-    setSelected(null)
+    if (activeId === id) setActiveId(null)
+    if (hasInclusion && onIncludedChange) {
+      const next = new Set(included!)
+      next.delete(id)
+      onIncludedChange(next)
+    }
   }
 
-  // auto-select first polygon when switching to edit modes
+  // auto-activate first included polygon when switching to edit modes
   const handleModeChange = (mode: EditMode) => {
     setEditMode(mode)
-    if ((mode === 'vertex' || mode === 'add-vertex' || mode === 'delete-vertex') && !selected && polygons.length > 0) {
-      setSelected(polygons[0].id)
+    if ((mode === 'vertex' || mode === 'add-vertex' || mode === 'delete-vertex') && !activeId && polygons.length > 0) {
+      const first = hasInclusion
+        ? polygons.find(p => included!.has(p.id))
+        : polygons[0]
+      if (first) setActiveId(first.id)
     }
   }
 
@@ -242,7 +288,7 @@ export function PolygonEditor({
     return <div className="bg-inset rounded-lg aspect-[4/3]" />
   }
 
-  const selectedPoly = polygons.find(p => p.id === selected)
+  const activePoly = polygons.find(p => p.id === activeId)
 
   return (
     <div className="flex flex-col gap-3 h-full min-h-0">
@@ -280,7 +326,7 @@ export function PolygonEditor({
                   : 'hover:bg-border text-text-secondary'
               }`}
               title="Delete vertex"
-              disabled={selectedPoly && selectedPoly.points.length <= 3}
+              disabled={activePoly && activePoly.points.length <= 3}
             >
               <Minus className="w-5 h-5" />
             </button>
@@ -308,15 +354,15 @@ export function PolygonEditor({
           </div>
 
           <span className="text-sm text-text-muted">
-            {(editMode === 'select' || editMode === 'vertex') && !selected && 'Click an outline to select it'}
-            {(editMode === 'select' || editMode === 'vertex') && selected && 'Drag vertices to adjust the outline'}
+            {(editMode === 'select' || editMode === 'vertex') && !activeId && 'Click outlines to select tools'}
+            {(editMode === 'select' || editMode === 'vertex') && activeId && 'Drag vertices to adjust the outline'}
             {editMode === 'add-vertex' && 'Click on an edge to add a vertex'}
             {editMode === 'delete-vertex' && 'Click a vertex to remove it'}
           </span>
 
-          {selected && (
+          {activeId && (
             <button
-              onClick={() => handleDeletePolygon(selected)}
+              onClick={() => handleDeletePolygon(activeId)}
               className="ml-auto px-3 py-1.5 text-sm text-red-400 hover:bg-red-900/20 rounded border border-red-800 flex items-center gap-1"
             >
               <Trash2 className="w-4 h-4" />
@@ -345,23 +391,44 @@ export function PolygonEditor({
           viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
         >
           {polygons.map((poly) => {
-            const isSelected = selected === poly.id
+            const isActive = activeId === poly.id
+            const polyIncluded = isIncluded(poly.id)
+            const isHovered = hovered === poly.id
             const pathData = polygonPathData(poly.points, poly.interior_rings)
+
+            let fill = 'rgba(90, 180, 222, 0.06)'
+            let stroke = 'rgba(90, 180, 222, 0.4)'
+            let strokeW = uiScale * 1
+            if (isActive) {
+              fill = 'rgba(90, 180, 222, 0.3)'
+              stroke = 'rgb(72, 168, 214)'
+              strokeW = uiScale * 2
+            } else if (polyIncluded) {
+              fill = 'rgba(90, 180, 222, 0.2)'
+              stroke = 'rgb(72, 168, 214)'
+              strokeW = uiScale * 1.5
+            } else if (isHovered) {
+              fill = 'rgba(90, 180, 222, 0.18)'
+              stroke = 'rgb(90, 180, 222)'
+              strokeW = uiScale * 1.5
+            }
 
             return (
               <g key={poly.id}>
                 <path
                   d={pathData}
                   fillRule="evenodd"
-                  fill={isSelected ? 'rgba(90, 180, 222, 0.3)' : 'rgba(90, 180, 222, 0.15)'}
-                  stroke={isSelected ? 'rgb(72, 168, 214)' : 'rgb(90, 180, 222)'}
-                  strokeWidth={uiScale * (isSelected ? 2 : 1)}
-                  className="cursor-pointer"
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth={strokeW}
+                  className="cursor-pointer transition-[fill,stroke,stroke-width] duration-150"
                   onClick={handlePolygonClick(poly.id)}
+                  onMouseEnter={() => onHoveredChange?.(poly.id)}
+                  onMouseLeave={() => onHoveredChange?.(null)}
                 />
 
                 {/* edge click targets for adding vertices */}
-                {isSelected && editable && editMode === 'add-vertex' &&
+                {isActive && editable && editMode === 'add-vertex' &&
                   poly.points.map((point, idx) => {
                     const nextPoint = poly.points[(idx + 1) % poly.points.length]
                     const midX = (point.x + nextPoint.x) / 2
@@ -392,7 +459,7 @@ export function PolygonEditor({
                   })}
 
                 {/* vertex handles */}
-                {isSelected &&
+                {isActive &&
                   editable &&
                   (editMode === 'vertex' || editMode === 'select' || editMode === 'add-vertex' || editMode === 'delete-vertex') &&
                   poly.points.map((point, idx) => (

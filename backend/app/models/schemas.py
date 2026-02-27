@@ -218,6 +218,10 @@ class ToolListResponse(BaseModel):
     tools: list[ToolSummary]
 
 
+class SaveToolsRequest(BaseModel):
+    polygon_ids: list[str] | None = None
+
+
 class SaveToolsResponse(BaseModel):
     tool_ids: list[str]
 
