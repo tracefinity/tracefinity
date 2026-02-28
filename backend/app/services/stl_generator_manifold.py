@@ -308,6 +308,73 @@ def _make_polygon_cutouts(
     return mf.Manifold.batch_boolean(cutters, mf.OpType.Add)
 
 
+def _make_chamfer_cutouts(
+    polygons: list[ScaledPolygon],
+    config,
+    wall_top_z: float,
+    chamfer_size: float,
+    offset_x: float,
+    offset_y: float,
+):
+    """Per-polygon frustum cutter for the top-edge chamfer."""
+    import manifold3d as mf
+
+    cutters = []
+    for poly in polygons:
+        shifted = [
+            (p[0] + offset_x, -(p[1] + offset_y))
+            for p in poly.points_mm
+        ]
+        if len(shifted) < 3:
+            continue
+        shifted_holes = []
+        for hole in (poly.interior_rings_mm or []):
+            sh = [(p[0] + offset_x, -(p[1] + offset_y)) for p in hole]
+            if len(sh) >= 3:
+                shifted_holes.append(sh)
+        try:
+            xs = [p[0] for p in shifted]
+            ys = [p[1] for p in shifted]
+            cx = sum(xs) / len(xs)
+            cy = sum(ys) / len(ys)
+            centered = [(x - cx, y - cy) for x, y in shifted]
+            centered_holes = [[(x - cx, y - cy) for x, y in h] for h in shifted_holes]
+
+            rings = _shapely_to_cross_sections(centered, centered_holes)
+            if not rings:
+                continue
+            has_holes = len(rings) > 1
+            cs = mf.CrossSection(rings, mf.FillRule.EvenOdd) if has_holes else mf.CrossSection(rings)
+            if cs.area() <= 0:
+                cs = mf.CrossSection(
+                    [r[::-1] for r in rings],
+                    mf.FillRule.EvenOdd if has_holes else mf.FillRule.Positive,
+                )
+            if cs.area() <= 0:
+                continue
+
+            min_x = min(p[0] for p in centered)
+            max_x = max(p[0] for p in centered)
+            min_y = min(p[1] for p in centered)
+            max_y = max(p[1] for p in centered)
+            w = max(max_x - min_x, 1e-6)
+            h = max(max_y - min_y, 1e-6)
+            scale_x = (w + 2 * chamfer_size) / w
+            scale_y = (h + 2 * chamfer_size) / h
+
+            cutter = (
+                mf.Manifold.extrude(cs, chamfer_size + 0.01, scale_top=(scale_x, scale_y))
+                .translate((cx, cy, wall_top_z - chamfer_size))
+            )
+            cutters.append(cutter)
+        except Exception as e:
+            logger.warning("chamfer cutout failed: %s", e)
+
+    if not cutters:
+        return None
+    return mf.Manifold.batch_boolean(cutters, mf.OpType.Add)
+
+
 def _make_finger_holes(
     polygons: list[ScaledPolygon],
     config: GenerateRequest,
@@ -606,7 +673,10 @@ class ManifoldSTLGenerator:
         if polygons:
             floor_z = GF_BASE_HEIGHT
             max_depth = wall_top_z - floor_z - 2
-            pocket_depth = max(5, min(config.cutout_depth, max_depth))
+            effective_cutout = config.cutout_depth
+            if getattr(config, 'insert_enabled', False):
+                effective_cutout += getattr(config, 'insert_height', 1.0)
+            pocket_depth = max(5, min(effective_cutout, max_depth))
 
             t1 = time.monotonic()
             cutouts = _make_polygon_cutouts(polygons, config, wall_top_z, pocket_depth, offset_x, offset_y)
@@ -619,6 +689,16 @@ class ManifoldSTLGenerator:
             if fholes:
                 cutters.append(fholes)
             logger.info("finger holes: %.2fs", time.monotonic() - t1)
+
+            chamfer_size = getattr(config, 'cutout_chamfer', 0.0)
+            if chamfer_size > 0:
+                effective_chamfer = min(chamfer_size, max(0, pocket_depth - 1))
+                if effective_chamfer > 0:
+                    t1 = time.monotonic()
+                    chamfers = _make_chamfer_cutouts(polygons, config, wall_top_z, effective_chamfer, offset_x, offset_y)
+                    if chamfers:
+                        cutters.append(chamfers)
+                    logger.info("chamfer cutouts: %.2fs", time.monotonic() - t1)
 
         # text labels (recessed cutters + embossed body additions)
         text_body = None
@@ -658,6 +738,54 @@ class ManifoldSTLGenerator:
                 logger.warning("3MF export failed, skipping", exc_info=True)
 
         return bin_body, text_body
+
+    def generate_insert(
+        self,
+        polygons: list[ScaledPolygon],
+        config,
+        output_path: str,
+        offset_x: float,
+        offset_y: float,
+    ) -> bool:
+        # Generate insert STL, tool silhouettes extruded to insert_height.
+        import manifold3d as mf
+
+        insert_height = getattr(config, 'insert_height', 1.0)
+        shapes = []
+        for poly in polygons:
+            shifted = [
+                (p[0] + offset_x, -(p[1] + offset_y))
+                for p in poly.points_mm
+            ]
+            if len(shifted) < 3:
+                continue
+            shifted_holes = []
+            for hole in (poly.interior_rings_mm or []):
+                shifted_hole = [
+                    (p[0] + offset_x, -(p[1] + offset_y))
+                    for p in hole
+                ]
+                if len(shifted_hole) >= 3:
+                    shifted_holes.append(shifted_hole)
+            try:
+                rings = _shapely_to_cross_sections(shifted, shifted_holes)
+                if not rings:
+                    continue
+                has_holes = len(rings) > 1
+                cs = mf.CrossSection(rings, mf.FillRule.EvenOdd) if has_holes else mf.CrossSection(rings)
+                if cs.area() <= 0:
+                    cs = mf.CrossSection([r[::-1] for r in rings], mf.FillRule.EvenOdd if has_holes else mf.FillRule.Positive)
+                if cs.area() > 0:
+                    shapes.append(mf.Manifold.extrude(cs, insert_height))
+            except Exception as e:
+                logger.warning("insert polygon failed: %s", e)
+
+        if not shapes:
+            return False
+
+        combined = mf.Manifold.batch_boolean(shapes, mf.OpType.Add)
+        _export_stl(combined, output_path)
+        return True
 
     @staticmethod
     def _compute_split_points(total_mm: float, grid_count: int, bed_size: float) -> list[float]:

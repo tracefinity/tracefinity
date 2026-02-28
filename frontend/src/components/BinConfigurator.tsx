@@ -195,6 +195,17 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
         onChange={(v) => update({ cutout_clearance: v })}
       />
 
+      <SliderRow
+        label="Cutout Chamfer"
+        help="Bevel distance on the top edge of each tool pocket, in mm. 0 = sharp edge."
+        value={config.cutout_chamfer}
+        min={0}
+        max={3}
+        step={0.1}
+        unit="mm"
+        onChange={(v) => update({ cutout_chamfer: v })}
+      />
+
       <div className="border-t border-border mt-2 pt-1">
         <Toggle
           checked={config.magnets}
@@ -236,6 +247,24 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
           label="Stacking lip"
           help="Raised rim at the top so bins can stack securely on top of each other."
         />
+        <Toggle
+          checked={config.insert_enabled}
+          onChange={(v) => update({ insert_enabled: v })}
+          label="Contrast Insert"
+          help="Generates a separate insert STL to print in a contrasting colour. The pocket is deepened to accommodate it."
+        />
+        {config.insert_enabled && (
+          <SliderRow
+            label="Insert Height"
+            help="Thickness of the insert in mm."
+            value={config.insert_height}
+            min={0.5}
+            max={10}
+            step={0.1}
+            unit="mm"
+            onChange={(v) => update({ insert_height: v })}
+          />
+        )}
       </div>
 
       <div className="border-t border-border mt-2 pt-1">

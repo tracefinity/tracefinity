@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import os
+import re
 import uuid
 import zipfile
 from datetime import datetime
@@ -154,22 +155,29 @@ def _run_generate(
     hash_path = user_path / "outputs" / f"{entity_id}.hash"
     threemf_path = user_path / "outputs" / f"{entity_id}.3mf"
     zip_path = user_path / "outputs" / f"{entity_id}_parts.zip"
+    insert_path = user_path / "outputs" / f"{entity_id}_insert.stl"
 
     if output_path.exists() and hash_path.exists() and hash_path.read_text() == input_hash:
         part_paths = sorted(user_path.glob(f"outputs/{entity_id}_part*.stl"))
         stl_urls = [f"/storage/{user_id}/outputs/{p.name}" for p in part_paths]
+        insert_stl_url = (
+            f"/storage/{user_id}/outputs/{entity_id}_insert.stl"
+            if insert_path.exists() else None
+        )
         return GenerateResponse(
             stl_url=f"/storage/{user_id}/outputs/{entity_id}.stl",
             stl_urls=stl_urls,
             threemf_url=f"/storage/{user_id}/outputs/{entity_id}.3mf" if threemf_path.exists() else None,
             split_count=max(1, len(stl_urls)),
             zip_url=f"/storage/{user_id}/outputs/{entity_id}_parts.zip" if zip_path.exists() else None,
+            insert_stl_url=insert_stl_url,
         )
 
     threemf_path.unlink(missing_ok=True)
     for old in user_path.glob(f"outputs/{entity_id}_part*.stl"):
         old.unlink(missing_ok=True)
     zip_path.unlink(missing_ok=True)
+    insert_path.unlink(missing_ok=True)
 
     bin_body, text_body = stl_generator.generate_bin(scaled, gen_req, str(output_path), str(threemf_path))
 
@@ -186,6 +194,16 @@ def _run_generate(
                     zf.writestr(fname, data)
             zip_url = f"/storage/{user_id}/outputs/{entity_id}_parts.zip"
 
+    insert_stl_url = None
+    if getattr(gen_req, 'insert_enabled', False) and scaled:
+        bin_width = gen_req.grid_x * GF_GRID
+        bin_depth = gen_req.grid_y * GF_GRID
+        offset_x = -bin_width / 2
+        offset_y = -bin_depth / 2
+        success = stl_generator.generate_insert(scaled, gen_req, str(insert_path), offset_x, offset_y)
+        if success:
+            insert_stl_url = f"/storage/{user_id}/outputs/{entity_id}_insert.stl"
+
     hash_path.write_text(input_hash)
 
     threemf_url = None
@@ -198,6 +216,7 @@ def _run_generate(
         threemf_url=threemf_url,
         split_count=max(1, len(stl_urls)),
         zip_url=zip_url,
+        insert_stl_url=insert_stl_url,
     )
 
 
@@ -350,10 +369,11 @@ async def trace_from_mask(request: Request, session_id: str, mask: UploadFile, u
         raise HTTPException(status_code=400, detail="no tool outlines found in mask")
 
     polygons = []
-    for i, contour in enumerate(contours):
+    for i, (exterior, holes) in enumerate(contours):
         polygons.append(Polygon(
             id=str(uuid.uuid4()),
-            points=[Point(x=p[0], y=p[1]) for p in contour],
+            points=[Point(x=p[0], y=p[1]) for p in exterior],
+            interior_rings=[[Point(x=p[0], y=p[1]) for p in hole] for hole in holes],
             label=f"tool {i + 1}",
         ))
 
@@ -864,6 +884,7 @@ async def delete_bin(request: Request, bin_id: str, user_id: str = Depends(get_u
     for f in up.glob(f"outputs/{bin_id}_part*.stl"):
         f.unlink(missing_ok=True)
     (up / "outputs" / f"{bin_id}_parts.zip").unlink(missing_ok=True)
+    (up / "outputs" / f"{bin_id}_insert.stl").unlink(missing_ok=True)
 
     return StatusResponse(status="deleted")
 
@@ -932,6 +953,9 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
         wall_thickness=bc.wall_thickness,
         cutout_depth=bc.cutout_depth,
         cutout_clearance=bc.cutout_clearance,
+        insert_enabled=bc.insert_enabled,
+        insert_height=bc.insert_height,
+        cutout_chamfer=bc.cutout_chamfer,
         text_labels=bc.text_labels + bin_data.text_labels,
         bed_size=bc.bed_size,
     )
@@ -947,6 +971,14 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
     return response
 
 
+def _bin_stem(bin_data) -> str:
+    """Standardized filename stem: Name_XuYuHu_Dmm-tracefinity"""
+    bc = bin_data.bin_config
+    raw = (bin_data.name or "bin").strip()
+    safe = re.sub(r"[^\w\-]", "_", raw).strip("_") or "bin"
+    return f"{safe}_{bc.grid_x}u{bc.grid_y}u{bc.height_units}u_{int(bc.cutout_depth)}mm-tracefinity"
+
+
 # bin file downloads
 @router.get("/files/bins/{bin_id}/bin.stl")
 async def download_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_user_id)):
@@ -957,20 +989,23 @@ async def download_bin_stl(request: Request, bin_id: str, user_id: str = Depends
     return FileResponse(
         _abs(bin_data.stl_path),
         media_type="application/sla",
-        filename=f"tracefinity-{bin_id[:8]}.stl",
+        filename=f"{_bin_stem(bin_data)}.stl",
     )
 
 
 @router.get("/files/bins/{bin_id}/bin_parts.zip")
 async def download_bin_zip(request: Request, bin_id: str, user_id: str = Depends(get_user_id)):
+    _, _, user_bins = get_stores(user_id)
     up = _user_path(user_id)
     zip_path = up / "outputs" / f"{bin_id}_parts.zip"
     if not zip_path.exists():
         raise HTTPException(status_code=404, detail="zip not found")
+    bin_data = user_bins.get(bin_id)
+    fname = f"{_bin_stem(bin_data)}-parts.zip" if bin_data else f"{bin_id[:8]}-parts.zip"
     return FileResponse(
         str(zip_path),
         media_type="application/zip",
-        filename=f"tracefinity-{bin_id[:8]}-parts.zip",
+        filename=fname,
     )
 
 
@@ -986,7 +1021,23 @@ async def download_bin_threemf(request: Request, bin_id: str, user_id: str = Dep
     return FileResponse(
         str(threemf_path),
         media_type="application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
-        filename=f"tracefinity-{bin_id[:8]}.3mf",
+        filename=f"{_bin_stem(bin_data)}.3mf",
+    )
+
+
+@router.get("/files/bins/{bin_id}/bin_insert.stl")
+async def download_bin_insert(request: Request, bin_id: str, user_id: str = Depends(get_user_id)):
+    _, _, user_bins = get_stores(user_id)
+    up = _user_path(user_id)
+    insert_path = up / "outputs" / f"{bin_id}_insert.stl"
+    if not insert_path.exists():
+        raise HTTPException(status_code=404, detail="insert stl not found")
+    bin_data = user_bins.get(bin_id)
+    fname = f"{_bin_stem(bin_data)}-insert.stl" if bin_data else f"{bin_id[:8]}-insert.stl"
+    return FileResponse(
+        str(insert_path),
+        media_type="application/sla",
+        filename=fname,
     )
 
 

@@ -81,6 +81,9 @@ class BinParams(BaseModel):
     wall_thickness: float = 1.6
     cutout_depth: float = 20.0
     cutout_clearance: float = 1.0
+    insert_enabled: bool = False
+    insert_height: float = 1.0
+    cutout_chamfer: float = 0.0
 
     @field_validator("grid_x", "grid_y")
     @classmethod
@@ -110,6 +113,20 @@ class BinParams(BaseModel):
             raise ValueError("clearance must be between 0 and 10mm")
         return v
 
+    @field_validator("insert_height")
+    @classmethod
+    def validate_insert_height(cls, v: float) -> float:
+        if v < 0.1 or v > 10:
+            raise ValueError("insert height must be between 0.1 and 10mm")
+        return v
+
+    @field_validator("cutout_chamfer")
+    @classmethod
+    def validate_chamfer(cls, v: float) -> float:
+        if v < 0 or v > 5:
+            raise ValueError("cutout chamfer must be between 0 and 5mm")
+        return v
+
     @field_validator("wall_thickness")
     @classmethod
     def validate_wall(cls, v: float) -> float:
@@ -130,6 +147,7 @@ class GenerateResponse(BaseModel):
     threemf_url: str | None = None
     split_count: int = 1
     zip_url: str | None = None
+    insert_stl_url: str | None = None
 
 
 class Layout(BaseModel):

@@ -260,3 +260,7 @@ export function getBinZipUrl(binId: string): string {
 export function getBinThreemfUrl(binId: string): string {
   return `${API_URL}/api/files/bins/${binId}/bin.3mf`
 }
+
+export function getBinInsertUrl(binId: string): string {
+  return `${API_URL}/api/files/bins/${binId}/bin_insert.stl`
+}

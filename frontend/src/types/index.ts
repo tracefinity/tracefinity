@@ -89,6 +89,7 @@ export interface GenerateResponse {
   threemf_url?: string
   split_count?: number
   zip_url?: string | null
+  insert_stl_url?: string | null
 }
 
 export interface BinConfig {
@@ -103,6 +104,9 @@ export interface BinConfig {
   wall_thickness: number
   cutout_depth: number
   cutout_clearance: number
+  cutout_chamfer: number
+  insert_enabled: boolean
+  insert_height: number
   text_labels: TextLabel[]
   bed_size: number
 }
