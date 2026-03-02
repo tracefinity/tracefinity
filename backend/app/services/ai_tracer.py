@@ -323,7 +323,7 @@ class AITracer:
         for poly in polys_to_process:
             if poly.area < min_area:
                 continue
-            simplified = poly.simplify(4.0, preserve_topology=True)
+            simplified = poly.simplify(1.0, preserve_topology=True)
             coords = list(simplified.exterior.coords)[:-1]
             if len(coords) < 4:
                 continue

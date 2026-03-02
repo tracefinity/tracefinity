@@ -249,9 +249,9 @@ class ImageProcessor:
         dst = np.array(
             [
                 [0, 0],
-                [paper_w - 1, 0],
-                [paper_w - 1, paper_h - 1],
-                [0, paper_h - 1],
+                [paper_w, 0],
+                [paper_w, paper_h],
+                [0, paper_h],
             ],
             dtype="float32",
         )
