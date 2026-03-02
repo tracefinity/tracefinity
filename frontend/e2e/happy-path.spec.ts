@@ -50,13 +50,21 @@ test.describe.serial('happy path', () => {
     const polygonPaths = page.locator('svg path[d]')
     await expect(polygonPaths.first()).toBeVisible({ timeout: 5_000 })
 
-    const saveBtn = page.getByRole('button', { name: 'Save to Library' })
+    // select all detected tools by clicking each tool row in the sidebar
+    const toolRows = page.locator('.space-y-3 .text-xs.space-y-0\\.5 > div')
+    const count = await toolRows.count()
+    expect(count).toBeGreaterThan(0)
+    for (let i = 0; i < count; i++) {
+      await toolRows.nth(i).click()
+    }
+
+    const saveBtn = page.getByRole('button', { name: /^Save \d+ tools?$/ })
     await expect(saveBtn).toBeVisible()
     await expect(saveBtn).toBeEnabled()
   })
 
   test('save to library', async () => {
-    const saveBtn = page.getByRole('button', { name: 'Save to Library' })
+    const saveBtn = page.getByRole('button', { name: /^Save \d+ tools?$/ })
     await saveBtn.click()
 
     await page.waitForURL('/', { timeout: 10_000 })
