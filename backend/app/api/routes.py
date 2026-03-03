@@ -268,7 +268,7 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
 async def get_available_keys(request: Request):
     """check which api keys are configured via env vars"""
     return {
-        "google": settings.google_api_key is not None,
+        "google": settings.google_api_key is not None or settings.openrouter_api_key is not None,
     }
 
 
@@ -280,7 +280,7 @@ async def trace_tools(request: Request, session_id: str, req: TraceRequest, user
         raise HTTPException(status_code=400, detail="must set corners first")
 
     api_key = settings.google_api_key or req.api_key
-    if not api_key:
+    if not api_key and not settings.openrouter_api_key:
         raise HTTPException(status_code=400, detail="no api key provided")
 
     up = _user_path(user_id)
