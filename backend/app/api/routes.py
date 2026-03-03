@@ -102,7 +102,13 @@ def _convert_heic_to_jpeg(content: bytes, original_ext: str) -> tuple[bytes, str
 
 
 image_processor = ImageProcessor()
-ai_tracer = AITracer(model=settings.gemini_image_model)
+ai_tracer = AITracer(
+    model=settings.gemini_image_model,
+    label_model=settings.gemini_label_model,
+    openrouter_key=settings.openrouter_api_key,
+    openrouter_image_model=settings.openrouter_image_model,
+    openrouter_label_model=settings.openrouter_label_model,
+)
 polygon_scaler = PolygonScaler()
 stl_generator = ManifoldSTLGenerator()
 

@@ -8,7 +8,11 @@ from typing import Optional
 class Settings(BaseSettings):
     storage_path: Path = Path("./storage")
     google_api_key: Optional[str] = None
+    openrouter_api_key: Optional[str] = None
+    openrouter_image_model: str = "google/gemini-3.1-flash-image-preview"
+    openrouter_label_model: str = "google/gemini-2.0-flash-001"
     gemini_image_model: str = "gemini-3.1-flash-image-preview"
+    gemini_label_model: str = "gemini-2.0-flash"
     max_upload_mb: int = 20
     log_level: str = "INFO"
     proxy_secret: Optional[str] = None

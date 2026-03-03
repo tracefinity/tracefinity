@@ -59,9 +59,23 @@ Return labels in the same order as the positions listed above."""
 _NEEDS_ALIGNMENT = {"gemini-2.5-flash-image"}
 
 
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
 class AITracer:
-    def __init__(self, model: str = "gemini-3-pro-image-preview"):
+    def __init__(
+        self,
+        model: str = "gemini-3-pro-image-preview",
+        label_model: str = "gemini-2.0-flash",
+        openrouter_key: str | None = None,
+        openrouter_image_model: str | None = None,
+        openrouter_label_model: str | None = None,
+    ):
         self.model = model
+        self.label_model = label_model
+        self.openrouter_key = openrouter_key
+        self.openrouter_image_model = openrouter_image_model or f"google/{model}"
+        self.openrouter_label_model = openrouter_label_model or f"google/{label_model}"
 
     def _mask_prompt(self, width: int, height: int) -> str:
         if self.model in _NEEDS_ALIGNMENT:
@@ -144,65 +158,124 @@ class AITracer:
 
     MAX_MASK_DIM = 2048  # keep output in the 1K/2K pricing tier
 
+    def _prepare_image(self, image_path: str) -> tuple[bytes, str, str, int, int]:
+        """read and optionally downscale image. returns (bytes, mime, prompt, w, h)."""
+        img = cv2.imread(image_path)
+        if img is None:
+            raise ValueError("failed to read image")
+        height, width = img.shape[:2]
+
+        if max(width, height) > self.MAX_MASK_DIM:
+            scale = self.MAX_MASK_DIM / max(width, height)
+            req_w, req_h = int(width * scale), int(height * scale)
+            resized = cv2.resize(img, (req_w, req_h), interpolation=cv2.INTER_AREA)
+            _, buf = cv2.imencode(".png", resized)
+            return buf.tobytes(), "image/png", self._mask_prompt(req_w, req_h), req_w, req_h
+
+        with open(image_path, "rb") as f:
+            image_bytes = f.read()
+        mime_type = self._get_media_type(image_path)
+        return image_bytes, mime_type, self._mask_prompt(width, height), width, height
+
     async def _generate_mask_gemini(self, image_path: str, api_key: str, output_path: str | None = None) -> str | None:
-        """use gemini to generate a clean black/white mask"""
-        try:
-            from google import genai
-            from google.genai import types
+        """generate a mask via openrouter (preferred) or google sdk."""
+        image_bytes, mime_type, prompt, _, _ = self._prepare_image(image_path)
 
-            client = genai.Client(api_key=api_key)
+        if self.openrouter_key:
+            mask_data = await self._mask_via_openrouter(image_bytes, mime_type, prompt)
+        else:
+            mask_data = await self._mask_via_google(image_bytes, mime_type, prompt, api_key)
 
-            img = cv2.imread(image_path)
-            if img is None:
-                return None
-            height, width = img.shape[:2]
-
-            # scale down to stay in the cheaper 2K output tier
-            if max(width, height) > self.MAX_MASK_DIM:
-                scale = self.MAX_MASK_DIM / max(width, height)
-                req_w, req_h = int(width * scale), int(height * scale)
-                resized = cv2.resize(img, (req_w, req_h), interpolation=cv2.INTER_AREA)
-                _, buf = cv2.imencode(".png", resized)
-                image_bytes = buf.tobytes()
-                mime_type = "image/png"
-                prompt = self._mask_prompt(req_w, req_h)
-            else:
-                with open(image_path, "rb") as f:
-                    image_bytes = f.read()
-                mime_type = self._get_media_type(image_path)
-                prompt = self._mask_prompt(width, height)
-
-            logging.info("generating mask with %s", self.model)
-            response = await asyncio.wait_for(
-                asyncio.to_thread(
-                    client.models.generate_content,
-                    model=self.model,
-                    contents=[
-                        prompt,
-                        types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                    ],
-                    config=types.GenerateContentConfig(
-                        response_modalities=["TEXT", "IMAGE"],
-                    ),
-                ),
-                timeout=60,
-            )
-
-            for part in response.candidates[0].content.parts:
-                if hasattr(part, "inline_data") and part.inline_data:
-                    mask_data = part.inline_data.data
-                    if output_path:
-                        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-                        Path(output_path).write_bytes(mask_data)
-                        return output_path
-                    else:
-                        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-                            f.write(mask_data)
-                            return f.name
-
+        if not mask_data:
             return None
-        except Exception:
-            raise
+
+        if output_path:
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(output_path).write_bytes(mask_data)
+            return output_path
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            f.write(mask_data)
+            return f.name
+
+    async def _mask_via_openrouter(self, image_bytes: bytes, mime_type: str, prompt: str) -> bytes | None:
+        """call openrouter chat completions with image modality."""
+        import base64
+        import httpx
+
+        b64 = base64.b64encode(image_bytes).decode()
+        data_url = f"data:{mime_type};base64,{b64}"
+
+        payload = {
+            "model": self.openrouter_image_model,
+            "modalities": ["image", "text"],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                    ],
+                }
+            ],
+        }
+
+        logging.info("generating mask with %s via openrouter", self.model)
+
+        async def _call():
+            async with httpx.AsyncClient(timeout=90) as client:
+                resp = await client.post(
+                    OPENROUTER_URL,
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {self.openrouter_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                resp.raise_for_status()
+                return resp.json()
+
+        result = await asyncio.wait_for(_call(), timeout=90)
+
+        # extract base64 image from response
+        msg = result["choices"][0]["message"]
+        images = msg.get("images", [])
+        if images:
+            url = images[0].get("image_url", {}).get("url", "")
+            if url.startswith("data:"):
+                b64_data = url.split(",", 1)[1]
+                return base64.b64decode(b64_data)
+
+        return None
+
+    async def _mask_via_google(self, image_bytes: bytes, mime_type: str, prompt: str, api_key: str) -> bytes | None:
+        """call google genai sdk directly."""
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=api_key)
+
+        logging.info("generating mask with %s via google", self.model)
+        response = await asyncio.wait_for(
+            asyncio.to_thread(
+                client.models.generate_content,
+                model=self.model,
+                contents=[
+                    prompt,
+                    types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                ],
+                config=types.GenerateContentConfig(
+                    response_modalities=["TEXT", "IMAGE"],
+                ),
+            ),
+            timeout=60,
+        )
+
+        for part in response.candidates[0].content.parts:
+            if hasattr(part, "inline_data") and part.inline_data:
+                return part.inline_data.data
+
+        return None
 
     def _trace_mask(
         self,
@@ -436,20 +509,60 @@ class AITracer:
         }.get(ext, "image/jpeg")
 
     async def _call_gemini(self, image_path: str, api_key: str, prompt: str) -> str:
+        with open(image_path, "rb") as f:
+            image_bytes = f.read()
+        mime_type = self._get_media_type(image_path)
+
+        if self.openrouter_key:
+            return await self._text_via_openrouter(image_bytes, mime_type, prompt)
+        return await self._text_via_google(image_bytes, mime_type, prompt, api_key)
+
+    async def _text_via_openrouter(self, image_bytes: bytes, mime_type: str, prompt: str) -> str:
+        import base64
+        import httpx
+
+        b64 = base64.b64encode(image_bytes).decode()
+        data_url = f"data:{mime_type};base64,{b64}"
+
+        payload = {
+            "model": self.openrouter_label_model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                    ],
+                }
+            ],
+        }
+
+        async def _call():
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    OPENROUTER_URL,
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {self.openrouter_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                resp.raise_for_status()
+                return resp.json()
+
+        result = await asyncio.wait_for(_call(), timeout=30)
+        return result["choices"][0]["message"]["content"]
+
+    async def _text_via_google(self, image_bytes: bytes, mime_type: str, prompt: str, api_key: str) -> str:
         from google import genai
         from google.genai import types
 
         client = genai.Client(api_key=api_key)
 
-        with open(image_path, "rb") as f:
-            image_bytes = f.read()
-
-        mime_type = self._get_media_type(image_path)
-
         response = await asyncio.wait_for(
             asyncio.to_thread(
                 client.models.generate_content,
-                model="gemini-2.0-flash",
+                model=self.label_model,
                 contents=[
                     prompt,
                     types.Part.from_bytes(data=image_bytes, mime_type=mime_type),

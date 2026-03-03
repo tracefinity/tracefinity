@@ -28,7 +28,7 @@ const PADDING_MM = 20
 type DragState =
   | { type: 'vertex'; pointIdx: number }
   | { type: 'hole'; holeId: string; startX: number; startY: number; origX: number; origY: number }
-  | { type: 'resize'; holeId: string; startX: number; startY: number; origRadius: number; origWidth?: number; origHeight?: number; centerX: number; centerY: number }
+  | { type: 'resize'; holeId: string; startX: number; startY: number; origRadius: number; origWidth?: number; origHeight?: number; centerX: number; centerY: number; anchorX?: number; anchorY?: number; rotation?: number }
   | { type: 'rotate-hole'; holeId: string; centerX: number; centerY: number; startAngle: number; origRotation: number }
   | { type: 'rotate-polygon'; centerX: number; centerY: number; startAngle: number; origPoints: Point[]; origHoles: FingerHole[] }
   | { type: 'pan'; startClientX: number; startClientY: number; origPanX: number; origPanY: number; svgScale: number }
@@ -328,15 +328,29 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     setDragging({ type: 'hole', holeId, startX: pos.x, startY: pos.y, origX: hole.x, origY: hole.y })
   }
 
-  const handleResizeMouseDown = (holeId: string) => (e: React.MouseEvent) => {
+  const handleResizeMouseDown = (holeId: string, cornerIndex?: number) => (e: React.MouseEvent) => {
     e.stopPropagation()
     const hole = fingerHoles.find(fh => fh.id === holeId)
     if (!hole) return
     const pos = screenToMm(e.clientX, e.clientY)
+    // for rectangle corners, pin the opposite corner in world coords
+    let anchorX: number | undefined, anchorY: number | undefined
+    if (cornerIndex !== undefined && hole.shape === 'rectangle' && hole.width && hole.height) {
+      const rot = (hole.rotation || 0) * Math.PI / 180
+      const cosR = Math.cos(rot), sinR = Math.sin(rot)
+      const hw = hole.width / 2, hh = hole.height / 2
+      // local corner offsets: 0=TL(-hw,-hh) 1=TR(hw,-hh) 2=BR(hw,hh) 3=BL(-hw,hh)
+      const opp = (cornerIndex + 2) % 4
+      const lx = (opp === 0 || opp === 3) ? -hw : hw
+      const ly = (opp < 2) ? -hh : hh
+      anchorX = hole.x + lx * cosR - ly * sinR
+      anchorY = hole.y + lx * sinR + ly * cosR
+    }
     setDragging({
       type: 'resize', holeId, startX: pos.x, startY: pos.y,
       origRadius: hole.radius, origWidth: hole.width, origHeight: hole.height,
       centerX: hole.x, centerY: hole.y,
+      anchorX, anchorY, rotation: hole.rotation,
     })
   }
 
@@ -409,16 +423,28 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       })
       setDragHoles(updated)
     } else if (dragging.type === 'resize') {
-      const dx = pos.x - dragging.centerX
-      const dy = pos.y - dragging.centerY
-      const newRadius = Math.max(5, Math.sqrt(dx * dx + dy * dy))
-      const scaleMult = dragging.origRadius > 0 ? newRadius / dragging.origRadius : 1
       const updated = currentHoles.map(fh => {
         if (fh.id !== dragging.holeId) return fh
-        if (fh.shape === 'rectangle' && dragging.origWidth && dragging.origHeight) {
-          return { ...fh, radius: newRadius, width: Math.max(10, dragging.origWidth * scaleMult), height: Math.max(10, dragging.origHeight * scaleMult) }
+        if (fh.shape === 'rectangle' && dragging.anchorX !== undefined && dragging.anchorY !== undefined) {
+          // pinned corner resize: anchor stays fixed, dragged corner follows mouse
+          const rot = (dragging.rotation || 0) * Math.PI / 180
+          const cosR = Math.cos(rot), sinR = Math.sin(rot)
+          // vector from anchor to mouse in local space
+          const gdx = pos.x - dragging.anchorX
+          const gdy = pos.y - dragging.anchorY
+          const localW = gdx * cosR + gdy * sinR
+          const localH = -gdx * sinR + gdy * cosR
+          const newW = Math.max(10, Math.abs(localW))
+          const newH = Math.max(10, Math.abs(localH))
+          // new centre = midpoint of anchor and dragged corner
+          const cx = (dragging.anchorX + pos.x) / 2
+          const cy = (dragging.anchorY + pos.y) / 2
+          return { ...fh, x: snap(cx), y: snap(cy), width: newW, height: newH, radius: Math.max(newW, newH) / 2 }
         }
-        return { ...fh, radius: newRadius }
+        // circle / square: distance from centre
+        const dx = pos.x - dragging.centerX
+        const dy = pos.y - dragging.centerY
+        return { ...fh, radius: Math.max(5, Math.sqrt(dx * dx + dy * dy)) }
       })
       setDragHoles(updated)
     } else if (dragging.type === 'rotate-hole') {

@@ -40,7 +40,7 @@ interface Props {
   // cutout holes
   displayHoles: FingerHole[]
   handleHoleMouseDown: (holeId: string) => (e: React.MouseEvent) => void
-  handleResizeMouseDown: (holeId: string) => (e: React.MouseEvent) => void
+  handleResizeMouseDown: (holeId: string, cornerIndex?: number) => (e: React.MouseEvent) => void
   handleHoleRotateMouseDown: (holeId: string) => (e: React.MouseEvent) => void
   handleRotatePolygonMouseDown: (e: React.MouseEvent) => void
   onRingClick: (ringIndex: number) => void
@@ -255,11 +255,55 @@ export function ToolEditorCanvas({
             const rotation = fh.rotation || 0
             const w = shape === 'rectangle' && fh.width ? fh.width * DISPLAY_SCALE : r * 2
             const h = shape === 'rectangle' && fh.height ? fh.height * DISPLAY_SCALE : r * 2
-            const resizeOffset = shape === 'circle' ? r : w / 2
-            const topEdge = shape === 'circle' ? r : h / 2
             const s = zvbW / 800
+            const handleR = 10 * s
+            const topEdge = shape === 'circle' ? r : h / 2
             const hr = 18 * s
 
+            if (shape === 'rectangle') {
+              const hw = w / 2, hh = h / 2
+              const corners = [
+                { x: -hw, y: -hh },
+                { x: hw, y: -hh },
+                { x: hw, y: hh },
+                { x: -hw, y: hh },
+              ]
+              return (
+                <g transform={`translate(${x},${y})${rotation !== 0 ? ` rotate(${rotation})` : ''}`}>
+                  {corners.map((c, i) => (
+                    <circle
+                      key={i}
+                      cx={c.x} cy={c.y} r={handleR}
+                      fill="#1e293b" stroke="rgb(90, 180, 222)" strokeWidth={2 * s}
+                      className="cursor-nwse-resize"
+                      onMouseDown={handleResizeMouseDown(fh.id, i)}
+                      onClick={stopClick}
+                    />
+                  ))}
+                  <line
+                    x1={0} y1={0}
+                    x2={0} y2={-hh - 20 * s}
+                    stroke="rgba(90, 180, 222, 0.6)" strokeWidth={2 * s} strokeDasharray={`${6 * s},${5 * s}`}
+                  />
+                  <circle
+                    cx={0} cy={-hh - 20 * s - hr}
+                    r={hr}
+                    fill="rgb(90, 180, 222)" stroke="white" strokeWidth={2 * s}
+                    className="cursor-rotate"
+                    onMouseDown={handleHoleRotateMouseDown(fh.id)}
+                    onClick={stopClick}
+                  />
+                  <text
+                    x={0} y={-hh - 20 * s - hr * 0.4}
+                    textAnchor="middle" fill="white" fontSize={hr * 1.3}
+                    className="pointer-events-none select-none"
+                  >&#x21BB;</text>
+                </g>
+              )
+            }
+
+            // circle / square: single resize handle + rotation for squares
+            const resizeOffset = shape === 'circle' ? r : r
             return (
               <g transform={rotation !== 0 ? `rotate(${rotation} ${x} ${y})` : undefined}>
                 <circle
@@ -269,24 +313,26 @@ export function ToolEditorCanvas({
                   onMouseDown={handleResizeMouseDown(fh.id)}
                   onClick={stopClick}
                 />
-                <line
-                  x1={x} y1={y}
-                  x2={x} y2={y - topEdge - 20 * s}
-                  stroke="rgba(90, 180, 222, 0.6)" strokeWidth={2 * s} strokeDasharray={`${6 * s},${5 * s}`}
-                />
-                <circle
-                  cx={x} cy={y - topEdge - 20 * s - hr}
-                  r={hr}
-                  fill="rgb(90, 180, 222)" stroke="white" strokeWidth={2 * s}
-                  className="cursor-rotate"
-                  onMouseDown={handleHoleRotateMouseDown(fh.id)}
-                  onClick={stopClick}
-                />
-                <text
-                  x={x} y={y - topEdge - 20 * s - hr * 0.4}
-                  textAnchor="middle" fill="white" fontSize={hr * 1.3}
-                  className="pointer-events-none select-none"
-                >&#x21BB;</text>
+                {shape === 'square' && <>
+                  <line
+                    x1={x} y1={y}
+                    x2={x} y2={y - topEdge - 20 * s}
+                    stroke="rgba(90, 180, 222, 0.6)" strokeWidth={2 * s} strokeDasharray={`${6 * s},${5 * s}`}
+                  />
+                  <circle
+                    cx={x} cy={y - topEdge - 20 * s - hr}
+                    r={hr}
+                    fill="rgb(90, 180, 222)" stroke="white" strokeWidth={2 * s}
+                    className="cursor-rotate"
+                    onMouseDown={handleHoleRotateMouseDown(fh.id)}
+                    onClick={stopClick}
+                  />
+                  <text
+                    x={x} y={y - topEdge - 20 * s - hr * 0.4}
+                    textAnchor="middle" fill="white" fontSize={hr * 1.3}
+                    className="pointer-events-none select-none"
+                  >&#x21BB;</text>
+                </>}
               </g>
             )
           })()}
