@@ -116,6 +116,7 @@ export function BinConfigurator({ config, onChange }: Props) {
     onChange({ ...config, ...partial })
   }
 
+  const maxCutoutDepth = Math.max(5, config.height_units * 7 - 2)
   const binWidth = config.grid_x * 42
   const binDepth = config.grid_y * 42
   const needsSplit = config.bed_size > 0 && (binWidth > config.bed_size || binDepth > config.bed_size)
@@ -149,15 +150,18 @@ export function BinConfigurator({ config, onChange }: Props) {
         min={1}
         max={20}
         unit="u"
-        onChange={(v) => update({ height_units: v })}
+        onChange={(v) => {
+          const newMax = Math.max(5, v * 7 - 2)
+          update({ height_units: v, cutout_depth: Math.min(config.cutout_depth, newMax) })
+        }}
       />
 
       <SliderRow
         label="Cutout Depth"
-        help="How deep the tool pocket is cut into the bin."
-        value={config.cutout_depth}
+        help={`How deep the tool pocket is cut into the bin. Max ${maxCutoutDepth.toFixed(1)}mm at ${config.height_units}u height.`}
+        value={Math.min(config.cutout_depth, maxCutoutDepth)}
         min={5}
-        max={100}
+        max={maxCutoutDepth}
         step={0.5}
         unit="mm"
         onChange={(v) => update({ cutout_depth: v })}
