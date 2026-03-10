@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
-import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, ChevronDown, PaintBucket } from 'lucide-react'
+import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, FlipHorizontal2, FlipVertical2, ChevronDown, PaintBucket } from 'lucide-react'
 import type { FingerHole } from '@/types'
 import { SNAP_GRID } from '@/lib/constants'
 
@@ -35,6 +35,7 @@ interface Props {
   handleDeleteHole: () => void
   displayPointsCount: number
   rotateAll: (angleDeg: number) => void
+  flipAll: (axis: 'horizontal' | 'vertical') => void
   hasInteriorRings: boolean
 }
 
@@ -46,7 +47,7 @@ export function ToolEditorToolbar({
   cutoutOpen, setCutoutOpen,
   isCutoutMode, cutoutModeIcon, cutoutModeLabel,
   selection, selectedHole, handleDeleteHole,
-  displayPointsCount, rotateAll, hasInteriorRings,
+  displayPointsCount, rotateAll, flipAll, hasInteriorRings,
 }: Props) {
   return (
     <>
@@ -152,6 +153,20 @@ export function ToolEditorToolbar({
             title="Rotate 90° clockwise"
           >
             <RotateCw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => flipAll('horizontal')}
+            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary"
+            title="Flip horizontally"
+          >
+            <FlipHorizontal2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => flipAll('vertical')}
+            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary"
+            title="Flip vertically"
+          >
+            <FlipVertical2 className="w-4 h-4" />
           </button>
           <div className="h-4 w-px bg-border-subtle mx-1" />
           <button

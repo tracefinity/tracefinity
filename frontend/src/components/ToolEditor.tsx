@@ -256,6 +256,31 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     onHolesRef.current(newHoles)
   }, [pushHistory, currentRings])
 
+  const flipAll = useCallback((axis: 'horizontal' | 'vertical') => {
+    const pts = pointsRef.current
+    const holes = holesRef.current
+    const rings = currentRingsRef.current
+    const n = pts.length
+    if (n === 0) return
+    const cx = pts.reduce((s, p) => s + p.x, 0) / n
+    const cy = pts.reduce((s, p) => s + p.y, 0) / n
+    const flip = (p: Point) => axis === 'horizontal'
+      ? { x: 2 * cx - p.x, y: p.y }
+      : { x: p.x, y: 2 * cy - p.y }
+    // flipping reverses winding order
+    const newPts = pts.map(flip).reverse()
+    const newHoles = holes.map(fh => ({
+      ...fh,
+      ...(axis === 'horizontal' ? { x: 2 * cx - fh.x } : { y: 2 * cy - fh.y }),
+      rotation: -((fh.rotation || 0) % 360),
+    }))
+    const newRings = rings.map(ring => ring.map(flip).reverse())
+    pushHistory({ points: newPts, fingerHoles: newHoles, interiorRings: newRings })
+    onPointsRef.current(newPts)
+    onHolesRef.current(newHoles)
+    onInteriorRingsChange?.(newRings)
+  }, [pushHistory, onInteriorRingsChange])
+
   const handleRotatePolygonMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation()
     const pos = screenToMm(e.clientX, e.clientY)
@@ -565,6 +590,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
         handleDeleteHole={handleDeleteHole}
         displayPointsCount={displayPoints.length}
         rotateAll={rotateAll}
+        flipAll={flipAll}
         hasInteriorRings={currentRings.length > 0}
       />
       <ToolEditorCanvas
