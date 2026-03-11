@@ -174,9 +174,12 @@ function CameraController() {
   const bounds = useBounds()
   const { camera } = useThree()
   const controls = useThree(s => s.controls) as any
+  const fittedRef = useRef(false)
 
-  // fit on initial load
+  // fit once on initial load only
   useEffect(() => {
+    if (fittedRef.current) return
+    fittedRef.current = true
     const t = setTimeout(() => bounds.refresh().fit(), 50)
     return () => clearTimeout(t)
   }, [bounds])
@@ -258,7 +261,7 @@ export function BinPreview3D({ stlUrl, splitUrls }: Props) {
         <directionalLight position={[5, 10, 5]} intensity={0.7} />
 
         <Suspense fallback={<LoadingFallback />}>
-          <Bounds fit clip observe margin={1.15}>
+          <Bounds clip margin={1.15}>
             {splitUrls && splitUrls.length > 0 ? (
               <SplitModels urls={splitUrls} renderMode={renderMode} />
             ) : (

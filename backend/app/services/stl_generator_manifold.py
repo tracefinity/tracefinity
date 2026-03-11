@@ -172,11 +172,28 @@ def _build_shell(config: GenerateRequest):
 # ── cutter builders ───────────────────────────────────────────────────────────
 
 def _make_magnet_holes(config: GenerateRequest):
-    """Batch union of all magnet hole cylinders (4 per grid cell)."""
+    """Batch union of all magnet hole cylinders (4 per grid cell, or corners only)."""
     import manifold3d as mf
 
-    r = MAGNET_DIAMETER / 2
-    mag = mf.Manifold.cylinder(MAGNET_DEPTH + 0.01, r, circular_segments=ROUND_SEGS)
+    diameter = getattr(config, "magnet_diameter", MAGNET_DIAMETER)
+    depth = getattr(config, "magnet_depth", MAGNET_DEPTH)
+    corners_only = getattr(config, "magnet_corners_only", False)
+
+    r = diameter / 2
+    mag = mf.Manifold.cylinder(depth + 0.01, r, circular_segments=ROUND_SEGS)
+
+    # corners that sit on the outer bin boundary
+    outer_corners = set()
+    if corners_only:
+        for ix, iy, dx, dy in [
+            (0, 0, -13.0, -13.0),
+            (config.grid_x - 1, 0, 13.0, -13.0),
+            (config.grid_x - 1, config.grid_y - 1, 13.0, 13.0),
+            (0, config.grid_y - 1, -13.0, 13.0),
+        ]:
+            cx = (ix - (config.grid_x - 1) / 2.0) * GF_GRID
+            cy = (iy - (config.grid_y - 1) / 2.0) * GF_GRID
+            outer_corners.add((round(cx + dx, 4), round(cy + dy, 4)))
 
     holes = []
     for iy in range(config.grid_y):
@@ -184,7 +201,10 @@ def _make_magnet_holes(config: GenerateRequest):
             cx = (ix - (config.grid_x - 1) / 2.0) * GF_GRID
             cy = (iy - (config.grid_y - 1) / 2.0) * GF_GRID
             for dx, dy in [(-13.0, -13.0), (13.0, -13.0), (13.0, 13.0), (-13.0, 13.0)]:
-                holes.append(mag.translate((cx + dx, cy + dy, 0.0)))
+                pos = (round(cx + dx, 4), round(cy + dy, 4))
+                if corners_only and pos not in outer_corners:
+                    continue
+                holes.append(mag.translate((pos[0], pos[1], 0.0)))
 
     return mf.Manifold.batch_boolean(holes, mf.OpType.Add)
 

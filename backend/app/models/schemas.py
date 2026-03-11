@@ -74,6 +74,9 @@ class BinParams(BaseModel):
     grid_y: int = 2
     height_units: int = 4
     magnets: bool = True
+    magnet_diameter: float = 6.0
+    magnet_depth: float = 2.4
+    magnet_corners_only: bool = False
     stacking_lip: bool = True
     wall_thickness: float = 1.6
     cutout_depth: float = 20.0

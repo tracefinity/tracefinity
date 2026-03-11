@@ -20,6 +20,9 @@ function defaultConfig(): BinConfig {
     grid_y: 2,
     height_units: 4,
     magnets: true,
+    magnet_diameter: 6.0,
+    magnet_depth: 2.4,
+    magnet_corners_only: false,
     stacking_lip: true,
     wall_thickness: 1.6,
     cutout_depth: 20,
@@ -113,10 +116,6 @@ export default function BinPage() {
     generatingRef.current = true
     setGenerating(true)
     setError(null)
-    setStlUrl(null)
-    setStlUrls([])
-    setThreemfUrl(null)
-    setZipUrl(null)
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -418,7 +417,7 @@ export default function BinPage() {
         )}
         <div className="flex-1 min-h-[300px]">
           {stlUrlWithVersion ? (
-            <BinPreview3D key={stlVersion} stlUrl={stlUrlWithVersion} splitUrls={splitUrlsWithVersion || undefined} />
+            <BinPreview3D stlUrl={stlUrlWithVersion} splitUrls={splitUrlsWithVersion || undefined} />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-text-muted text-sm gap-2">
               {generating ? (

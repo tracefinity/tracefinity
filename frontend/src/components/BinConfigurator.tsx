@@ -183,8 +183,36 @@ export function BinConfigurator({ config, onChange }: Props) {
           checked={config.magnets}
           onChange={(v) => update({ magnets: v })}
           label="Magnet holes"
-          help="6mm holes in the base for magnets. Keeps bins locked to the baseplate."
+          help="Holes in the base for magnets. Keeps bins locked to the baseplate."
         />
+        {config.magnets && (
+          <div className="pl-3 border-l border-border-subtle ml-1 space-y-0">
+            <SliderRow
+              label="Diameter"
+              value={config.magnet_diameter}
+              min={3}
+              max={10}
+              step={0.5}
+              unit="mm"
+              onChange={(v) => update({ magnet_diameter: v })}
+            />
+            <SliderRow
+              label="Depth"
+              value={config.magnet_depth}
+              min={1}
+              max={5}
+              step={0.1}
+              unit="mm"
+              onChange={(v) => update({ magnet_depth: v })}
+            />
+            <Toggle
+              checked={config.magnet_corners_only}
+              onChange={(v) => update({ magnet_corners_only: v })}
+              label="Corners only"
+              help="Only place magnet holes at the 4 outer corners of the bin."
+            />
+          </div>
+        )}
         <Toggle
           checked={config.stacking_lip}
           onChange={(v) => update({ stacking_lip: v })}

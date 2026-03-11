@@ -96,6 +96,9 @@ export interface BinConfig {
   grid_y: number
   height_units: number
   magnets: boolean
+  magnet_diameter: number
+  magnet_depth: number
+  magnet_corners_only: boolean
   stacking_lip: boolean
   wall_thickness: number
   cutout_depth: number
