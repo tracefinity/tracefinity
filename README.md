@@ -73,45 +73,11 @@ Tracefinity supports three ways to trace tool outlines from photos. All three pr
 
 ### Local model (default)
 
-When no API key is configured, Tracefinity uses [InSPyReNet](https://github.com/plemeri/InSPyReNet), a background removal model that runs entirely on your machine. No API key, no network access, no cost.
-
-Model weights (~80MB) download automatically on first trace.
-
-| | |
-|-|-|
-| Speed | ~0.7s on Apple Silicon (MPS), ~2-3s on CPU |
-| Quality | Matches Gemini on ~70% of images (0.95 median IoU) |
-| Hardware | Any machine with Python. GPU optional but recommended |
-| Best for | Well-lit tools on clean white paper |
-| Struggles with | Highly reflective/metallic tools, poor lighting, cluttered backgrounds |
-
-InSPyReNet is a salient object detection model trained to separate foreground objects from backgrounds. It works well for our use case because tools on white paper is a near-ideal foreground/background split. The model runs on Apple Silicon via MPS (Metal Performance Shaders) or on CPU via PyTorch.
-
-We evaluated several local approaches before settling on InSPyReNet:
-
-| Approach | Result |
-|-|-|
-| InSPyReNet | 69% of images >0.9 IoU vs Gemini. Fast, consistent, no prompting needed |
-| ISNet (rembg) | Close second at 62% >0.9 IoU, slightly slower |
-| SAM2 (ultralytics) | Excellent when it works (0.92+ IoU) but bimodal -- 39% >0.9, 50% complete failure. Needs careful prompting |
-| U2Net (rembg) | Decent at 60% >0.7 but only 20% >0.9 |
-| FastSAM | Poor quality (7% >0.9) |
-| Ollama VLMs | Can't generate images. Vertex extraction gives wrong coordinates |
+When no API key is configured, Tracefinity uses [InSPyReNet](https://github.com/plemeri/InSPyReNet), a background removal model that runs entirely on your machine. No API key, no network access, no cost. ~0.7s per image on Apple Silicon, ~2-3s on CPU. Model weights (~80MB) download automatically on first trace. See [#13](https://github.com/tracefinity/tracefinity/issues/13) for how this model was chosen.
 
 ### Gemini API
 
-Set `GOOGLE_API_KEY` to use Google's Gemini image generation models. Gemini can both understand photos and generate clean silhouette masks, which gives it an edge on complex tools with reflections, shadows, or low contrast against the paper.
-
-To get an API key: [Google AI Studio](https://aistudio.google.com/apikey) (free tier available).
-
-| | |
-|-|-|
-| Speed | 2-5s (network round trip) |
-| Quality | Best overall, especially on complex/reflective tools |
-| Cost | Free tier available, then pay per image |
-| Best for | Metallic tools, complex shapes, challenging lighting |
-
-Set `GEMINI_IMAGE_MODEL` to choose which model generates masks:
+Set `GOOGLE_API_KEY` to use Google's Gemini models instead. Higher accuracy overall, especially on complex or reflective tools. To get a key: [Google AI Studio](https://aistudio.google.com/apikey) (free tier available).
 
 | Model | Pros | Cons |
 |-|-|-|
