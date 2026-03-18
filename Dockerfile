@@ -32,6 +32,7 @@ WORKDIR /app
 
 # backend
 COPY backend/requirements.txt ./backend/
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY backend/ ./backend/
