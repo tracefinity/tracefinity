@@ -21,11 +21,9 @@
 6. Create bins, add tools from the library, arrange the layout
 7. Download STL/3MF for 3D printing
 
-[Demo video](docs/tracefinity-demo.mp4)
+![Demo](docs/tracefinity-demo.gif)
 
-![Upload and corner detection](docs/screenshots/1.png)
-![AI tracing](docs/screenshots/2.png)
-![Configure and preview](docs/screenshots/3.png)
+[Full video](docs/tracefinity-demo.mp4)
 
 ## Quick Start
 
