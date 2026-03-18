@@ -44,7 +44,7 @@ The `GOOGLE_API_KEY` is optional -- you can use the manual mask upload workflow 
 | Variable | Default | Description |
 |-|-|-|
 | `GOOGLE_API_KEY` | | Gemini API key (optional) |
-| `GEMINI_IMAGE_MODEL` | `gemini-3-pro-image-preview` | Model for mask generation (see below) |
+| `GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-image-preview` | Model for mask generation (see below) |
 
 ### From Source
 
@@ -106,7 +106,8 @@ Set `GEMINI_IMAGE_MODEL` to choose which Gemini model generates masks:
 
 | Model | Pros | Cons |
 |-|-|-|
-| `gemini-3-pro-image-preview` (default) | Best mask quality, pixel-accurate alignment | Preview model, occasional outages |
+| `gemini-3.1-flash-image-preview` (default) | Fast, good mask quality | Preview model |
+| `gemini-3-pro-image-preview` | Best mask quality, pixel-accurate alignment | Slower, preview model |
 | `gemini-2.5-flash-image` | Faster, cheaper, GA | Returns arbitrary dimensions, needs post-hoc alignment (~5px tolerance) |
 
 The flash model returns masks at different dimensions than requested, so Tracefinity uses template matching to align the mask to the original photo. This adds ~20ms and gets within a few pixels.
