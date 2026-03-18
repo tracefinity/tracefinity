@@ -76,7 +76,7 @@ export async function setCorners(
   })
 }
 
-export async function getAvailableKeys(): Promise<{ google: boolean }> {
+export async function getAvailableKeys(): Promise<{ google: boolean; provider: string | null; provider_label: string | null }> {
   return fetchApi('/api/api-keys')
 }
 

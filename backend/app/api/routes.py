@@ -108,6 +108,7 @@ ai_tracer = AITracer(
     openrouter_key=settings.openrouter_api_key,
     openrouter_image_model=settings.openrouter_image_model,
     openrouter_label_model=settings.openrouter_label_model,
+    local_model=settings.use_local_model,
 )
 polygon_scaler = PolygonScaler()
 stl_generator = ManifoldSTLGenerator()
@@ -266,9 +267,13 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
 
 @router.get("/api-keys")
 async def get_available_keys(request: Request):
-    """check which api keys are configured via env vars"""
+    """check which api keys/providers are configured via env vars"""
+    has_cloud = settings.google_api_key is not None or settings.openrouter_api_key is not None
+    has_local = settings.use_local_model
     return {
-        "google": settings.google_api_key is not None or settings.openrouter_api_key is not None,
+        "google": has_cloud or has_local,
+        "provider": "local" if has_local else "gemini" if has_cloud else None,
+        "provider_label": "Local (InSPyReNet)" if has_local else "Gemini API" if has_cloud else None,
     }
 
 
@@ -280,7 +285,7 @@ async def trace_tools(request: Request, session_id: str, req: TraceRequest, user
         raise HTTPException(status_code=400, detail="must set corners first")
 
     api_key = settings.google_api_key or req.api_key
-    if not api_key and not settings.openrouter_api_key:
+    if not api_key and not settings.openrouter_api_key and not settings.use_local_model:
         raise HTTPException(status_code=400, detail="no api key provided")
 
     up = _user_path(user_id)

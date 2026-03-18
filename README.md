@@ -34,17 +34,21 @@ Try it at [tracefinity.net](https://tracefinity.net) without installing anything
 ### Docker
 
 ```bash
+# local model (no API key needed)
+docker run -p 3000:3000 -v ./data:/app/storage ghcr.io/tracefinity/tracefinity
+
+# or with Gemini API
 docker run -p 3000:3000 -v ./data:/app/storage -e GOOGLE_API_KEY=your-key ghcr.io/tracefinity/tracefinity
 ```
 
 Open http://localhost:3000
 
-The `GOOGLE_API_KEY` is optional -- you can use the manual mask upload workflow instead.
+By default, Tracefinity uses a local [InSPyReNet](https://github.com/plemeri/InSPyReNet) model for tracing -- no API key needed. Set `GOOGLE_API_KEY` to use Gemini instead for higher accuracy on complex tools.
 
 | Variable | Default | Description |
 |-|-|-|
-| `GOOGLE_API_KEY` | | Gemini API key (optional) |
-| `GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-image-preview` | Model for mask generation (see below) |
+| `GOOGLE_API_KEY` | | Gemini API key. When set, uses Gemini instead of the local model |
+| `GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-image-preview` | Gemini model for mask generation (see below) |
 
 ### From Source
 
@@ -53,9 +57,6 @@ Prerequisites: Python 3.11+, Node.js 20+
 ```bash
 git clone https://github.com/tracefinity/tracefinity
 cd tracefinity
-
-# Optional: set your Gemini API key (or use the manual mask upload workflow)
-export GOOGLE_API_KEY=your-key
 
 # First time setup
 cd backend && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
@@ -68,9 +69,71 @@ make dev
 
 Open http://localhost:4001
 
+## Tracing Modes
+
+Tracefinity supports three ways to trace tool outlines from photos. All three produce the same output -- black and white mask images that get converted to editable polygons via OpenCV contour extraction.
+
+### Local model (default)
+
+When no API key is configured, Tracefinity uses [InSPyReNet](https://github.com/plemeri/InSPyReNet), a background removal model that runs entirely on your machine. No API key, no network access, no cost.
+
+Model weights (~80MB) download automatically on first trace.
+
+| | |
+|-|-|
+| Speed | ~0.7s on Apple Silicon (MPS), ~2-3s on CPU |
+| Quality | Matches Gemini on ~70% of images (0.95 median IoU) |
+| Hardware | Any machine with Python. GPU optional but recommended |
+| Best for | Well-lit tools on clean white paper |
+| Struggles with | Highly reflective/metallic tools, poor lighting, cluttered backgrounds |
+
+InSPyReNet is a salient object detection model trained to separate foreground objects from backgrounds. It works well for our use case because tools on white paper is a near-ideal foreground/background split. The model runs on Apple Silicon via MPS (Metal Performance Shaders) or on CPU via PyTorch.
+
+We evaluated several local approaches before settling on InSPyReNet:
+
+| Approach | Result |
+|-|-|
+| InSPyReNet | 69% of images >0.9 IoU vs Gemini. Fast, consistent, no prompting needed |
+| ISNet (rembg) | Close second at 62% >0.9 IoU, slightly slower |
+| SAM2 (ultralytics) | Excellent when it works (0.92+ IoU) but bimodal -- 39% >0.9, 50% complete failure. Needs careful prompting |
+| U2Net (rembg) | Decent at 60% >0.7 but only 20% >0.9 |
+| FastSAM | Poor quality (7% >0.9) |
+| Ollama VLMs | Can't generate images. Vertex extraction gives wrong coordinates |
+
+### Gemini API
+
+Set `GOOGLE_API_KEY` to use Google's Gemini image generation models. Gemini can both understand photos and generate clean silhouette masks, which gives it an edge on complex tools with reflections, shadows, or low contrast against the paper.
+
+To get an API key: [Google AI Studio](https://aistudio.google.com/apikey) (free tier available).
+
+| | |
+|-|-|
+| Speed | 2-5s (network round trip) |
+| Quality | Best overall, especially on complex/reflective tools |
+| Cost | Free tier available, then pay per image |
+| Best for | Metallic tools, complex shapes, challenging lighting |
+
+Set `GEMINI_IMAGE_MODEL` to choose which model generates masks:
+
+| Model | Pros | Cons |
+|-|-|-|
+| `gemini-3.1-flash-image-preview` (default) | Fast, good mask quality | Preview model |
+| `gemini-3-pro-image-preview` | Best mask quality, pixel-accurate alignment | Slower, preview model |
+| `gemini-2.5-flash-image` | Faster, cheaper, GA | Returns arbitrary dimensions, needs post-hoc alignment |
+
+### Manual mask upload
+
+No API key and prefer not to use the local model? Upload a mask manually:
+
+1. Upload your photo and set paper corners
+2. Click "Manual" and download the corrected image
+3. Open [Gemini](https://gemini.google.com) and paste the image with the provided prompt
+4. Download the generated mask (black tools on white background)
+5. Upload the mask back to Tracefinity
+
 ## Features
 
-- **AI-powered tracing** -- Gemini generates accurate tool silhouettes from photos
+- **AI-powered tracing** -- Local model or Gemini generates accurate tool silhouettes from photos
 - **Manual mask upload** -- Use the Gemini web interface without an API key
 - **Selective saving** -- Choose which traced outlines to keep before saving to your library
 - **Tool library** -- Save traced tools and reuse them across multiple bins
@@ -88,49 +151,6 @@ Open http://localhost:4001
 - **Bed splitting** -- Large bins auto-split into printable pieces with diagonal fit detection
 - **Landscape and portrait** -- Paper orientation auto-detected from corner positions
 - **Single-container Docker** -- Frontend and backend in one image, data in a single volume
-
-## How the AI Tracing Works
-
-Tracefinity uses Google's [Gemini API](https://ai.google.dev/) to generate mask images from photos.
-
-1. Your photo is sent to Gemini with a prompt asking for a black and white silhouette mask
-2. Gemini returns a mask image with tools in black, background in white
-3. OpenCV traces the contours from the mask to create editable polygons
-4. A second Gemini call identifies what each tool is (for labelling)
-
-The UI shows you exactly what prompts are sent before you click "Trace".
-
-### Model selection
-
-Set `GEMINI_IMAGE_MODEL` to choose which Gemini model generates masks:
-
-| Model | Pros | Cons |
-|-|-|-|
-| `gemini-3.1-flash-image-preview` (default) | Fast, good mask quality | Preview model |
-| `gemini-3-pro-image-preview` | Best mask quality, pixel-accurate alignment | Slower, preview model |
-| `gemini-2.5-flash-image` | Faster, cheaper, GA | Returns arbitrary dimensions, needs post-hoc alignment (~5px tolerance) |
-
-The flash model returns masks at different dimensions than requested, so Tracefinity uses template matching to align the mask to the original photo. This adds ~20ms and gets within a few pixels.
-
-### Why Gemini?
-
-Several approaches were tested before settling on Gemini's image generation:
-
-- **OpenCV** -- Traditional computer vision (edge detection, thresholding, watershed) struggles with varied lighting, shadows, and tools that blend into backgrounds
-- **OpenAI/Anthropic** -- Vision models can describe images but can't generate the mask images needed for contour extraction
-- **Gemini** -- Image generation models can both understand the photo and generate a clean silhouette mask, handling shadows and complex shapes reliably
-
-To get an API key: [Google AI Studio](https://aistudio.google.com/apikey) (free tier available).
-
-## Manual Mask Upload
-
-No API key? No problem:
-
-1. Upload your photo and set paper corners
-2. Click "Manual" and download the corrected image
-3. Open [Gemini](https://gemini.google.com) and paste the image with the provided prompt
-4. Download the generated mask (black tools on white background)
-5. Upload the mask back to Tracefinity
 
 ## What is Gridfinity?
 

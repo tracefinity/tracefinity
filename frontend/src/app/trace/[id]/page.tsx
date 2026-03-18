@@ -24,7 +24,7 @@ const MASK_PROMPT = `Generate a pure black and white silhouette mask of ONLY the
 const LABEL_PROMPT = `Identify each tool in the image and return a JSON object with labels.`
 
 const TRACE_STEPS = [
-  'Uploading image to Gemini...',
+  'Uploading image...',
   'Generating silhouette mask...',
   'Processing mask...',
   'Tracing contours...',
@@ -51,6 +51,8 @@ export default function TracePage() {
   const [provider, setProvider] = useState<'google' | 'manual'>('google')
   const [apiKey, setApiKey] = useState('')
   const [hasEnvKey, setHasEnvKey] = useState(false)
+  const [providerLabel, setProviderLabel] = useState<string | null>(null)
+  const [providerType, setProviderType] = useState<string | null>(null)
   const [maskUrl, setMaskUrl] = useState<string | null>(null)
   const [maskVersion, setMaskVersion] = useState(0)
   const [imageVersion, setImageVersion] = useState(Date.now())
@@ -72,6 +74,8 @@ export default function TracePage() {
         ])
         setSession(s)
         setHasEnvKey(keys.google)
+        setProviderLabel(keys.provider_label)
+        setProviderType(keys.provider)
 
         if (!keys.google) {
           setProvider('manual')
@@ -130,7 +134,7 @@ export default function TracePage() {
   }
 
   async function handleTrace() {
-    if (!hasEnvKey && !apiKey.trim()) {
+    if (!hasEnvKey && providerType !== 'local' && !apiKey.trim()) {
       setError('please enter your API key')
       return
     }
@@ -336,7 +340,7 @@ export default function TracePage() {
                         : 'text-text-muted hover:text-text-primary'
                     }`}
                   >
-                    Gemini API{hasEnvKey && ' (configured)'}
+                    {providerLabel || 'Gemini API'}{hasEnvKey && !providerLabel && ' (configured)'}
                   </button>
                   <button
                     onClick={() => setProvider('manual')}
@@ -353,7 +357,7 @@ export default function TracePage() {
 
               {provider === 'google' && (
                 <>
-                  {!hasEnvKey && (
+                  {!hasEnvKey && providerType !== 'local' && (
                     <div>
                       <span className="text-xs text-[#ebecec] tracking-[0.3px]">API Key</span>
                       <input
@@ -375,7 +379,7 @@ export default function TracePage() {
                       onClick={() => setShowPrompt(!showPrompt)}
                       className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-text-secondary hover:bg-elevated transition-colors"
                     >
-                      <span>What we send to Gemini</span>
+                      <span>What we send to the model</span>
                       {showPrompt ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                     </button>
                     {showPrompt && (
@@ -532,7 +536,7 @@ export default function TracePage() {
           {step === 'trace' && provider === 'google' && (
             <button
               onClick={handleTrace}
-              disabled={(provider === 'google' && !hasEnvKey && !apiKey.trim()) || processing}
+              disabled={(provider === 'google' && !hasEnvKey && providerType !== 'local' && !apiKey.trim()) || processing}
               className="btn-primary w-full py-2 text-sm inline-flex items-center justify-center gap-1.5"
             >
               {processing && <Loader2 className="w-4 h-4 animate-spin" />}

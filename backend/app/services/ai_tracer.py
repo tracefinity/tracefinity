@@ -58,7 +58,6 @@ Return labels in the same order as the positions listed above."""
 # models that need post-hoc alignment (don't respect output dimensions)
 _NEEDS_ALIGNMENT = {"gemini-2.5-flash-image"}
 
-
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
@@ -70,12 +69,15 @@ class AITracer:
         openrouter_key: str | None = None,
         openrouter_image_model: str | None = None,
         openrouter_label_model: str | None = None,
+        local_model: bool = False,
     ):
         self.model = model
         self.label_model = label_model
         self.openrouter_key = openrouter_key
         self.openrouter_image_model = openrouter_image_model or f"google/{model}"
         self.openrouter_label_model = openrouter_label_model or f"google/{label_model}"
+        self.local_model = local_model
+        self._local_remover = None
 
     def _mask_prompt(self, width: int, height: int) -> str:
         if self.model in _NEEDS_ALIGNMENT:
@@ -88,17 +90,20 @@ class AITracer:
         api_key: str,
         mask_output_path: str | None = None,
     ) -> tuple[list[Polygon], str | None]:
-        """trace tools using Gemini mask generation. returns (polygons, mask_path)"""
+        """trace tools via local model or gemini mask generation."""
         import os
         if os.environ.get("E2E_TEST_MODE"):
             return self._mock_trace(mask_output_path)
 
-        mask_path = await self._generate_mask_gemini(image_path, api_key, mask_output_path)
+        if self.local_model:
+            mask_path = await self._generate_mask_local(image_path, mask_output_path)
+        else:
+            mask_path = await self._generate_mask_gemini(image_path, api_key, mask_output_path)
 
         if not mask_path:
             return [], None
 
-        align = self.model in _NEEDS_ALIGNMENT
+        align = not self.local_model and self.model in _NEEDS_ALIGNMENT
         contours = self._trace_mask(mask_path, image_path, align=align)
         if not contours:
             return [], mask_output_path
@@ -126,6 +131,36 @@ class AITracer:
             )
 
         return polygons, mask_output_path
+
+    async def _generate_mask_local(self, image_path: str, output_path: str | None = None) -> str | None:
+        """generate a foreground mask using InSPyReNet (local, no API key)."""
+        from PIL import Image
+
+        if self._local_remover is None:
+            from transparent_background import Remover
+            import torch
+            device = "mps" if torch.backends.mps.is_available() else "cpu"
+            logging.info("loading InSPyReNet on %s", device)
+            self._local_remover = Remover(mode="base", device=device)
+
+        logging.info("generating mask with InSPyReNet (local)")
+        pil_img = Image.open(image_path).convert("RGB")
+        result = self._local_remover.process(pil_img, type="map")
+
+        # convert to black-tool-on-white-bg format (matching gemini mask convention)
+        mask_np = np.array(result.convert("L"))
+        _, binary = cv2.threshold(mask_np, 127, 255, cv2.THRESH_BINARY)
+        # InSPyReNet: foreground=white. our convention: tool=black, bg=white
+        mask_out = cv2.bitwise_not(binary)
+
+        if output_path:
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            cv2.imwrite(output_path, mask_out)
+            return output_path
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            cv2.imencode(".png", mask_out)[1].tofile(f)
+            return f.name
 
     def _mock_trace(self, mask_output_path: str | None) -> tuple[list[Polygon], str | None]:
         """return pre-recorded fixture data instead of calling Gemini"""
@@ -178,7 +213,7 @@ class AITracer:
         return image_bytes, mime_type, self._mask_prompt(width, height), width, height
 
     async def _generate_mask_gemini(self, image_path: str, api_key: str, output_path: str | None = None) -> str | None:
-        """generate a mask via openrouter (preferred) or google sdk."""
+        """generate a mask via ollama, openrouter, or google sdk."""
         image_bytes, mime_type, prompt, _, _ = self._prepare_image(image_path)
 
         if self.openrouter_key:

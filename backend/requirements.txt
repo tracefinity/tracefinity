@@ -14,3 +14,7 @@ pydantic-settings>=2.1.0
 aiofiles>=23.2.0
 Pillow>=10.0.0
 pillow-heif>=0.16.0
+# local model support (optional, for LOCAL_MODEL=true)
+transparent-background>=1.3.0
+torch>=2.0.0
+torchvision>=0.15.0

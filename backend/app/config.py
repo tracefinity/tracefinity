@@ -20,6 +20,11 @@ class Settings(BaseSettings):
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
+    @property
+    def use_local_model(self) -> bool:
+        """use InSPyReNet locally when no cloud API keys are configured."""
+        return self.google_api_key is None and self.openrouter_api_key is None
+
 
 settings = Settings()
 
