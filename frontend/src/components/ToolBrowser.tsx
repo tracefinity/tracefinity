@@ -11,6 +11,7 @@ interface Props {
   onAddTool: (tool: PlacedTool) => void
   binWidthMm: number
   binHeightMm: number
+  layout?: 'grid' | 'horizontal'
 }
 
 function ToolThumbnail({ points, interiorRings }: { points: Point[]; interiorRings?: Point[][] }) {
@@ -47,7 +48,7 @@ function ToolThumbnail({ points, interiorRings }: { points: Point[]; interiorRin
   )
 }
 
-export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm }: Props) {
+export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm, layout = 'grid' }: Props) {
   const [tools, setTools] = useState<ToolSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState<string | null>(null)
@@ -119,6 +120,60 @@ export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm }: Props) {
     )
   }
 
+  if (layout === 'horizontal') {
+    return (
+      <div className="space-y-1.5">
+        {/* header with label + inline filter */}
+        <div className="flex items-center gap-2">
+          <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px]">Library</h3>
+          <span className="text-[10px] text-text-muted bg-elevated px-1.5 py-px rounded-full">{tools.length}</span>
+          {tools.length > 4 && (
+            <div className="relative ml-auto">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Filter..."
+                className="w-24 pl-6 pr-2 py-1 text-[10px] bg-elevated border border-border-subtle rounded text-text-primary outline-none focus:border-accent focus:w-36 transition-all"
+              />
+            </div>
+          )}
+        </div>
+        {/* scrollable card strip */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-thin pb-1">
+          {filtered.map(tool => (
+            <button
+              key={tool.id}
+              onClick={() => handleAdd(tool)}
+              disabled={adding === tool.id}
+              className="group flex-shrink-0 w-[90px] glass-sm rounded-lg overflow-hidden text-left transition-all duration-150 hover:bg-glass-hover cursor-pointer"
+            >
+              <div className="h-[52px] p-1.5 flex items-center justify-center bg-inset/30 relative">
+                {adding === tool.id ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-text-muted" />
+                ) : (
+                  <>
+                    <ToolThumbnail points={tool.points} interiorRings={tool.interior_rings} />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+                      <Plus className="w-4 h-4 text-white" />
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="px-1.5 py-1">
+                <span className="text-[10px] text-text-secondary truncate block">{tool.name}</span>
+              </div>
+            </button>
+          ))}
+          {filtered.length === 0 && search && (
+            <span className="text-[10px] text-text-muted py-2 flex-shrink-0">No matches</span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
       {tools.length > 6 && (
@@ -129,7 +184,7 @@ export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm }: Props) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Filter tools..."
-            className="w-full pl-6 pr-2 py-1.5 text-xs bg-elevated border border-border-subtle rounded text-text-primary outline-none focus:border-blue-500"
+            className="w-full pl-6 pr-2 py-1.5 text-xs bg-elevated border border-border-subtle rounded text-text-primary outline-none focus:border-accent"
           />
         </div>
       )}
@@ -139,7 +194,7 @@ export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm }: Props) {
           key={tool.id}
           onClick={() => handleAdd(tool)}
           disabled={adding === tool.id}
-          className="group relative bg-elevated hover:bg-border rounded overflow-hidden text-left transition-colors"
+          className="group relative bg-elevated hover:bg-border rounded overflow-hidden text-left transition-colors cursor-pointer"
         >
           <div className="aspect-square p-2 flex items-center justify-center bg-inset/50">
             {adding === tool.id ? (

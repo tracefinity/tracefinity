@@ -25,14 +25,14 @@ export function GuidedTour({ open, onClose }: Props) {
           <h2 className="text-sm font-medium text-text-primary">How it works</h2>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text-primary text-lg leading-none px-1"
+            className="text-text-muted hover:text-text-primary text-lg leading-none px-1 transition-colors cursor-pointer"
           >
             &times;
           </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {STEPS.map(({ Illustration, label, caption }) => (
-            <div key={label} className="bg-inset rounded-lg overflow-hidden border border-border">
+            <div key={label} className="bg-inset rounded-[10px] overflow-hidden border border-border">
               <div className="p-3 pb-2">
                 <Illustration />
               </div>

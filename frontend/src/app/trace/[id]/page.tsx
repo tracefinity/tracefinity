@@ -10,6 +10,7 @@ import { SessionInfo } from '@/components/SessionInfo'
 import { Alert } from '@/components/Alert'
 import { getSession, setCorners, traceTools, updatePolygons, updateSession, getImageUrl, getAvailableKeys, traceFromMask, saveToolsFromSession } from '@/lib/api'
 import { CornersHint, TraceHint, EditHint } from '@/components/OnboardingIllustrations'
+import { StepBar } from '@/components/StepBar'
 import type { Point, Polygon, Session } from '@/types'
 
 type Step = 'corners' | 'trace' | 'edit'
@@ -268,28 +269,28 @@ export default function TracePage() {
     )
   }
 
-  return (
-    <div className="h-[calc(100vh-53px)] flex flex-col md:flex-row w-full">
-      {/* left sidebar - controls */}
-      <div className="md:w-[260px] md:flex-shrink-0 bg-surface border-b md:border-b-0 md:border-r border-border overflow-y-auto flex flex-col max-h-[40vh] md:max-h-none">
-        <div className="hidden md:block">
-          {session && (
-            <SessionInfo
-              session={session}
-              onUpdate={(updates) => {
-                updateSession(sessionId, updates)
-                setSession({ ...session, ...updates })
-              }}
-            />
-          )}
-        </div>
+  const stepIndex = step === 'corners' ? 0 : step === 'trace' ? 1 : 2
 
-        <div className="px-4 py-3 border-b border-border">
-          <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
-            {step === 'corners' && 'Adjust Corners'}
-            {step === 'trace' && 'Trace Tools'}
-            {step === 'edit' && 'Edit Outlines'}
-          </h3>
+  return (
+    <div className="h-[calc(100vh-44px)] flex flex-col w-full">
+      <StepBar
+        steps={['Corners', 'Trace', 'Save']}
+        current={stepIndex}
+        onStepClick={(i) => {
+          if (i === 0) setStep('corners')
+          else if (i === 1 && correctedImageUrl) setStep('trace')
+        }}
+      />
+      <div className="flex-1 flex flex-col md:flex-row min-h-0">
+      {/* left sidebar - controls */}
+      <div className="md:w-[240px] md:flex-shrink-0 bg-surface border-b md:border-b-0 md:border-r border-border overflow-y-auto flex flex-col max-h-[40vh] md:max-h-none">
+        <div className="p-3 space-y-3">
+          <div className="glass rounded-[10px] px-3 py-3">
+            <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              {step === 'corners' && 'Adjust Corners'}
+              {step === 'trace' && 'Trace Tools'}
+              {step === 'edit' && 'Select Tools'}
+            </h3>
 
           {step === 'corners' && (
             <div className="space-y-3">
@@ -299,8 +300,8 @@ export default function TracePage() {
               </p>
 
               <div>
-                <span className="text-xs text-[#ebecec] tracking-[0.3px]">Paper Size</span>
-                <div className="inline-flex rounded bg-elevated p-0.5 mt-1.5">
+                <span className="text-xs text-text-primary tracking-[0.3px]">Paper Size</span>
+                <div className="inline-flex rounded-[10px] glass p-0.5 mt-1.5">
                   <button
                     onClick={() => setPaperSize('a4')}
                     className={`px-3 py-1 rounded text-xs font-medium ${
@@ -330,8 +331,8 @@ export default function TracePage() {
             <div className="space-y-3">
               <TraceHint />
               <div>
-                <span className="text-xs text-[#ebecec] tracking-[0.3px]">Method</span>
-                <div className="inline-flex rounded bg-elevated p-0.5 mt-1.5">
+                <span className="text-xs text-text-primary tracking-[0.3px]">Method</span>
+                <div className="inline-flex rounded-[10px] glass p-0.5 mt-1.5">
                   <button
                     onClick={() => setProvider('google')}
                     className={`px-3 py-1 rounded text-xs font-medium ${
@@ -359,13 +360,13 @@ export default function TracePage() {
                 <>
                   {!hasEnvKey && providerType !== 'local' && (
                     <div>
-                      <span className="text-xs text-[#ebecec] tracking-[0.3px]">API Key</span>
+                      <span className="text-xs text-text-primary tracking-[0.3px]">API Key</span>
                       <input
                         type="password"
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
                         placeholder="AIza..."
-                        className="w-full h-7 px-2 mt-1.5 text-xs border border-border-subtle rounded-[5px] bg-[#222a35] text-text-primary focus:outline-none focus:border-accent"
+                        className="w-full h-7 px-2 mt-1.5 text-xs border border-border-subtle rounded bg-elevated text-text-primary focus:outline-none focus:border-accent"
                       />
                       <p className="text-xs text-text-muted mt-1">
                         Sent directly to the API, not stored.
@@ -373,11 +374,11 @@ export default function TracePage() {
                     </div>
                   )}
 
-                  <div className="border border-border-subtle rounded overflow-hidden">
+                  <div className="glass rounded-[10px] overflow-hidden">
                     <button
                       type="button"
                       onClick={() => setShowPrompt(!showPrompt)}
-                      className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-text-secondary hover:bg-elevated transition-colors"
+                      className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-text-secondary hover:bg-glass-hover transition-colors"
                     >
                       <span>What we send to the model</span>
                       {showPrompt ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -502,26 +503,23 @@ export default function TracePage() {
               )}
             </div>
           )}
+          </div>
+
+          {step === 'edit' && maskUrl && (
+            <div className="glass rounded-[10px] px-3 py-3">
+              <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">Mask</h3>
+              <img
+                src={`${getImageUrl(maskUrl)}?v=${maskVersion}`}
+                alt="Generated mask"
+                className="w-full rounded-lg border border-border-subtle"
+              />
+            </div>
+          )}
+
+          {error && <Alert variant="error">{error}</Alert>}
         </div>
 
-        {step === 'edit' && maskUrl && (
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Mask</h3>
-            <img
-              src={`${getImageUrl(maskUrl)}?v=${maskVersion}`}
-              alt="Generated mask"
-              className="w-full rounded border border-border"
-            />
-          </div>
-        )}
-
-        {error && (
-          <div className="px-4 py-3 border-b border-border">
-            <Alert variant="error">{error}</Alert>
-          </div>
-        )}
-
-        <div className="px-4 py-3 md:mt-auto space-y-2">
+        <div className="p-3 md:mt-auto space-y-2">
           {step === 'corners' && (
             <button
               onClick={handleCornersSubmit}
@@ -586,7 +584,7 @@ export default function TracePage() {
       </div>
 
       {/* image area */}
-      <div className="flex-1 min-h-0 bg-inset overflow-hidden p-4">
+      <div className="flex-1 min-h-0 bg-base overflow-hidden p-3">
         {step === 'corners' && (
           <PaperCornerEditor
             imageUrl={imageUrl}
@@ -608,6 +606,7 @@ export default function TracePage() {
             onHoveredChange={step === 'edit' ? setHoveredPolygon : undefined}
           />
         )}
+      </div>
       </div>
     </div>
   )

@@ -98,7 +98,7 @@ export function BinEditorCanvas({
   return (
     <>
       {/* SVG area */}
-      <div className="flex-1 min-h-0 bg-inset rounded-lg p-4 flex items-center justify-center">
+      <div className="absolute inset-0 bg-inset flex items-center justify-center p-4">
         <svg
           ref={svgRef}
           viewBox={`-10 -10 ${displayWidth + 70} ${displayHeight + 30}`}
@@ -369,15 +369,6 @@ export function BinEditorCanvas({
         </svg>
       </div>
 
-      {/* bottom bar */}
-      <div className="flex items-center justify-between text-xs flex-shrink-0">
-        <span className="text-text-muted">{gridX}x{gridY} Grid ({binWidthMm}x{binHeightMm}mm)</span>
-        <span className="text-text-muted">
-          {activeTool === 'select' && 'Drag to move, double-click text to edit'}
-          {activeTool === 'text' && 'Click to place, double-click to edit'}
-        </span>
-        <span />
-      </div>
     </>
   )
 }

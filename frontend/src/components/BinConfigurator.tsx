@@ -12,7 +12,7 @@ function HelpTip({ text }: { text: string }) {
   return (
     <span className="relative group ml-1">
       <Info className="w-3 h-3 text-text-muted cursor-help inline-block" />
-      <span className="absolute bottom-full left-0 mb-1.5 px-2 py-1.5 text-[11px] leading-tight text-[#ebecec] bg-[#1a2332] border border-border-subtle rounded-[5px] whitespace-normal w-44 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10 shadow-lg">
+      <span className="absolute bottom-full left-0 mb-1.5 px-2 py-1.5 text-[11px] leading-tight text-text-primary bg-elevated border border-border-subtle rounded whitespace-normal w-44 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10 shadow-lg">
         {text}
       </span>
     </span>
@@ -22,19 +22,19 @@ function HelpTip({ text }: { text: string }) {
 function Toggle({ checked, onChange, label, help }: { checked: boolean; onChange: (v: boolean) => void; label: string; help?: string }) {
   return (
     <div className="flex items-center justify-between py-2">
-      <span className="text-xs text-[#ebecec] tracking-[0.3px]">
+      <span className="text-xs text-text-primary tracking-[0.3px]">
         {label}
         {help && <HelpTip text={help} />}
       </span>
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-5 w-9 items-center rounded-[5px] transition-colors ${
-          checked ? 'bg-[rgba(90,180,222,0.8)]' : 'bg-elevated'
+        className={`relative inline-flex h-5 w-9 items-center rounded transition-colors ${
+          checked ? 'bg-accent' : 'bg-elevated'
         }`}
       >
         <span
-          className={`inline-block h-3.5 w-3.5 rounded-[3px] transition-transform ${
+          className={`inline-block h-3.5 w-3.5 rounded-sm transition-transform ${
             checked ? 'translate-x-[18px]' : 'translate-x-[3px]'
           }`}
           style={{
@@ -73,7 +73,7 @@ function SliderRow({
 
   return (
     <div className="space-y-1.5 py-2">
-      <span className="text-xs text-[#ebecec] tracking-[0.3px]">
+      <span className="text-xs text-text-primary tracking-[0.3px]">
         {label}
         {help && <HelpTip text={help} />}
       </span>
@@ -102,7 +102,7 @@ function SliderRow({
               const v = step >= 1 ? parseInt(e.target.value) : parseFloat(e.target.value)
               if (!isNaN(v)) onChange(Math.min(max, Math.max(min, v)))
             }}
-            className="w-14 h-7 bg-[#222a35] text-right text-xs font-semibold text-[#ebecec] rounded-[5px] pr-2 focus:outline-none"
+            className="w-14 h-7 bg-elevated text-right text-xs font-semibold text-text-primary rounded pr-2 focus:outline-none"
           />
           {unit && <span className="text-[10px] text-text-muted w-5">{unit}</span>}
         </div>

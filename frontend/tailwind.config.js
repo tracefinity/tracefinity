@@ -8,24 +8,41 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        base: '#0a0f1a',
-        surface: '#111827',
-        elevated: '#1e293b',
-        inset: '#0f172a',
+        base: 'var(--color-base)',
+        surface: 'var(--color-surface)',
+        elevated: 'var(--color-elevated)',
+        inset: 'var(--color-inset)',
         border: {
-          DEFAULT: '#1e293b',
-          subtle: '#334155',
+          DEFAULT: 'var(--color-border)',
+          subtle: 'var(--color-border-subtle)',
         },
         text: {
-          primary: '#f1f5f9',
-          secondary: '#94a3b8',
-          muted: '#64748b',
+          primary: 'var(--color-text-primary)',
+          secondary: 'var(--color-text-secondary)',
+          muted: 'var(--color-text-muted)',
         },
         accent: {
-          DEFAULT: '#5ab4de',
-          hover: '#48a8d6',
-          muted: '#0d2c3e',
+          DEFAULT: 'var(--color-accent)',
+          hover: 'var(--color-accent-hover)',
+          muted: 'var(--color-accent-muted)',
         },
+        glass: {
+          bg: 'var(--color-glass-bg)',
+          border: 'var(--color-glass-border)',
+          hover: 'var(--color-glass-hover)',
+        },
+      },
+      backdropBlur: {
+        glass: '12px',
+        'glass-sm': '8px',
+      },
+      borderRadius: {
+        sm: '6px',
+        DEFAULT: '10px',
+        lg: '14px',
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
       },
     },
   },

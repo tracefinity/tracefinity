@@ -1,16 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import { Loader2, ArrowLeft, Check, Download } from 'lucide-react'
+import { useParams } from 'next/navigation'
+import { Loader2, Check, Download } from 'lucide-react'
+import Link from 'next/link'
 import { getTool, updateTool, getToolSvgUrl } from '@/lib/api'
 import { useDebouncedSave } from '@/hooks/useDebouncedSave'
 import { ToolEditor } from '@/components/ToolEditor'
 import { Alert } from '@/components/Alert'
+import { Breadcrumb } from '@/components/Breadcrumb'
 import type { Tool, Point, FingerHole } from '@/types'
 
 export default function ToolPage() {
-  const router = useRouter()
   const params = useParams()
   const toolId = params.id as string
 
@@ -63,10 +64,6 @@ export default function ToolPage() {
     setTool(prev => prev ? { ...prev, interior_rings } : null)
   }, [])
 
-  const handleNameChange = (newName: string) => {
-    setName(newName)
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12 gap-2 text-text-muted">
@@ -85,52 +82,41 @@ export default function ToolPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-53px)] flex flex-col w-full">
-      {/* header bar */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-surface flex-shrink-0">
-        <button
-          onClick={() => router.push('/')}
-          className="p-1.5 rounded hover:bg-elevated text-text-muted"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <input
-          type="text"
-          value={name}
-          onChange={e => handleNameChange(e.target.value)}
-          className="text-sm font-medium text-text-primary bg-transparent border-none outline-none flex-1 min-w-0"
-          placeholder="Tool name"
-        />
+    <div className="h-[calc(100vh-44px)] relative overflow-hidden">
+      {/* floating breadcrumb panel */}
+      <div className="absolute top-3.5 left-3.5 z-20 glass-toolbar px-3 py-1.5 flex items-center gap-3">
+        <Breadcrumb segments={[
+          { label: 'Tools', href: '/' },
+          { label: name || 'Untitled', editable: true, onEdit: (v) => setName(v) },
+        ]} />
+        <div className="flex items-center gap-1 text-[11px] text-text-muted">
+          {saving && <Loader2 className="w-3 h-3 animate-spin" />}
+          {saved && <Check className="w-3 h-3 text-green-400" />}
+          {saving ? 'Saving...' : saved ? 'Saved' : ''}
+        </div>
         <a
           href={getToolSvgUrl(toolId)}
           download
-          className="btn-primary py-1.5 px-3 inline-flex items-center gap-1.5 text-sm"
+          className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-accent-muted text-accent hover:bg-accent-muted/80 transition-colors inline-flex items-center gap-1.5"
         >
-          <Download className="w-3.5 h-3.5" />
+          <Download className="w-3 h-3" />
           Export SVG
         </a>
-        <div className="flex items-center gap-1.5 text-xs text-text-muted">
-          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          {saved && <Check className="w-3.5 h-3.5 text-green-400" />}
-          {saving ? 'Saving...' : saved ? 'Saved' : ''}
-        </div>
       </div>
 
-      {/* editor */}
-      <div className="flex-1 min-h-0 p-4">
-        <ToolEditor
-          points={tool.points}
-          fingerHoles={tool.finger_holes}
-          interiorRings={tool.interior_rings}
-          smoothed={tool.smoothed}
-          smoothLevel={tool.smooth_level}
-          onPointsChange={handlePointsChange}
-          onFingerHolesChange={handleFingerHolesChange}
-          onSmoothedChange={handleSmoothedChange}
-          onSmoothLevelChange={handleSmoothLevelChange}
-          onInteriorRingsChange={handleInteriorRingsChange}
-        />
-      </div>
+      {/* editor fills the entire area */}
+      <ToolEditor
+        points={tool.points}
+        fingerHoles={tool.finger_holes}
+        interiorRings={tool.interior_rings}
+        smoothed={tool.smoothed}
+        smoothLevel={tool.smooth_level}
+        onPointsChange={handlePointsChange}
+        onFingerHolesChange={handleFingerHolesChange}
+        onSmoothedChange={handleSmoothedChange}
+        onSmoothLevelChange={handleSmoothLevelChange}
+        onInteriorRingsChange={handleInteriorRingsChange}
+      />
     </div>
   )
 }

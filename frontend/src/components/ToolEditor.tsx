@@ -566,33 +566,8 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     : 'Cutout'
 
   return (
-    <div className="h-full flex flex-col gap-3">
-      <ToolEditorToolbar
-        editMode={editMode}
-        setEditMode={setEditMode}
-        smoothed={smoothed}
-        smoothLevel={smoothLevel}
-        onSmoothedChange={onSmoothedChange}
-        onSmoothLevelChange={onSmoothLevelChange}
-        snapEnabled={snapEnabled}
-        setSnapEnabled={setSnapEnabled}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        handleUndo={handleUndo}
-        handleRedo={handleRedo}
-        cutoutOpen={cutoutOpen}
-        setCutoutOpen={setCutoutOpen}
-        isCutoutMode={isCutoutMode}
-        cutoutModeIcon={cutoutModeIcon}
-        cutoutModeLabel={cutoutModeLabel}
-        selection={selection}
-        selectedHole={selectedHole}
-        handleDeleteHole={handleDeleteHole}
-        displayPointsCount={displayPoints.length}
-        rotateAll={rotateAll}
-        flipAll={flipAll}
-        hasInteriorRings={currentRings.length > 0}
-      />
+    <div className="h-full w-full relative">
+      {/* canvas fills entire area */}
       <ToolEditorCanvas
         svgRef={svgRef}
         zvbX={zvbX}
@@ -622,9 +597,85 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
         handleHoleRotateMouseDown={handleHoleRotateMouseDown}
         handleRotatePolygonMouseDown={handleRotatePolygonMouseDown}
         onRingClick={handleFillRing}
-        bounds={bounds}
-        handleResetZoom={handleResetZoom}
       />
+
+      {/* floating toolbar: top centre */}
+      <div className="absolute top-3.5 left-1/2 -translate-x-1/2 z-20 glass-toolbar px-2 py-1">
+        <ToolEditorToolbar
+          editMode={editMode}
+          setEditMode={setEditMode}
+          smoothed={smoothed}
+          smoothLevel={smoothLevel}
+          onSmoothedChange={onSmoothedChange}
+          onSmoothLevelChange={onSmoothLevelChange}
+          snapEnabled={snapEnabled}
+          setSnapEnabled={setSnapEnabled}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          handleUndo={handleUndo}
+          handleRedo={handleRedo}
+          cutoutOpen={cutoutOpen}
+          setCutoutOpen={setCutoutOpen}
+          isCutoutMode={isCutoutMode}
+          cutoutModeIcon={cutoutModeIcon}
+          cutoutModeLabel={cutoutModeLabel}
+          selection={selection}
+          selectedHole={selectedHole}
+          handleDeleteHole={handleDeleteHole}
+          displayPointsCount={displayPoints.length}
+          rotateAll={rotateAll}
+          flipAll={flipAll}
+          hasInteriorRings={currentRings.length > 0}
+        />
+      </div>
+
+      {/* floating properties panel: right edge, shown when hole selected */}
+      {selectedHole && (
+        <div className="absolute top-[70px] right-3.5 z-20 w-[200px] glass-toolbar px-3 py-2 text-[11px] text-text-secondary">
+          <div className="font-medium text-text-primary text-[12px] mb-1">Selection</div>
+          <div>
+            {selectedHole.shape || 'circle'}
+            {selectedHole.shape === 'rectangle' && selectedHole.width && selectedHole.height
+              ? ` ${selectedHole.width.toFixed(0)}x${selectedHole.height.toFixed(0)}mm`
+              : selectedHole.shape === 'square'
+              ? ` ${(selectedHole.radius * 2).toFixed(0)}mm`
+              : ` r=${selectedHole.radius.toFixed(1)}mm`
+            }
+          </div>
+          {selectedHole.rotation ? <div>rotation: {selectedHole.rotation.toFixed(0)}deg</div> : null}
+        </div>
+      )}
+
+      {/* floating info pill: bottom left */}
+      <div className="absolute bottom-3.5 left-3.5 z-20 glass-toolbar px-3 py-1.5 text-[11px] text-text-secondary">
+        {displayPoints.length} vertices{smoothed ? ` (${points.length} raw)` : ''}, {displayHoles.length} cutout{displayHoles.length !== 1 ? 's' : ''}
+        {' \u00b7 '}
+        {((bounds.maxX - bounds.minX)).toFixed(1)}&times;{((bounds.maxY - bounds.minY)).toFixed(1)} mm
+      </div>
+
+      {/* floating zoom controls: bottom right */}
+      <div className="absolute bottom-3.5 right-3.5 z-20 glass-toolbar px-1 py-0.5 flex items-center gap-0.5 text-[11px]">
+        <button
+          onClick={() => setZoom(z => Math.max(0.5, z / ZOOM_FACTOR))}
+          className="px-2 py-1 rounded-[7px] text-text-muted hover:text-text-primary hover:bg-border/50 transition-colors"
+        >
+          -
+        </button>
+        <span className="px-1.5 text-text-secondary min-w-[36px] text-center">{Math.round(zoom * 100)}%</span>
+        <button
+          onClick={() => setZoom(z => Math.min(20, z * ZOOM_FACTOR))}
+          className="px-2 py-1 rounded-[7px] text-text-muted hover:text-text-primary hover:bg-border/50 transition-colors"
+        >
+          +
+        </button>
+        <div className="h-3.5 w-px bg-border-subtle mx-0.5" />
+        <button
+          onClick={handleResetZoom}
+          className="px-2 py-1 rounded-[7px] text-text-muted hover:text-text-primary hover:bg-border/50 transition-colors"
+        >
+          Fit
+        </button>
+      </div>
     </div>
   )
 }

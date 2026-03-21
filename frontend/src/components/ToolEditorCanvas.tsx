@@ -45,9 +45,6 @@ interface Props {
   handleRotatePolygonMouseDown: (e: React.MouseEvent) => void
   onRingClick: (ringIndex: number) => void
 
-  // bottom bar
-  bounds: { minX: number; minY: number; maxX: number; maxY: number }
-  handleResetZoom: () => void
 }
 
 export function ToolEditorCanvas({
@@ -59,26 +56,25 @@ export function ToolEditorCanvas({
   handleEdgeClick, handleVertexMouseDown,
   displayHoles, handleHoleMouseDown, handleResizeMouseDown, handleHoleRotateMouseDown,
   handleRotatePolygonMouseDown, onRingClick,
-  bounds, handleResetZoom,
 }: Props) {
   const stopClick = (e: React.MouseEvent) => e.stopPropagation()
   const [hoveredRing, setHoveredRing] = useState<number | null>(null)
 
   return (
     <>
-      {/* SVG canvas */}
-      <div className="flex-1 min-h-0 bg-inset rounded-lg p-4 flex items-center justify-center">
+      {/* SVG canvas - full bleed */}
+      <div className="absolute inset-0">
         <svg
           ref={svgRef}
           viewBox={`${zvbX} ${zvbY} ${zvbW} ${zvbH}`}
           preserveAspectRatio="xMidYMid meet"
-          className={`rounded w-full h-full ${isCutoutMode ? 'cursor-crosshair' : 'cursor-default'}`}
-          style={{ overflow: 'hidden', backgroundColor: 'rgb(30, 41, 59)' }}
+          className={`w-full h-full ${isCutoutMode ? 'cursor-crosshair' : 'cursor-default'}`}
+          style={{ overflow: 'hidden', backgroundColor: 'var(--color-inset)' }}
           onClick={handleBackgroundClick}
           onMouseDown={handleSvgMouseDown}
         >
           {/* background fill */}
-          <rect x={zvbX} y={zvbY} width={zvbW} height={zvbH} fill="rgb(30, 41, 59)" />
+          <rect x={zvbX} y={zvbY} width={zvbW} height={zvbH} fill="var(--color-inset)" />
 
           {/* grid lines */}
           {Array.from({ length: Math.ceil((gridMaxX - gridMinX) / gridStep) + 1 }).map((_, i) => {
@@ -337,32 +333,6 @@ export function ToolEditorCanvas({
             )
           })()}
         </svg>
-      </div>
-
-      {/* bottom bar */}
-      <div className="flex items-center justify-between text-xs flex-shrink-0">
-        <span className="text-text-secondary">
-          {displayPoints.length} vertices{smoothed ? ` (${points.length} raw)` : ''}, {displayHoles.length} cutout{displayHoles.length !== 1 ? 's' : ''}
-          {' \u00b7 '}
-          {((bounds.maxX - bounds.minX)).toFixed(1)}\u00d7{((bounds.maxY - bounds.minY)).toFixed(1)} mm
-        </span>
-        <span className="text-text-muted">
-          {editMode === 'select' && 'Drag vertices or cutouts to move'}
-          {editMode === 'add-vertex' && 'Click an edge to add a vertex'}
-          {editMode === 'delete-vertex' && 'Click a vertex to remove it'}
-          {editMode === 'finger-hole' && 'Click to place finger hole'}
-          {editMode === 'circle' && 'Click to place circle'}
-          {editMode === 'square' && 'Click to place square'}
-          {editMode === 'rectangle' && 'Click to place rectangle'}
-          {editMode === 'fill-ring' && 'Click a hole to fill it in'}
-        </span>
-        {zoom !== 1 ? (
-          <button onClick={handleResetZoom} className="text-text-muted hover:text-text-secondary">
-            {Math.round(zoom * 100)}% · reset
-          </button>
-        ) : (
-          <span className="text-text-muted">{Math.round(zoom * 100)}%</span>
-        )}
       </div>
     </>
   )

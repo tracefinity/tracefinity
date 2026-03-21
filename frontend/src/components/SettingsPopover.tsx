@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Settings } from 'lucide-react'
 import { getSettings, saveSettings } from '@/lib/settings'
+import { IconButton } from '@/components/IconButton'
 
 export function SettingsPopover() {
   const [open, setOpen] = useState(false)
@@ -13,7 +14,6 @@ export function SettingsPopover() {
     setBedSize(getSettings().bedSize)
   }, [])
 
-  // close on outside click
   useEffect(() => {
     if (!open) return
     function handleClick(e: MouseEvent) {
@@ -34,21 +34,17 @@ export function SettingsPopover() {
 
   return (
     <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="p-1.5 rounded hover:bg-elevated text-text-muted hover:text-text-primary transition-colors"
-        title="Settings"
-      >
-        <Settings className="w-4.5 h-4.5" />
-      </button>
+      <IconButton onClick={() => setOpen(!open)} title="Settings">
+        <Settings className="w-4 h-4" />
+      </IconButton>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-64 bg-surface border border-border rounded-lg shadow-xl z-50 p-4">
+        <div className="absolute right-0 top-full mt-1.5 w-64 glass rounded-[10px] shadow-xl z-50 p-4">
           <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-3">Settings</h3>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-[#ebecec] tracking-[0.3px]">Default Bed Size</span>
+              <span className="text-xs text-text-primary tracking-[0.3px]">Default Bed Size</span>
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -72,7 +68,7 @@ export function SettingsPopover() {
                     const v = parseInt(e.target.value)
                     if (!isNaN(v)) handleBedSizeChange(Math.min(400, Math.max(150, v)))
                   }}
-                  className="w-14 h-7 bg-[#222a35] text-right text-xs font-semibold text-[#ebecec] rounded-[5px] pr-2 focus:outline-none"
+                  className="w-14 h-7 bg-elevated text-right text-xs font-semibold text-text-primary rounded pr-2 focus:outline-none"
                 />
                 <span className="text-[10px] text-text-muted w-5">mm</span>
               </div>

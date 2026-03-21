@@ -9,7 +9,8 @@ import { ToolBrowser } from '@/components/ToolBrowser'
 import { getBin, updateBin, generateBinStl, getBinStlUrl, getBinZipUrl, getBinThreemfUrl, getImageUrl, listTools, updateTool } from '@/lib/api'
 import { getSettings } from '@/lib/settings'
 import type { BinConfig, BinData, PlacedTool, TextLabel } from '@/types'
-import { Download, Loader2, Package, ArrowLeft } from 'lucide-react'
+import { Download, Loader2, Package, ChevronDown, Check } from 'lucide-react'
+import { Breadcrumb } from '@/components/Breadcrumb'
 import { Alert } from '@/components/Alert'
 import { useDebouncedSave } from '@/hooks/useDebouncedSave'
 import { GRID_UNIT } from '@/lib/constants'
@@ -60,13 +61,26 @@ export default function BinPage() {
   const [smoothLevels, setSmoothLevels] = useState<Map<string, number>>(new Map())
   const smoothLevelTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  const [exportOpen, setExportOpen] = useState(false)
+  const exportRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!exportOpen) return
+    function handleClick(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [exportOpen])
+
   useEffect(() => {
     async function load() {
       try {
         const [data, tools] = await Promise.all([getBin(binId), listTools()])
         setBinData(data)
 
-        // sync placed tools with library (e.g. filled-in interior rings)
         const toolMap = new Map(tools.map(t => [t.id, t]))
         const synced = data.placed_tools.map(pt => {
           const lib = toolMap.get(pt.tool_id)
@@ -107,7 +121,6 @@ export default function BinPage() {
     const key = JSON.stringify({ placedTools, config, textLabels, smoothed: [...smoothedToolIds], levels: [...smoothLevels] })
     if (key === lastGenerateRef.current) return
 
-    // abort any in-flight request
     if (abortRef.current) {
       abortRef.current.abort()
     }
@@ -144,7 +157,7 @@ export default function BinPage() {
     doGenerateRef.current = doGenerate
   }, [doGenerate])
 
-  useDebouncedSave(
+  const { saving, saved } = useDebouncedSave(
     () => {
       if (!binData) return
       updateBin(binId, {
@@ -159,12 +172,10 @@ export default function BinPage() {
     { skipInitial: true }
   )
 
-  // abort in-flight STL generation on unmount
   useEffect(() => {
     return () => { abortRef.current?.abort() }
   }, [])
 
-  // debounce only the STL generation
   useEffect(() => {
     if (!binData) return
     if (generateTimeoutRef.current) clearTimeout(generateTimeoutRef.current)
@@ -211,7 +222,6 @@ export default function BinPage() {
     const toolW = maxX - minX
     const toolH = maxY - minY
 
-    // account for walls, clearance, and gridfinity grid inset
     const margin = 2 * config.wall_thickness + 2 * config.cutout_clearance + 0.5
     const needX = Math.max(config.grid_x, Math.ceil((toolW + margin) / GRID_UNIT))
     const needY = Math.max(config.grid_y, Math.ceil((toolH + margin) / GRID_UNIT))
@@ -269,169 +279,173 @@ export default function BinPage() {
 
   const stlUrlWithVersion = stlUrl ? `${stlUrl}?v=${stlVersion}` : null
   const splitUrlsWithVersion = stlUrls.length > 0 ? stlUrls.map(u => `${u}?v=${stlVersion}`) : null
+  const binW = config.grid_x * GRID_UNIT
+  const binH = config.grid_y * GRID_UNIT
+  const hasExports = stlUrl || zipUrl || threemfUrl
 
   return (
-    <div className="h-[calc(100vh-53px)] flex flex-col md:flex-row w-full">
-      {/* left sidebar */}
-      <div className="md:w-[260px] md:flex-shrink-0 bg-surface border-b md:border-b-0 md:border-r border-border flex flex-col max-h-[45vh] md:max-h-none">
-        <div className="px-4 py-3 border-b border-border flex-shrink-0">
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              onClick={() => router.push('/')}
-              className="p-1 rounded hover:bg-elevated text-text-muted"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-            </button>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              onBlur={() => {
-                if (name !== binData?.name) {
-                  updateBin(binId, { name }).catch(() => {})
-                }
-              }}
-              className="text-sm font-medium text-text-primary bg-elevated border border-border-subtle rounded px-2 py-1 outline-none focus:border-blue-500 flex-1 min-w-0"
-              placeholder="Untitled bin"
-            />
-          </div>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Bin Config</h3>
+    <div className="h-[calc(100vh-44px)] flex">
+      {/* config sidebar - always open */}
+      <div className="w-[200px] flex-shrink-0 bg-surface border-r border-border flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 space-y-3">
+          <div className="glass rounded-[10px] px-3 py-3">
+            <div className="flex items-center gap-2 mb-3">
+              <Breadcrumb segments={[
+                { label: 'Bins', href: '/' },
+                { label: name || 'Untitled', editable: true, onEdit: (v) => setName(v) },
+              ]} />
+              {saving && <Loader2 className="w-3 h-3 animate-spin text-text-muted flex-shrink-0" />}
+              {saved && <Check className="w-3 h-3 text-green-400 flex-shrink-0" />}
+            </div>
             <BinConfigurator config={config} onChange={setConfig} />
           </div>
 
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Tool Library</h3>
-            <ToolBrowser
-              onAddTool={handleAddTool}
-              binWidthMm={config.grid_x * GRID_UNIT}
-              binHeightMm={config.grid_y * GRID_UNIT}
-            />
-          </div>
-
-          <div className="px-4 py-3">
-            <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Actual Size</h3>
-            <div className="text-xs text-text-secondary space-y-0.5">
-              <div className="flex justify-between">
-                <span>Width</span>
-                <span>{config.grid_x * GRID_UNIT} mm</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Depth</span>
-                <span>{config.grid_y * GRID_UNIT} mm</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Height</span>
-                <span>{(config.height_units * 7 + 5 + (config.stacking_lip ? 4.4 : 0)).toFixed(1)} mm</span>
-              </div>
+          <div className="glass rounded-[10px] px-3 py-3">
+            <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px] mb-2">Dimensions</h3>
+            <div className="text-[11px] text-text-secondary space-y-0.5">
+              <div className="flex justify-between"><span>Width</span><span>{binW} mm</span></div>
+              <div className="flex justify-between"><span>Depth</span><span>{binH} mm</span></div>
+              <div className="flex justify-between"><span>Height</span><span>{(config.height_units * 7 + 5 + (config.stacking_lip ? 4.4 : 0)).toFixed(1)} mm</span></div>
             </div>
           </div>
         </div>
 
-        <div className="px-4 py-3 border-t border-border flex-shrink-0 space-y-2">
+        {/* export buttons */}
+        <div className="p-3 flex-shrink-0 space-y-1.5">
           {error && <Alert variant="error">{error}</Alert>}
-
           {splitCount > 1 && (
-            <div className="text-xs text-amber-400 bg-amber-900/20 border border-amber-800/50 rounded px-2 py-1.5">
-              Split into {splitCount} pieces to fit {config.bed_size}mm bed
+            <div className="text-[10px] text-amber-400 bg-amber-900/20 border border-amber-800/50 rounded px-2 py-1">
+              Split into {splitCount} pieces
             </div>
           )}
-
-          {zipUrl ? (
-            <button
-              onClick={handleDownloadZip}
-              disabled={generating}
-              className="btn-primary w-full py-2 inline-flex items-center justify-center gap-1.5 text-sm"
-            >
-              <Package className="w-3.5 h-3.5" />
-              Export ZIP ({splitCount} parts)
-            </button>
-          ) : stlUrl ? (
-            <button
-              onClick={handleDownload}
-              disabled={generating}
-              className="btn-primary w-full py-2 inline-flex items-center justify-center gap-1.5 text-sm"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export STL
-            </button>
-          ) : null}
-
-          {stlUrl && zipUrl && (
-            <button
-              onClick={handleDownload}
-              disabled={generating}
-              className="btn-secondary w-full py-1.5 inline-flex items-center justify-center gap-1.5 text-sm"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export Full STL
-            </button>
-          )}
-
-          {threemfUrl && (
-            <button
-              onClick={handleDownloadThreemf}
-              disabled={generating}
-              className="btn-secondary w-full py-1.5 inline-flex items-center justify-center gap-1.5 text-sm"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export 3MF
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* bin editor */}
-      <div className="flex-1 min-h-0 bg-inset overflow-hidden p-4">
-        <BinEditor
-          placedTools={placedTools}
-          onPlacedToolsChange={handlePlacedToolsChange}
-          textLabels={textLabels}
-          onTextLabelsChange={setTextLabels}
-          gridX={config.grid_x}
-          gridY={config.grid_y}
-          wallThickness={config.wall_thickness}
-          onEditTool={(toolId) => router.push(`/tools/${toolId}`)}
-          smoothedToolIds={smoothedToolIds}
-          onToggleSmoothed={handleToggleSmoothed}
-          smoothLevels={smoothLevels}
-          onSmoothLevelChange={handleSmoothLevelChange}
-        />
-      </div>
-
-      {/* 3D preview - hidden on mobile */}
-      <div className="hidden md:flex flex-1 bg-inset border-l border-border overflow-hidden flex-col relative">
-        {generating && (
-          <div className="absolute inset-x-0 bottom-0 z-10">
-            <div className="h-1 w-full overflow-hidden bg-blue-950">
-              <div className="h-full w-1/3 bg-blue-500 rounded-full animate-[slide_1.2s_ease-in-out_infinite]" />
-            </div>
-            <div className="flex items-center justify-center gap-2 py-2 bg-surface/90 backdrop-blur-sm border-t border-border">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
-              <span className="text-xs text-text-secondary">Generating STL...</span>
-            </div>
-          </div>
-        )}
-        <div className="flex-1 min-h-[300px]">
-          {stlUrlWithVersion ? (
-            <BinPreview3D stlUrl={stlUrlWithVersion} splitUrls={splitUrlsWithVersion || undefined} />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-text-muted text-sm gap-2">
-              {generating ? (
-                <>
-                  <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-                  <span>Generating STL...</span>
-                </>
-              ) : placedTools.length === 0 ? (
-                <span>Add tools from the library to get started</span>
-              ) : (
-                <span>Preview will appear here</span>
+          {hasExports && (
+            <div className="relative" ref={exportRef}>
+              <button
+                onClick={() => setExportOpen(p => !p)}
+                className="btn-primary w-full py-2 text-[11px] font-medium inline-flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              {exportOpen && (
+                <div className="absolute bottom-full left-0 right-0 mb-1.5 glass rounded-lg py-1 z-30">
+                  {stlUrl && (
+                    <button
+                      onClick={() => { handleDownload(); setExportOpen(false) }}
+                      className="w-full text-left px-3 py-1.5 text-[11px] text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer flex items-center gap-2"
+                    >
+                      <Package className="w-3 h-3" />
+                      {zipUrl ? 'Full STL' : 'STL'}
+                    </button>
+                  )}
+                  {zipUrl && (
+                    <button
+                      onClick={() => { handleDownloadZip(); setExportOpen(false) }}
+                      className="w-full text-left px-3 py-1.5 text-[11px] text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer flex items-center gap-2"
+                    >
+                      <Package className="w-3 h-3" />
+                      ZIP ({splitCount} parts)
+                    </button>
+                  )}
+                  {threemfUrl && (
+                    <button
+                      onClick={() => { handleDownloadThreemf(); setExportOpen(false) }}
+                      className="w-full text-left px-3 py-1.5 text-[11px] text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer flex items-center gap-2"
+                    >
+                      <Package className="w-3 h-3" />
+                      3MF
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* right of sidebar: library on top, then canvas + 3D preview below */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* library strip - full width */}
+        <div className="flex-shrink-0 bg-surface border-b border-border px-3 py-2">
+          <ToolBrowser
+            onAddTool={handleAddTool}
+            binWidthMm={binW}
+            binHeightMm={binH}
+            layout="horizontal"
+          />
+        </div>
+
+        {/* canvas + 3D preview side by side, equal width */}
+        <div className="flex-1 min-h-0 flex">
+          {/* canvas */}
+          <div className="flex-1 min-w-0 relative bg-inset overflow-hidden">
+            <div className="absolute inset-0">
+              <BinEditor
+                placedTools={placedTools}
+                onPlacedToolsChange={handlePlacedToolsChange}
+                textLabels={textLabels}
+                onTextLabelsChange={setTextLabels}
+                gridX={config.grid_x}
+                gridY={config.grid_y}
+                wallThickness={config.wall_thickness}
+                onEditTool={(toolId) => router.push(`/tools/${toolId}`)}
+                smoothedToolIds={smoothedToolIds}
+                onToggleSmoothed={handleToggleSmoothed}
+                smoothLevels={smoothLevels}
+                onSmoothLevelChange={handleSmoothLevelChange}
+              />
+            </div>
+
+            {/* floating bottom bar */}
+            <div className="absolute bottom-3.5 left-3.5 right-3.5 z-20 glass-toolbar px-3 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[11px] text-text-muted">
+                {generating && <Loader2 className="w-3 h-3 animate-spin text-accent" />}
+                <span>{config.grid_x}x{config.grid_y} Grid ({binW} x {binH} mm)</span>
+                {placedTools.length > 0 && (
+                  <span>· {placedTools.length} tool{placedTools.length !== 1 ? 's' : ''} placed</span>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div className="absolute top-14 left-3.5 z-20 max-w-sm">
+                <Alert variant="error">{error}</Alert>
+              </div>
+            )}
+          </div>
+
+          {/* 3D preview - same width as canvas */}
+          <div className="flex-1 min-w-0 bg-surface border-l border-border flex flex-col">
+            <div className="px-3 py-2 border-b border-border flex-shrink-0">
+              <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px]">3D Preview</h3>
+            </div>
+            <div className="flex-1 min-h-0 relative bg-inset">
+              {generating && (
+                <div className="absolute inset-x-0 bottom-0 z-10">
+                  <div className="h-1 w-full overflow-hidden bg-blue-950">
+                    <div className="h-full w-1/3 bg-blue-500 rounded-full animate-[slide_1.2s_ease-in-out_infinite]" />
+                  </div>
+                </div>
+              )}
+              {stlUrlWithVersion ? (
+                <BinPreview3D stlUrl={stlUrlWithVersion} splitUrls={splitUrlsWithVersion || undefined} />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-text-muted text-xs gap-2">
+                  {generating ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
+                      <span>Generating...</span>
+                    </>
+                  ) : placedTools.length === 0 ? (
+                    <span>Add tools to see preview</span>
+                  ) : (
+                    <span>Preview will appear here</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

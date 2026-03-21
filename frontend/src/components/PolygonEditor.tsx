@@ -295,10 +295,10 @@ export function PolygonEditor({
       {/* toolbar */}
       {editable && (
         <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="flex gap-1 bg-elevated rounded-lg p-1 border border-border">
+          <div className="flex gap-1 bg-elevated rounded-[10px] p-1 border border-border">
             <button
               onClick={() => handleModeChange('vertex')}
-              className={`p-2 rounded ${
+              className={`p-2 rounded transition-colors cursor-pointer ${
                 editMode === 'vertex' || editMode === 'select'
                   ? 'bg-accent-muted text-accent'
                   : 'hover:bg-border text-text-secondary'
@@ -309,7 +309,7 @@ export function PolygonEditor({
             </button>
             <button
               onClick={() => handleModeChange('add-vertex')}
-              className={`p-2 rounded ${
+              className={`p-2 rounded transition-colors cursor-pointer ${
                 editMode === 'add-vertex'
                   ? 'bg-accent-muted text-accent'
                   : 'hover:bg-border text-text-secondary'
@@ -320,7 +320,7 @@ export function PolygonEditor({
             </button>
             <button
               onClick={() => handleModeChange('delete-vertex')}
-              className={`p-2 rounded ${
+              className={`p-2 rounded transition-colors cursor-pointer ${
                 editMode === 'delete-vertex'
                   ? 'bg-accent-muted text-accent'
                   : 'hover:bg-border text-text-secondary'
@@ -363,7 +363,7 @@ export function PolygonEditor({
           {activeId && (
             <button
               onClick={() => handleDeletePolygon(activeId)}
-              className="ml-auto px-3 py-1.5 text-sm text-red-400 hover:bg-red-900/20 rounded border border-red-800 flex items-center gap-1"
+              className="ml-auto px-3 py-1.5 text-sm text-red-400 hover:bg-red-900/20 rounded border border-red-800 flex items-center gap-1 transition-colors cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
               Delete

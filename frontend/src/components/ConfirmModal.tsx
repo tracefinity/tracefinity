@@ -50,7 +50,7 @@ export function ConfirmModal({
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onCancel}
       />
-      <div className="relative bg-surface rounded-lg shadow-xl max-w-md w-full mx-4 p-6 border border-border">
+      <div className="relative glass rounded-[10px] shadow-xl max-w-md w-full mx-4 p-6">
         <div className="flex items-start gap-4">
           {variant === 'danger' && (
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-900/30 flex items-center justify-center">
@@ -65,14 +65,14 @@ export function ConfirmModal({
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-text-secondary hover:bg-elevated rounded-lg transition-colors"
+            className="px-4 py-2 text-sm text-text-secondary hover:bg-elevated rounded-[10px] transition-colors cursor-pointer"
           >
             {cancelText}
           </button>
           <button
             ref={confirmRef}
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm text-white rounded-lg transition-colors ${
+            className={`px-4 py-2 text-sm text-white rounded-[10px] transition-colors cursor-pointer ${
               variant === 'danger'
                 ? 'bg-red-600 hover:bg-red-700'
                 : 'bg-accent hover:bg-accent-hover'

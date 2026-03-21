@@ -450,24 +450,27 @@ export function BinEditor({
   }
 
   return (
-    <div className="h-full flex flex-col gap-3">
-      <BinEditorToolbar
-        activeTool={activeTool}
-        setActiveTool={setActiveTool}
-        snapEnabled={snapEnabled}
-        setSnapEnabled={setSnapEnabled}
-        handleRecenter={handleRecenter}
-        selectedTool={selectedTool ?? null}
-        selectedLabel={selectedLabel ?? null}
-        onEditTool={onEditTool}
-        onRemoveTool={handleDeleteTool}
-        onRemoveLabel={handleDeleteLabel}
-        smoothedToolIds={smoothedToolIds}
-        smoothLevels={smoothLevels}
-        onToggleSmoothed={onToggleSmoothed}
-        onSmoothLevelChange={onSmoothLevelChange}
-        onUpdateLabel={updateSelectedLabel}
-      />
+    <div className="h-full w-full relative">
+      {/* floating toolbar */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 glass-toolbar px-1.5 py-1 flex items-center gap-0.5">
+        <BinEditorToolbar
+          activeTool={activeTool}
+          setActiveTool={setActiveTool}
+          snapEnabled={snapEnabled}
+          setSnapEnabled={setSnapEnabled}
+          handleRecenter={handleRecenter}
+          selectedTool={selectedTool ?? null}
+          selectedLabel={selectedLabel ?? null}
+          onEditTool={onEditTool}
+          onRemoveTool={handleDeleteTool}
+          onRemoveLabel={handleDeleteLabel}
+          smoothedToolIds={smoothedToolIds}
+          smoothLevels={smoothLevels}
+          onToggleSmoothed={onToggleSmoothed}
+          onSmoothLevelChange={onSmoothLevelChange}
+          onUpdateLabel={updateSelectedLabel}
+        />
+      </div>
       <BinEditorCanvas
         svgRef={svgRef}
         displayWidth={displayWidth}

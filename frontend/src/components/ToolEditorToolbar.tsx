@@ -51,13 +51,12 @@ export function ToolEditorToolbar({
 }: Props) {
   return (
     <>
-      {/* toolbar */}
-      <div className="flex items-center gap-3 flex-shrink-0">
-        {/* mode selector: segmented control */}
-        <div className="flex bg-elevated rounded-lg p-0.5 border border-border">
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {/* mode selector */}
+        <div className="flex rounded-[7px] p-0.5">
           <button
             onClick={() => setEditMode('select')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+            className={`px-2.5 py-1 rounded-[7px] text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
               editMode === 'select' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
             }`}
             title="Select and drag vertices / cutouts"
@@ -67,7 +66,7 @@ export function ToolEditorToolbar({
           </button>
           <button
             onClick={() => setEditMode('add-vertex')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+            className={`px-2.5 py-1 rounded-[7px] text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
               editMode === 'add-vertex' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
             }`}
             title="Add vertex on edge"
@@ -78,7 +77,7 @@ export function ToolEditorToolbar({
           </button>
           <button
             onClick={() => setEditMode('delete-vertex')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+            className={`px-2.5 py-1 rounded-[7px] text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
               editMode === 'delete-vertex' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
             }`}
             title="Delete vertex"
@@ -90,7 +89,7 @@ export function ToolEditorToolbar({
           <div className="relative">
             <button
               onClick={() => setCutoutOpen(prev => !prev)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+              className={`px-2.5 py-1 rounded-[7px] text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
                 isCutoutMode ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
               }`}
             >
@@ -127,7 +126,7 @@ export function ToolEditorToolbar({
           {hasInteriorRings && (
             <button
               onClick={() => setEditMode('fill-ring')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+              className={`px-2.5 py-1 rounded-[7px] text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
                 editMode === 'fill-ring' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
               }`}
               title="Fill in interior holes"
@@ -138,115 +137,112 @@ export function ToolEditorToolbar({
           )}
         </div>
 
+        <div className="h-4 w-px bg-border-subtle mx-0.5" />
+
         {/* utility actions */}
         <div className="flex items-center gap-0.5 text-text-muted">
           <button
             onClick={() => rotateAll(-90)}
-            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary"
-            title="Rotate 90° counter-clockwise"
+            className="p-1 rounded-[7px] hover:bg-border/50 hover:text-text-secondary"
+            title="Rotate 90 counter-clockwise"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => rotateAll(90)}
-            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary"
-            title="Rotate 90° clockwise"
+            className="p-1 rounded-[7px] hover:bg-border/50 hover:text-text-secondary"
+            title="Rotate 90 clockwise"
           >
-            <RotateCw className="w-4 h-4" />
+            <RotateCw className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => flipAll('horizontal')}
-            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary"
+            className="p-1 rounded-[7px] hover:bg-border/50 hover:text-text-secondary"
             title="Flip horizontally"
           >
-            <FlipHorizontal2 className="w-4 h-4" />
+            <FlipHorizontal2 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => flipAll('vertical')}
-            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary"
+            className="p-1 rounded-[7px] hover:bg-border/50 hover:text-text-secondary"
             title="Flip vertically"
           >
-            <FlipVertical2 className="w-4 h-4" />
+            <FlipVertical2 className="w-3.5 h-3.5" />
           </button>
-          <div className="h-4 w-px bg-border-subtle mx-1" />
-          <button
-            onClick={handleUndo}
-            disabled={!canUndo}
-            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Undo (Ctrl+Z)"
-          >
-            <Undo2 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleRedo}
-            disabled={!canRedo}
-            className="p-1.5 rounded hover:bg-border/50 hover:text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Redo (Ctrl+Shift+Z)"
-          >
-            <Redo2 className="w-4 h-4" />
-          </button>
-          <div className="h-4 w-px bg-border-subtle mx-1" />
-          <button
-            onClick={() => setSnapEnabled(!snapEnabled)}
-            className={`px-2 py-1.5 rounded text-xs flex items-center gap-1 transition-colors ${
-              snapEnabled ? 'text-accent' : 'hover:bg-border/50 hover:text-text-secondary'
-            }`}
-            title={`Snap to ${SNAP_GRID}mm grid${snapEnabled ? ' (on)' : ' (off)'}`}
-          >
-            <Magnet className="w-3.5 h-3.5" />
-            Snap
-          </button>
-          <div className="flex items-center bg-elevated rounded overflow-hidden border border-border-subtle text-xs">
-            <button
-              onClick={() => onSmoothedChange(false)}
-              className={`px-2 py-1 transition-colors ${!smoothed ? 'bg-accent text-white' : 'text-text-muted hover:text-text-secondary'}`}
-            >
-              Accurate
-            </button>
-            <button
-              onClick={() => { onSmoothedChange(true); if (editMode === 'add-vertex' || editMode === 'delete-vertex') setEditMode('select') }}
-              className={`px-2 py-1 transition-colors ${smoothed ? 'bg-accent text-white' : 'text-text-muted hover:text-text-secondary'}`}
-            >
-              Smooth
-            </button>
-          </div>
-          {smoothed && (
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={smoothLevel}
-              onChange={e => onSmoothLevelChange(parseFloat(e.target.value))}
-              className="w-20 h-1 accent-accent"
-              title={`Smooth level: ${Math.round(smoothLevel * 100)}%`}
-            />
-          )}
         </div>
 
-        {selection?.type === 'hole' && (
+        <div className="h-4 w-px bg-border-subtle mx-0.5" />
+
+        <button
+          onClick={() => setSnapEnabled(!snapEnabled)}
+          className={`px-2 py-1 rounded-[7px] text-[11px] flex items-center gap-1 transition-colors ${
+            snapEnabled ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
+          }`}
+          title={`Snap to ${SNAP_GRID}mm grid${snapEnabled ? ' (on)' : ' (off)'}`}
+        >
+          <Magnet className="w-3.5 h-3.5" />
+          Snap
+        </button>
+        <div className="flex items-center rounded-[7px] overflow-hidden border border-border-subtle text-[11px]">
           <button
-            onClick={handleDeleteHole}
-            className="ml-auto px-3 py-1.5 text-xs font-medium text-white bg-red-700 hover:bg-red-600 rounded-lg flex items-center gap-1 shadow-sm"
+            onClick={() => onSmoothedChange(false)}
+            className={`px-2 py-1 transition-colors ${!smoothed ? 'bg-accent-muted text-accent' : 'text-text-muted hover:text-text-secondary'}`}
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            Delete
+            Accurate
           </button>
+          <button
+            onClick={() => { onSmoothedChange(true); if (editMode === 'add-vertex' || editMode === 'delete-vertex') setEditMode('select') }}
+            className={`px-2 py-1 transition-colors ${smoothed ? 'bg-accent-muted text-accent' : 'text-text-muted hover:text-text-secondary'}`}
+          >
+            Smooth
+          </button>
+        </div>
+        {smoothed && (
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={smoothLevel}
+            onChange={e => onSmoothLevelChange(parseFloat(e.target.value))}
+            className="w-16 h-1 accent-accent"
+            title={`Smooth level: ${Math.round(smoothLevel * 100)}%`}
+          />
+        )}
+
+        <div className="h-4 w-px bg-border-subtle mx-0.5" />
+
+        <button
+          onClick={handleUndo}
+          disabled={!canUndo}
+          className="p-1 rounded-[7px] hover:bg-border/50 hover:text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo2 className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={handleRedo}
+          disabled={!canRedo}
+          className="p-1 rounded-[7px] hover:bg-border/50 hover:text-text-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Redo (Ctrl+Shift+Z)"
+        >
+          <Redo2 className="w-3.5 h-3.5" />
+        </button>
+
+        {selection?.type === 'hole' && (
+          <>
+            <div className="h-4 w-px bg-border-subtle mx-0.5" />
+            <button
+              onClick={handleDeleteHole}
+              className="px-2 py-1 text-[11px] font-medium text-white bg-red-700 hover:bg-red-600 rounded-[7px] flex items-center gap-1"
+            >
+              <Trash2 className="w-3 h-3" />
+              Delete
+            </button>
+          </>
         )}
       </div>
 
-      {selectedHole && (
-        <div className="text-sm text-text-secondary bg-elevated rounded border border-border px-3 py-2 flex-shrink-0">
-          Selected: {selectedHole.shape || 'circle'}
-          {selectedHole.shape === 'rectangle' && selectedHole.width && selectedHole.height
-            ? ` (${selectedHole.width.toFixed(0)}x${selectedHole.height.toFixed(0)}mm)`
-            : selectedHole.shape === 'square'
-            ? ` (${(selectedHole.radius * 2).toFixed(0)}mm)`
-            : ` (r=${selectedHole.radius.toFixed(1)}mm)`
-          }
-          {selectedHole.rotation ? `, rot: ${selectedHole.rotation.toFixed(0)}deg` : ''}
-        </div>
-      )}
     </>
   )
 }
