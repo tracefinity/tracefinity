@@ -329,7 +329,7 @@ export default function BinPage() {
                 <ChevronDown className="w-3 h-3" />
               </button>
               {exportOpen && (
-                <div className="absolute bottom-full left-0 right-0 mb-1.5 glass rounded-lg py-1 z-30">
+                <div className="absolute bottom-full left-0 right-0 mb-1.5 bg-surface border border-border rounded-lg py-1 z-30 shadow-xl">
                   {stlUrl && (
                     <button
                       onClick={() => { handleDownload(); setExportOpen(false) }}

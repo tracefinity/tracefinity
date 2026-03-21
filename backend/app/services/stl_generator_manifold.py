@@ -435,18 +435,41 @@ def _text_to_cross_section(text: str, font_size_mm: float):
     return cs if cs.area() > 0 else None
 
 
+def _point_in_polygon(px: float, py: float, pts: list) -> bool:
+    """ray-casting point-in-polygon test"""
+    n = len(pts)
+    inside = False
+    j = n - 1
+    for i in range(n):
+        xi, yi = pts[i]["x"], pts[i]["y"]
+        xj, yj = pts[j]["x"], pts[j]["y"]
+        if ((yi > py) != (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
 def _make_text_labels(
     config: GenerateRequest,
     wall_top_z: float,
     emboss_only: bool,
     offset_x: float,
     offset_y: float,
+    pocket_depth: float = 0,
+    polygons: list = None,
 ):
-    """Build manifold solids for text labels. Returns (recessed_cutter, embossed_body)."""
+    """Build manifold solids for text labels. Returns (recessed_cutter, embossed_body).
+
+    Labels inside tool cutouts sit at the cutout floor. Labels on the bin
+    surface sit at wall_top_z.
+    """
     import manifold3d as mf
 
     recessed = []
     embossed = []
+
+    cutout_floor_z = wall_top_z - pocket_depth
+    polys = polygons or []
 
     for tl in (config.text_labels or []):
         cs = _text_to_cross_section(tl.text, tl.font_size)
@@ -457,19 +480,25 @@ def _make_text_labels(
             lx = tl.x + offset_x
             ly = -(tl.y + offset_y)
 
+            # determine if label centre is inside any tool cutout
+            in_cutout = any(
+                _point_in_polygon(tl.x, tl.y, p.get("points", []))
+                for p in polys
+            )
+            base_z = cutout_floor_z if in_cutout else wall_top_z
+
             if tl.emboss:
                 solid = (
                     mf.Manifold.extrude(cs, tl.depth)
                     .rotate((0.0, 0.0, -tl.rotation))
-                    .translate((lx, ly, wall_top_z))
+                    .translate((lx, ly, base_z))
                 )
                 embossed.append(solid)
             else:
-                # recessed: extrude then place at wall_top going down
                 cutter = (
                     mf.Manifold.extrude(cs, tl.depth + 0.01)
                     .rotate((0.0, 0.0, -tl.rotation))
-                    .translate((lx, ly, wall_top_z - tl.depth - 0.01))
+                    .translate((lx, ly, base_z - tl.depth - 0.01))
                 )
                 recessed.append(cutter)
         except Exception as e:
@@ -595,7 +624,8 @@ class ManifoldSTLGenerator:
         text_body = None
         if config.text_labels:
             t1 = time.monotonic()
-            recessed, embossed = _make_text_labels(config, wall_top_z, False, offset_x, offset_y)
+            poly_dicts = [{"points": [{"x": p[0], "y": p[1]} for p in pg.points_mm]} for pg in polygons] if polygons else []
+            recessed, embossed = _make_text_labels(config, wall_top_z, False, offset_x, offset_y, pocket_depth, poly_dicts)
             if recessed:
                 cutters.append(recessed)
             if embossed and not embossed.is_empty():

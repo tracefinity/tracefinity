@@ -334,7 +334,10 @@ export function BinEditor({
       const dy = pos.y - dragging.startY
       const newX = snapToGrid(dragging.origX + dx)
       const newY = snapToGrid(dragging.origY + dy)
-      if (isInsideCutout(newX, newY)) return
+      // prevent straddling: label must stay in the same zone it started in
+      const wasInCutout = isInsideCutout(dragging.origX, dragging.origY)
+      const nowInCutout = isInsideCutout(newX, newY)
+      if (wasInCutout !== nowInCutout) return
       const updated = currentLabels.map(l => {
         if (l.id !== dragging.labelId) return l
         return { ...l, x: newX, y: newY }
@@ -407,7 +410,7 @@ export function BinEditor({
         return
       }
       const pos = screenToMm(e.clientX, e.clientY)
-      if (pos.x >= 0 && pos.x <= binWidthMm && pos.y >= 0 && pos.y <= binHeightMm && !isInsideCutout(pos.x, pos.y)) {
+      if (pos.x >= 0 && pos.x <= binWidthMm && pos.y >= 0 && pos.y <= binHeightMm) {
         setPendingLabel({ x: snapToGrid(pos.x), y: snapToGrid(pos.y) })
         setPendingText('')
       }

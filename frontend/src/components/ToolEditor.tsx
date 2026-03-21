@@ -72,9 +72,9 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const rawDisplayPoints = dragPoints ?? points
   const displayHoles = dragHoles ?? fingerHoles
   const smoothedPoints = useMemo(() => {
-    if (!smoothed || points.length <= 3) return null
-    return simplifyPolygon(points, smoothEpsilon(points, smoothLevel))
-  }, [smoothed, smoothLevel, points])
+    if (!smoothed || rawDisplayPoints.length <= 3) return null
+    return simplifyPolygon(rawDisplayPoints, smoothEpsilon(rawDisplayPoints, smoothLevel))
+  }, [smoothed, smoothLevel, rawDisplayPoints])
   const displayPoints = smoothed && smoothedPoints ? smoothedPoints : rawDisplayPoints
 
   // refs for stale closure avoidance
@@ -600,7 +600,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       />
 
       {/* floating toolbar: top centre */}
-      <div className="absolute top-3.5 left-1/2 -translate-x-1/2 z-20 glass-toolbar px-2 py-1">
+      <div className="absolute top-3.5 left-1/2 -translate-x-1/2 z-20 glass-toolbar px-2 py-1 pointer-events-auto">
         <ToolEditorToolbar
           editMode={editMode}
           setEditMode={setEditMode}

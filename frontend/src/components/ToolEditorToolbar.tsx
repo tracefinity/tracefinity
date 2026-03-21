@@ -67,9 +67,9 @@ export function ToolEditorToolbar({
           <button
             onClick={() => setEditMode('add-vertex')}
             className={`px-2.5 py-1 rounded-[7px] text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
-              editMode === 'add-vertex' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
+              smoothed ? 'opacity-30 cursor-not-allowed text-text-muted' : editMode === 'add-vertex' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
             }`}
-            title="Add vertex on edge"
+            title={smoothed ? 'Switch to Accurate mode to add points' : 'Add vertex on edge'}
             disabled={smoothed}
           >
             <Plus className="w-4 h-4" />
@@ -78,9 +78,9 @@ export function ToolEditorToolbar({
           <button
             onClick={() => setEditMode('delete-vertex')}
             className={`px-2.5 py-1 rounded-[7px] text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
-              editMode === 'delete-vertex' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
+              smoothed || displayPointsCount <= 3 ? 'opacity-30 cursor-not-allowed text-text-muted' : editMode === 'delete-vertex' ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
             }`}
-            title="Delete vertex"
+            title={smoothed ? 'Switch to Accurate mode to remove points' : 'Delete vertex'}
             disabled={smoothed || displayPointsCount <= 3}
           >
             <Minus className="w-4 h-4" />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ImageUploader } from '@/components/ImageUploader'
 import { ConfirmModal } from '@/components/ConfirmModal'
@@ -141,32 +141,64 @@ function NameModal({ open, onConfirm, onCancel }: {
   )
 }
 
-function SectionHeader({ title, count, showFilters, children }: {
+function SectionHeader({ title, count, search, onSearchChange, sortKey, onSortChange, children }: {
   title: string
   count?: number
-  showFilters?: boolean
+  search?: string
+  onSearchChange?: (v: string) => void
+  sortKey?: string
+  onSortChange?: (v: string) => void
   children?: React.ReactNode
 }) {
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus()
+  }, [searchOpen])
+
   return (
-    <div className="flex items-center justify-between mb-3">
-      <div className="flex items-center gap-2">
+    <div className="flex items-center justify-between mb-3 gap-2">
+      <div className="flex items-center gap-2 flex-shrink-0">
         <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px]">{title}</h3>
         {count !== undefined && count > 0 && (
           <span className="text-[10px] text-text-muted bg-elevated px-1.5 py-px rounded-full">{count}</span>
         )}
       </div>
       <div className="flex items-center gap-1.5">
-        {showFilters && (
-          <>
-            <button className="glass-sm rounded-[7px] px-2.5 py-1 text-[11px] text-text-secondary flex items-center gap-1.5 hover:bg-glass-hover transition-colors cursor-pointer">
+        {onSearchChange && (
+          searchOpen ? (
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={search || ''}
+                onChange={e => onSearchChange(e.target.value)}
+                onBlur={() => { if (!search) setSearchOpen(false) }}
+                onKeyDown={e => { if (e.key === 'Escape') { onSearchChange(''); setSearchOpen(false) } }}
+                placeholder="Filter..."
+                className="w-36 pl-6 pr-2 py-1 text-[11px] bg-elevated border border-border-subtle rounded-[7px] text-text-primary outline-none focus:border-accent"
+              />
+            </div>
+          ) : (
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="glass-sm rounded-[7px] px-2.5 py-1 text-[11px] text-text-secondary flex items-center gap-1.5 hover:bg-glass-hover transition-colors cursor-pointer"
+            >
               <Search className="w-3 h-3" />
               Search
             </button>
-            <button className="glass-sm rounded-[7px] px-2.5 py-1 text-[11px] text-text-secondary flex items-center gap-1.5 hover:bg-glass-hover transition-colors cursor-pointer">
-              <ArrowUpDown className="w-3 h-3" />
-              Sort
-            </button>
-          </>
+          )
+        )}
+        {onSortChange && (
+          <button
+            onClick={() => onSortChange(sortKey === 'name' ? 'date' : 'name')}
+            className="glass-sm rounded-[7px] px-2.5 py-1 text-[11px] text-text-secondary flex items-center gap-1.5 hover:bg-glass-hover transition-colors cursor-pointer"
+          >
+            <ArrowUpDown className="w-3 h-3" />
+            {sortKey === 'name' ? 'A-Z' : 'Recent'}
+          </button>
         )}
         {children}
       </div>
@@ -184,8 +216,22 @@ export default function HomePage() {
   const [deleteModal, setDeleteModal] = useState<{ type: 'tool' | 'bin'; id: string } | null>(null)
   const [creatingBin, setCreatingBin] = useState<string | null>(null)
   const [nameModal, setNameModal] = useState<{ toolIds?: string[] } | null>(null)
+  const [toolSearch, setToolSearch] = useState('')
+  const [toolSort, setToolSort] = useState('date')
 
   const hasData = toolsList.length > 0 || binsList.length > 0
+
+  const filteredTools = useMemo(() => {
+    let list = toolsList
+    if (toolSearch.trim()) {
+      const q = toolSearch.toLowerCase()
+      list = list.filter(t => t.name.toLowerCase().includes(q))
+    }
+    if (toolSort === 'name') {
+      list = [...list].sort((a, b) => a.name.localeCompare(b.name))
+    }
+    return list
+  }, [toolsList, toolSearch, toolSort])
 
   useEffect(() => {
     loadData()
@@ -278,9 +324,13 @@ export default function HomePage() {
       {/* tools */}
       {toolsList.length > 0 && (
         <div>
-          <SectionHeader title="Tools" count={toolsList.length} showFilters />
+          <SectionHeader
+            title="Tools" count={toolsList.length}
+            search={toolSearch} onSearchChange={setToolSearch}
+            sortKey={toolSort} onSortChange={setToolSort}
+          />
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {toolsList.map(tool => (
+            {filteredTools.map(tool => (
               <div
                 key={tool.id}
                 onClick={() => router.push(`/tools/${tool.id}`)}

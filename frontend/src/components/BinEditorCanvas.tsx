@@ -327,8 +327,8 @@ export function BinEditorCanvas({
             const y = label.y * DISPLAY_SCALE
             return (
               <foreignObject
-                x={x - 120} y={y - 20}
-                width={240} height={40}
+                x={x - 400} y={y - 50}
+                width={800} height={100}
                 transform={label.rotation !== 0 ? `rotate(${label.rotation} ${x} ${y})` : undefined}
               >
                 <input
@@ -339,8 +339,8 @@ export function BinEditorCanvas({
                   onKeyDown={onEditingLabelKeyDown}
                   onBlur={onEditingLabelBlur}
                   onClick={stopClick}
-                  className="w-full bg-elevated border-2 border-teal-500 rounded text-text-primary outline-none"
-                  style={{ fontSize: '20px', padding: '4px 8px', height: '100%', boxSizing: 'border-box', textAlign: 'center' }}
+                  className="w-full bg-elevated border-2 border-accent rounded-lg text-text-primary outline-none"
+                  style={{ fontSize: '48px', padding: '12px 20px', height: '100%', boxSizing: 'border-box', textAlign: 'center' }}
                 />
               </foreignObject>
             )
@@ -348,9 +348,9 @@ export function BinEditorCanvas({
 
           {pendingLabel && (
             <foreignObject
-              x={pendingLabel.x * DISPLAY_SCALE - 120}
-              y={pendingLabel.y * DISPLAY_SCALE - 20}
-              width={240} height={40}
+              x={pendingLabel.x * DISPLAY_SCALE - 400}
+              y={pendingLabel.y * DISPLAY_SCALE - 50}
+              width={800} height={100}
             >
               <input
                 ref={pendingInputRef}
@@ -360,9 +360,9 @@ export function BinEditorCanvas({
                 onKeyDown={onPendingLabelKeyDown}
                 onBlur={onPendingLabelBlur}
                 onClick={stopClick}
-                placeholder="Label text..."
-                className="w-full bg-elevated border-2 border-teal-500 rounded text-text-primary outline-none"
-                style={{ fontSize: '20px', padding: '4px 8px', height: '100%', boxSizing: 'border-box' }}
+                placeholder="Type label text, press Enter..."
+                className="w-full bg-elevated border-2 border-accent rounded-lg text-text-primary outline-none"
+                style={{ fontSize: '48px', padding: '12px 20px', height: '100%', boxSizing: 'border-box', textAlign: 'center' }}
               />
             </foreignObject>
           )}

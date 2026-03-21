@@ -131,32 +131,51 @@ export function BinEditorToolbar({
       {selectedLabel && (
         <>
           <div className="w-px h-4 bg-glass-border mx-1 flex-shrink-0" />
-          <label className="flex items-center gap-1 text-[11px] text-text-secondary">
-            <input
-              type="text"
-              value={selectedLabel.text}
-              onChange={e => onUpdateLabel({ text: e.target.value })}
-              className="w-20 px-1.5 py-0.5 bg-elevated border border-border-subtle rounded text-text-primary text-[11px]"
-            />
-          </label>
-          <label className="flex items-center gap-1 text-[10px] text-text-muted">
+          <input
+            type="text"
+            value={selectedLabel.text}
+            onChange={e => onUpdateLabel({ text: e.target.value })}
+            className="w-24 px-2 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[11px] outline-none focus:border-accent"
+            placeholder="Label text"
+          />
+          <div className="flex items-center gap-0.5 text-[10px] text-text-muted" title="Text size">
+            <span>Size</span>
             <input
               type="number"
               value={selectedLabel.font_size}
               onChange={e => onUpdateLabel({ font_size: Math.max(1, Math.min(50, parseFloat(e.target.value) || 1)) })}
-              className="w-10 px-1 py-0.5 bg-elevated border border-border-subtle rounded text-text-primary text-[10px]"
+              className="w-10 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent"
               min={1} max={50} step={0.5}
             />
-            mm
-          </label>
-          <button
-            onClick={() => onUpdateLabel({ emboss: !selectedLabel.emboss })}
-            className={`px-2 py-0.5 rounded text-[10px] font-medium cursor-pointer transition-colors ${
-              selectedLabel.emboss ? 'text-teal-400' : 'text-orange-400'
-            }`}
-          >
-            {selectedLabel.emboss ? 'Emboss' : 'Recess'}
-          </button>
+          </div>
+          <div className="flex items-center gap-0.5 text-[10px] text-text-muted" title="Depth into surface">
+            <span>Depth</span>
+            <input
+              type="number"
+              value={selectedLabel.depth}
+              onChange={e => onUpdateLabel({ depth: Math.max(0.1, Math.min(5, parseFloat(e.target.value) || 0.5)) })}
+              className="w-10 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent"
+              min={0.1} max={5} step={0.1}
+            />
+          </div>
+          <div className="flex items-center rounded-[6px] overflow-hidden border border-glass-border">
+            <button
+              onClick={() => onUpdateLabel({ emboss: true })}
+              className={`px-2 py-1 text-[10px] font-medium transition-colors cursor-pointer ${
+                selectedLabel.emboss ? 'bg-accent-muted text-accent' : 'text-text-muted hover:text-text-secondary'
+              }`}
+            >
+              Emboss
+            </button>
+            <button
+              onClick={() => onUpdateLabel({ emboss: false })}
+              className={`px-2 py-1 text-[10px] font-medium transition-colors cursor-pointer ${
+                !selectedLabel.emboss ? 'bg-accent-muted text-accent' : 'text-text-muted hover:text-text-secondary'
+              }`}
+            >
+              Recess
+            </button>
+          </div>
           <button onClick={onRemoveLabel} className={`${tbBtn} text-red-400 hover:bg-red-900/20`}>
             <Trash2 className="w-3 h-3" />
           </button>
