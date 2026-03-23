@@ -43,7 +43,7 @@ test.describe.serial('happy path', () => {
     await traceBtn.click()
 
     // mock returns instantly, wait for edit step heading
-    await expect(page.getByRole('heading', { name: 'Edit Outlines' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('heading', { name: 'Select Tools' })).toBeVisible({ timeout: 30_000 })
   })
 
   test('verify trace results', async () => {

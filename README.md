@@ -21,9 +21,9 @@
 6. Create bins, add tools from the library, arrange the layout
 7. Download STL/3MF for 3D printing
 
-![Demo](docs/tracefinity-demo.gif)
-
-[Full video](docs/tracefinity-demo.mp4)
+| Dashboard | Tool Editor | Bin Editor |
+|-|-|-|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Tool Editor](docs/screenshots/tool-editor.png) | ![Bin Editor](docs/screenshots/bin-editor.png) |
 
 ## Quick Start
 
