@@ -61,6 +61,7 @@ export default function BinPage() {
   const [smoothLevels, setSmoothLevels] = useState<Map<string, number>>(new Map())
   const smoothLevelTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  const [autoSize, setAutoSize] = useState(true)
   const [exportOpen, setExportOpen] = useState(false)
   const exportRef = useRef<HTMLDivElement>(null)
 
@@ -191,6 +192,26 @@ export default function BinPage() {
     setPlacedTools(updated)
   }, [])
 
+  // auto-size: fit grid to bounding box of all placed tools
+  useEffect(() => {
+    if (!autoSize || placedTools.length === 0) return
+    let maxX = -Infinity, maxY = -Infinity
+    for (const tool of placedTools) {
+      for (const p of tool.points) {
+        maxX = Math.max(maxX, p.x)
+        maxY = Math.max(maxY, p.y)
+      }
+    }
+    // half-margin each side: wall + clearance + a bit of breathing room
+    const halfMargin = config.wall_thickness + config.cutout_clearance + 0.25
+    const needX = Math.max(1, Math.ceil((maxX + halfMargin) / GRID_UNIT))
+    const needY = Math.max(1, Math.ceil((maxY + halfMargin) / GRID_UNIT))
+    setConfig(prev => {
+      if (prev.grid_x === needX && prev.grid_y === needY) return prev
+      return { ...prev, grid_x: needX, grid_y: needY }
+    })
+  }, [autoSize, placedTools, config.wall_thickness, config.cutout_clearance])
+
   const handleToggleSmoothed = useCallback(async (toolId: string, smoothed: boolean) => {
     try {
       await updateTool(toolId, { smoothed })
@@ -297,7 +318,7 @@ export default function BinPage() {
               {saving && <Loader2 className="w-3 h-3 animate-spin text-text-muted flex-shrink-0" />}
               {saved && <Check className="w-3 h-3 text-green-400 flex-shrink-0" />}
             </div>
-            <BinConfigurator config={config} onChange={setConfig} />
+            <BinConfigurator config={config} onChange={setConfig} autoSize={autoSize} onAutoSizeChange={setAutoSize} />
           </div>
 
           <div className="glass rounded-[10px] px-3 py-3">

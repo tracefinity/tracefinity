@@ -57,7 +57,10 @@ class StorageAuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-# cors for local dev; in production the proxy serves everything same-origin
+# middleware execution order: CORS (outermost) -> ProxySecret -> StorageAuth -> route
+# add_middleware prepends, so add in reverse order
+app.add_middleware(StorageAuthMiddleware)
+app.add_middleware(ProxySecretMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -65,8 +68,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(StorageAuthMiddleware)
-app.add_middleware(ProxySecretMiddleware)
 
 app.mount("/storage", StaticFiles(directory=str(settings.storage_path)), name="storage")
 app.include_router(router, prefix="/api")

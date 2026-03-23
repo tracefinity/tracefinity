@@ -6,6 +6,8 @@ import type { BinConfig } from '@/types'
 interface Props {
   config: BinConfig
   onChange: (config: BinConfig) => void
+  autoSize?: boolean
+  onAutoSizeChange?: (v: boolean) => void
 }
 
 function HelpTip({ text }: { text: string }) {
@@ -59,6 +61,7 @@ function SliderRow({
   unit,
   help,
   onChange,
+  disabled,
 }: {
   label: string
   value: number
@@ -68,11 +71,12 @@ function SliderRow({
   unit?: string
   help?: string
   onChange: (v: number) => void
+  disabled?: boolean
 }) {
   const pct = ((value - min) / (max - min)) * 100
 
   return (
-    <div className="space-y-1.5 py-2">
+    <div className={`space-y-1.5 py-2 ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
       <span className="text-xs text-text-primary tracking-[0.3px]">
         {label}
         {help && <HelpTip text={help} />}
@@ -84,6 +88,7 @@ function SliderRow({
           max={max}
           step={step}
           value={value}
+          disabled={disabled}
           onChange={(e) => {
             const v = step >= 1 ? parseInt(e.target.value) : parseFloat(e.target.value)
             onChange(v)
@@ -98,6 +103,7 @@ function SliderRow({
             max={max}
             step={step}
             value={value}
+            disabled={disabled}
             onChange={(e) => {
               const v = step >= 1 ? parseInt(e.target.value) : parseFloat(e.target.value)
               if (!isNaN(v)) onChange(Math.min(max, Math.max(min, v)))
@@ -111,7 +117,7 @@ function SliderRow({
   )
 }
 
-export function BinConfigurator({ config, onChange }: Props) {
+export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }: Props) {
   function update(partial: Partial<BinConfig>) {
     onChange({ ...config, ...partial })
   }
@@ -123,6 +129,15 @@ export function BinConfigurator({ config, onChange }: Props) {
 
   return (
     <div className="space-y-0">
+      {onAutoSizeChange && (
+        <Toggle
+          label="Auto-size grid"
+          help="Automatically fit grid to placed tools. Turn off to set grid size manually."
+          checked={!!autoSize}
+          onChange={onAutoSizeChange}
+        />
+      )}
+
       <SliderRow
         label="Grid Width"
         help="Bin width in gridfinity units. Each unit is 42mm."
@@ -131,6 +146,7 @@ export function BinConfigurator({ config, onChange }: Props) {
         max={10}
         unit="u"
         onChange={(v) => update({ grid_x: v })}
+        disabled={autoSize}
       />
 
       <SliderRow
@@ -141,6 +157,7 @@ export function BinConfigurator({ config, onChange }: Props) {
         max={10}
         unit="u"
         onChange={(v) => update({ grid_y: v })}
+        disabled={autoSize}
       />
 
       <SliderRow

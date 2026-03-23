@@ -636,7 +636,11 @@ async def download_tool_svg(request: Request, tool_id: str, user_id: str = Depen
 
     points_mm = [(p.x, p.y) for p in tool.points]
     interior_rings_mm = [[(p.x, p.y) for p in ring] for ring in tool.interior_rings]
-    fholes = [ScaledFingerHole(fh.x, fh.y, fh.diameter) for fh in tool.finger_holes]
+    fholes = [ScaledFingerHole(
+        fh.id, fh.x, fh.y, fh.radius,
+        shape=fh.shape, width_mm=fh.width, height_mm=fh.height,
+        rotation=fh.rotation,
+    ) for fh in tool.finger_holes]
     sp = ScaledPolygon(tool.id, points_mm, tool.name, fholes, interior_rings_mm)
 
     if tool.smoothed:

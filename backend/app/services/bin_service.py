@@ -39,9 +39,19 @@ def sync_placed_tools(bin_data, user_tools) -> bool:
                 rotation=fh.rotation, shape=fh.shape,
             ))
 
-        if new_points != pt.points or new_fh != pt.finger_holes:
+        new_rings = []
+        for ring in (tool.interior_rings or []):
+            new_ring = []
+            for p in ring:
+                rx = (p.x - lib_cx) * cos_r - (p.y - lib_cy) * sin_r
+                ry = (p.x - lib_cx) * sin_r + (p.y - lib_cy) * cos_r
+                new_ring.append(Point(x=placed_cx + rx, y=placed_cy + ry))
+            new_rings.append(new_ring)
+
+        if new_points != pt.points or new_fh != pt.finger_holes or new_rings != pt.interior_rings:
             pt.points = new_points
             pt.finger_holes = new_fh
+            pt.interior_rings = new_rings
             pt.name = tool.name
             changed = True
 
