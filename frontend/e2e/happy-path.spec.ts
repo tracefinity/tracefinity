@@ -102,8 +102,7 @@ test.describe.serial('happy path', () => {
   })
 
   test('navigate home', async () => {
-    const backBtn = page.locator('button').filter({ has: page.locator('svg.lucide-arrow-left') })
-    await backBtn.click()
+    await page.locator('nav[aria-label="Breadcrumb"] a', { hasText: 'Tools' }).click()
 
     await page.waitForURL('/', { timeout: 10_000 })
     await expect(page.getByText('hacksaw').first()).toBeVisible()

@@ -61,6 +61,7 @@ export function BinEditor({
   const [editingText, setEditingText] = useState('')
   const pendingInputRef = useRef<HTMLInputElement>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
+  const rafRef = useRef<number | null>(null)
 
   const toolsRef = useRef(placedTools)
   const onChangeRef = useRef(onPlacedToolsChange)
@@ -262,99 +263,110 @@ export function BinEditor({
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!dragging) return
-    const pos = screenToMm(e.clientX, e.clientY)
-    const currentTools = toolsRef.current
-    const onChange = onChangeRef.current
-    const currentLabels = textLabelsRef.current
-    const onLabelsChange = onTextLabelsChangeRef.current
+    const clientX = e.clientX
+    const clientY = e.clientY
 
-    if (dragging.type === 'tool') {
-      const origCenterX = dragging.origPoints.reduce((sum, p) => sum + p.x, 0) / dragging.origPoints.length
-      const origCenterY = dragging.origPoints.reduce((sum, p) => sum + p.y, 0) / dragging.origPoints.length
-      const rawDx = pos.x - dragging.startX
-      const rawDy = pos.y - dragging.startY
-      const newCenterX = snapToGrid(origCenterX + rawDx)
-      const newCenterY = snapToGrid(origCenterY + rawDy)
-      const dx = newCenterX - origCenterX
-      const dy = newCenterY - origCenterY
-      const updated = currentTools.map(tool => {
-        if (tool.id !== dragging.toolId) return tool
-        return {
-          ...tool,
-          points: dragging.origPoints.map(p => ({ x: p.x + dx, y: p.y + dy })),
-          finger_holes: tool.finger_holes.map(fh => {
-            const orig = dragging.origHoles.find(h => h.id === fh.id)
-            if (!orig) return fh
-            return { ...fh, x: orig.x + dx, y: orig.y + dy }
-          }),
-          interior_rings: dragging.origInteriorRings.map(ring =>
-            ring.map(p => ({ x: p.x + dx, y: p.y + dy }))
-          ),
-        }
-      })
-      onChange(updated)
-    } else if (dragging.type === 'rotate') {
-      const currentAngle = Math.atan2(pos.y - dragging.centerY, pos.x - dragging.centerX)
-      const deltaAngle = currentAngle - dragging.startAngle
-      const cos = Math.cos(deltaAngle)
-      const sin = Math.sin(deltaAngle)
-      const cx = dragging.centerX
-      const cy = dragging.centerY
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      const pos = screenToMm(clientX, clientY)
+      const currentTools = toolsRef.current
+      const onChange = onChangeRef.current
+      const currentLabels = textLabelsRef.current
+      const onLabelsChange = onTextLabelsChangeRef.current
 
-      const deltaDeg = deltaAngle * (180 / Math.PI)
-      const updated = currentTools.map(tool => {
-        if (tool.id !== dragging.toolId) return tool
-        return {
-          ...tool,
-          rotation: (dragging.origRotation + deltaDeg) % 360,
-          points: dragging.origPoints.map(p => {
-            const pdx = p.x - cx
-            const pdy = p.y - cy
-            return { x: cx + pdx * cos - pdy * sin, y: cy + pdx * sin + pdy * cos }
-          }),
-          finger_holes: tool.finger_holes.map(fh => {
-            const orig = dragging.origHoles.find(h => h.id === fh.id)
-            if (!orig) return fh
-            const fdx = orig.x - cx
-            const fdy = orig.y - cy
-            return { ...fh, x: cx + fdx * cos - fdy * sin, y: cy + fdx * sin + fdy * cos }
-          }),
-          interior_rings: dragging.origInteriorRings.map(ring =>
-            ring.map(p => {
+      if (dragging.type === 'tool') {
+        const origCenterX = dragging.origPoints.reduce((sum, p) => sum + p.x, 0) / dragging.origPoints.length
+        const origCenterY = dragging.origPoints.reduce((sum, p) => sum + p.y, 0) / dragging.origPoints.length
+        const rawDx = pos.x - dragging.startX
+        const rawDy = pos.y - dragging.startY
+        const newCenterX = snapToGrid(origCenterX + rawDx)
+        const newCenterY = snapToGrid(origCenterY + rawDy)
+        const dx = newCenterX - origCenterX
+        const dy = newCenterY - origCenterY
+        const updated = currentTools.map(tool => {
+          if (tool.id !== dragging.toolId) return tool
+          return {
+            ...tool,
+            points: dragging.origPoints.map(p => ({ x: p.x + dx, y: p.y + dy })),
+            finger_holes: tool.finger_holes.map(fh => {
+              const orig = dragging.origHoles.find(h => h.id === fh.id)
+              if (!orig) return fh
+              return { ...fh, x: orig.x + dx, y: orig.y + dy }
+            }),
+            interior_rings: dragging.origInteriorRings.map(ring =>
+              ring.map(p => ({ x: p.x + dx, y: p.y + dy }))
+            ),
+          }
+        })
+        onChange(updated)
+      } else if (dragging.type === 'rotate') {
+        const currentAngle = Math.atan2(pos.y - dragging.centerY, pos.x - dragging.centerX)
+        const deltaAngle = currentAngle - dragging.startAngle
+        const cos = Math.cos(deltaAngle)
+        const sin = Math.sin(deltaAngle)
+        const cx = dragging.centerX
+        const cy = dragging.centerY
+
+        const deltaDeg = deltaAngle * (180 / Math.PI)
+        const updated = currentTools.map(tool => {
+          if (tool.id !== dragging.toolId) return tool
+          return {
+            ...tool,
+            rotation: (dragging.origRotation + deltaDeg) % 360,
+            points: dragging.origPoints.map(p => {
               const pdx = p.x - cx
               const pdy = p.y - cy
               return { x: cx + pdx * cos - pdy * sin, y: cy + pdx * sin + pdy * cos }
-            })
-          ),
-        }
-      })
-      onChange(updated)
-    } else if (dragging.type === 'label') {
-      const dx = pos.x - dragging.startX
-      const dy = pos.y - dragging.startY
-      const newX = snapToGrid(dragging.origX + dx)
-      const newY = snapToGrid(dragging.origY + dy)
-      // prevent straddling: label must stay in the same zone it started in
-      const wasInCutout = isInsideCutout(dragging.origX, dragging.origY)
-      const nowInCutout = isInsideCutout(newX, newY)
-      if (wasInCutout !== nowInCutout) return
-      const updated = currentLabels.map(l => {
-        if (l.id !== dragging.labelId) return l
-        return { ...l, x: newX, y: newY }
-      })
-      onLabelsChange(updated)
-    } else if (dragging.type === 'rotate-label') {
-      const currentAngle = Math.atan2(pos.y - dragging.centerY, pos.x - dragging.centerX)
-      const deltaAngle = (currentAngle - dragging.startAngle) * (180 / Math.PI)
-      const updated = currentLabels.map(l => {
-        if (l.id !== dragging.labelId) return l
-        return { ...l, rotation: (dragging.origRotation + deltaAngle) % 360 }
-      })
-      onLabelsChange(updated)
-    }
+            }),
+            finger_holes: tool.finger_holes.map(fh => {
+              const orig = dragging.origHoles.find(h => h.id === fh.id)
+              if (!orig) return fh
+              const fdx = orig.x - cx
+              const fdy = orig.y - cy
+              return { ...fh, x: cx + fdx * cos - fdy * sin, y: cy + fdx * sin + fdy * cos }
+            }),
+            interior_rings: dragging.origInteriorRings.map(ring =>
+              ring.map(p => {
+                const pdx = p.x - cx
+                const pdy = p.y - cy
+                return { x: cx + pdx * cos - pdy * sin, y: cy + pdx * sin + pdy * cos }
+              })
+            ),
+          }
+        })
+        onChange(updated)
+      } else if (dragging.type === 'label') {
+        const dx = pos.x - dragging.startX
+        const dy = pos.y - dragging.startY
+        const newX = snapToGrid(dragging.origX + dx)
+        const newY = snapToGrid(dragging.origY + dy)
+        // prevent straddling: label must stay in the same zone it started in
+        const wasInCutout = isInsideCutout(dragging.origX, dragging.origY)
+        const nowInCutout = isInsideCutout(newX, newY)
+        if (wasInCutout !== nowInCutout) return
+        const updated = currentLabels.map(l => {
+          if (l.id !== dragging.labelId) return l
+          return { ...l, x: newX, y: newY }
+        })
+        onLabelsChange(updated)
+      } else if (dragging.type === 'rotate-label') {
+        const currentAngle = Math.atan2(pos.y - dragging.centerY, pos.x - dragging.centerX)
+        const deltaAngle = (currentAngle - dragging.startAngle) * (180 / Math.PI)
+        const updated = currentLabels.map(l => {
+          if (l.id !== dragging.labelId) return l
+          return { ...l, rotation: (dragging.origRotation + deltaAngle) % 360 }
+        })
+        onLabelsChange(updated)
+      }
+    })
   }, [dragging, screenToMm, snapToGrid, isInsideCutout])
 
   const handleMouseUp = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
     setDragging(null)
   }, [])
 
