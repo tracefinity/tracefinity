@@ -292,8 +292,20 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
         _abs(session.original_image_path), corners, req.paper_size
     )
 
+    # resize the corrected image to save storage
+    corrected_bytes = Path(output_path).read_bytes()
+    ext = Path(output_path).suffix
+    corrected_bytes = _downscale_image(corrected_bytes, ext)
+    Path(output_path).write_bytes(corrected_bytes)
+
+    # original upload is no longer needed
+    orig = _abs(session.original_image_path)
+    if orig:
+        Path(orig).unlink(missing_ok=True)
+
     up = _user_path(user_id)
     session.corrected_image_path = _rel(output_path, up)
+    session.original_image_path = None
     session.corners = req.corners
     session.paper_size = req.paper_size
     session.scale_factor = scale_factor
