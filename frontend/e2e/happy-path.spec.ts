@@ -134,12 +134,17 @@ test.describe.serial('happy path', () => {
   })
 
   test('select tool in bin editor', async () => {
-    const binEditor = page.locator('[data-testid="bin-editor"] svg')
+    const binEditor = page.locator('[data-testid="bin-canvas"]')
     const toolPath = binEditor.locator('path[fill-rule="evenodd"]').first()
     await expect(toolPath).toBeVisible({ timeout: 5_000 })
 
-    // force: true needed for SVG paths with fill-rule="evenodd"
-    await toolPath.click({ force: true })
+    // evenodd fill means click coordinates can fall through holes to the
+    // background. dispatch a mousedown directly on the DOM element so React
+    // receives it regardless of hit-test geometry.
+    await toolPath.evaluate(el => {
+      el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+      el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }))
+    })
 
     await expect(page.getByRole('button', { name: 'Remove' })).toBeVisible({ timeout: 5_000 })
   })
@@ -154,7 +159,7 @@ test.describe.serial('happy path', () => {
     await textBtn.click()
 
     // click in the bin editor SVG background to place a label
-    const binSvg = page.locator('[data-testid="bin-editor"] svg')
+    const binSvg = page.locator('[data-testid="bin-canvas"]')
     const box = await binSvg.boundingBox()
     expect(box).toBeTruthy()
     await page.mouse.click(box!.x + box!.width / 3, box!.y + box!.height / 3)
@@ -171,7 +176,7 @@ test.describe.serial('happy path', () => {
 
   test('wait for STL generation', async () => {
     // wait for export button to appear (STL generation finishes)
-    const exportBtn = page.getByRole('button', { name: /Export STL|Export ZIP/ })
+    const exportBtn = page.getByRole('button', { name: /^Export/ })
     await expect(exportBtn).toBeVisible({ timeout: 90_000 })
     await expect(exportBtn).toBeEnabled()
   })

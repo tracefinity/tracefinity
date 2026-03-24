@@ -101,6 +101,7 @@ export function BinEditorCanvas({
       <div className="absolute inset-0 bg-inset flex items-center justify-center p-4">
         <svg
           ref={svgRef}
+          data-testid="bin-canvas"
           viewBox={`-10 -10 ${displayWidth + 70} ${displayHeight + 30}`}
           preserveAspectRatio="xMidYMid meet"
           className={`rounded max-w-full max-h-full ${activeTool === 'select' ? 'cursor-default' : 'cursor-crosshair'}`}
