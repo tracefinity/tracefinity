@@ -102,6 +102,26 @@ def _convert_heic_to_jpeg(content: bytes, original_ext: str) -> tuple[bytes, str
     return buf.getvalue(), ".jpg"
 
 
+MAX_UPLOAD_DIM = 2048
+
+
+def _downscale_image(content: bytes, ext: str) -> bytes:
+    """downscale to MAX_UPLOAD_DIM on the long edge. preserves format."""
+    img = Image.open(io.BytesIO(content))
+    w, h = img.size
+    if max(w, h) <= MAX_UPLOAD_DIM:
+        return content
+    scale = MAX_UPLOAD_DIM / max(w, h)
+    new_w, new_h = int(w * scale), int(h * scale)
+    img = img.resize((new_w, new_h), Image.LANCZOS)
+    buf = io.BytesIO()
+    fmt = "JPEG" if ext.lower() in (".jpg", ".jpeg") else "PNG"
+    img.save(buf, format=fmt, quality=90)
+    logging.info("downscaled upload %dx%d -> %dx%d (%.1fMB -> %.1fMB)",
+                 w, h, new_w, new_h, len(content) / 1e6, buf.tell() / 1e6)
+    return buf.getvalue()
+
+
 image_processor = ImageProcessor()
 ai_tracer = AITracer(
     model=settings.gemini_image_model,
@@ -239,6 +259,7 @@ async def upload_image(request: Request, image: UploadFile, user_id: str = Depen
         raise HTTPException(status_code=413, detail=f"file too large (max {settings.max_upload_mb}MB)")
 
     content, ext = _convert_heic_to_jpeg(content, ext)
+    content = _downscale_image(content, ext)
     image_path = up / "uploads" / f"{session_id}{ext}"
     image_path.write_bytes(content)
 
