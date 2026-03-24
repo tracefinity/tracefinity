@@ -314,6 +314,7 @@ export default function BinPage() {
 
   const stlUrlWithVersion = stlUrl ? `${stlUrl}?v=${stlVersion}` : null
   const splitUrlsWithVersion = stlUrls.length > 0 ? stlUrls.map(u => `${u}?v=${stlVersion}`) : null
+  const insertUrlWithVersion = insertStlUrl ? `${insertStlUrl}?v=${stlVersion}` : null
   const binW = config.grid_x * GRID_UNIT
   const binH = config.grid_y * GRID_UNIT
   const hasExports = stlUrl || zipUrl || threemfUrl || insertStlUrl
@@ -473,7 +474,7 @@ export default function BinPage() {
                 </div>
               )}
               {stlUrlWithVersion ? (
-                <BinPreview3D stlUrl={stlUrlWithVersion} splitUrls={splitUrlsWithVersion || undefined} />
+                <BinPreview3D stlUrl={stlUrlWithVersion} splitUrls={splitUrlsWithVersion || undefined} insertUrl={insertUrlWithVersion || undefined} />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-text-muted text-xs gap-2">
                   {generating ? (

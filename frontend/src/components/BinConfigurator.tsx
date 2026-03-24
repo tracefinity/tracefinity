@@ -12,9 +12,9 @@ interface Props {
 
 function HelpTip({ text }: { text: string }) {
   return (
-    <span className="relative group ml-1">
+    <span className="group ml-1">
       <Info className="w-3 h-3 text-text-muted cursor-help inline-block" />
-      <span className="absolute bottom-full left-0 mb-1.5 px-2 py-1.5 text-[11px] leading-tight text-text-primary bg-elevated border border-border-subtle rounded whitespace-normal w-44 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10 shadow-lg">
+      <span className="absolute left-0 right-0 bottom-full mb-1.5 px-2 py-1.5 text-[11px] leading-tight text-text-primary bg-elevated border border-border-subtle rounded whitespace-normal opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-30 shadow-lg">
         {text}
       </span>
     </span>
@@ -23,7 +23,7 @@ function HelpTip({ text }: { text: string }) {
 
 function Toggle({ checked, onChange, label, help }: { checked: boolean; onChange: (v: boolean) => void; label: string; help?: string }) {
   return (
-    <div className="flex items-center justify-between py-2">
+    <div className="relative flex items-center justify-between py-2">
       <span className="text-xs text-text-primary tracking-[0.3px]">
         {label}
         {help && <HelpTip text={help} />}
@@ -76,7 +76,7 @@ function SliderRow({
   const pct = ((value - min) / (max - min)) * 100
 
   return (
-    <div className={`space-y-1.5 py-2 ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
+    <div className={`relative space-y-1.5 py-2 ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
       <span className="text-xs text-text-primary tracking-[0.3px]">
         {label}
         {help && <HelpTip text={help} />}

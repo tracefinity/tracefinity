@@ -10,13 +10,14 @@ import { Box, RotateCcw, ArrowUp, ArrowRight, CircleDot, Triangle } from 'lucide
 interface Props {
   stlUrl: string
   splitUrls?: string[]
+  insertUrl?: string
 }
 
 type CameraView = 'home' | 'top' | 'front' | 'right' | 'fit'
 
 type RenderMode = 'solid' | 'edges'
 
-function StlModel({ url, renderMode }: { url: string; renderMode: RenderMode }) {
+function StlModel({ url, renderMode, color = '#5ab4de', edgeColor = '#1e3d5c' }: { url: string; renderMode: RenderMode; color?: string; edgeColor?: string }) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
   const [edgesGeometry, setEdgesGeometry] = useState<THREE.EdgesGeometry | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -66,11 +67,11 @@ function StlModel({ url, renderMode }: { url: string; renderMode: RenderMode }) 
       {renderMode === 'solid' ? (
         <>
           <mesh geometry={geometry}>
-            <meshStandardMaterial color="#5ab4de" metalness={0} roughness={0.7} />
+            <meshStandardMaterial color={color} metalness={0} roughness={0.7} />
           </mesh>
           {edgesGeometry && (
             <lineSegments geometry={edgesGeometry}>
-              <lineBasicMaterial color="#1e3d5c" linewidth={1} />
+              <lineBasicMaterial color={edgeColor} linewidth={1} />
             </lineSegments>
           )}
         </>
@@ -81,7 +82,7 @@ function StlModel({ url, renderMode }: { url: string; renderMode: RenderMode }) 
           </mesh>
           {edgesGeometry && (
             <lineSegments geometry={edgesGeometry}>
-              <lineBasicMaterial color="#4a9eff" linewidth={1} />
+              <lineBasicMaterial color={color} linewidth={1} />
             </lineSegments>
           )}
         </>
@@ -245,7 +246,7 @@ const viewButtons: { view: CameraView; icon: typeof Box; label: string }[] = [
   { view: 'fit', icon: Box, label: 'Fit' },
 ]
 
-export function BinPreview3D({ stlUrl, splitUrls }: Props) {
+export function BinPreview3D({ stlUrl, splitUrls, insertUrl }: Props) {
   const [renderMode, setRenderMode] = useState<RenderMode>('solid')
   const dispatchView = useCallback((view: CameraView) => {
     window.dispatchEvent(new CustomEvent('bin-preview-view', { detail: view }))
@@ -267,6 +268,7 @@ export function BinPreview3D({ stlUrl, splitUrls }: Props) {
             ) : (
               <StlModel url={stlUrl} renderMode={renderMode} />
             )}
+            {insertUrl && <StlModel url={insertUrl} renderMode={renderMode} color="#ff8844" edgeColor="#7a3310" />}
             <CameraController />
           </Bounds>
         </Suspense>

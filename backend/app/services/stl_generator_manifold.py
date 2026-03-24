@@ -316,7 +316,12 @@ def _make_chamfer_cutouts(
     offset_x: float,
     offset_y: float,
 ):
-    """Per-polygon frustum cutter for the top-edge chamfer."""
+    """Per-polygon frustum cutter for the top-edge chamfer.
+
+    Uses CrossSection.offset() for uniform chamfer width regardless of shape
+    or rotation, then extrudes with scale_top to taper from the offset shape
+    (at the bin surface) down to approximately the original shape.
+    """
     import manifold3d as mf
 
     cutters = []
@@ -333,14 +338,7 @@ def _make_chamfer_cutouts(
             if len(sh) >= 3:
                 shifted_holes.append(sh)
         try:
-            xs = [p[0] for p in shifted]
-            ys = [p[1] for p in shifted]
-            cx = sum(xs) / len(xs)
-            cy = sum(ys) / len(ys)
-            centered = [(x - cx, y - cy) for x, y in shifted]
-            centered_holes = [[(x - cx, y - cy) for x, y in h] for h in shifted_holes]
-
-            rings = _shapely_to_cross_sections(centered, centered_holes)
+            rings = _shapely_to_cross_sections(shifted, shifted_holes)
             if not rings:
                 continue
             has_holes = len(rings) > 1
@@ -353,18 +351,34 @@ def _make_chamfer_cutouts(
             if cs.area() <= 0:
                 continue
 
-            min_x = min(p[0] for p in centered)
-            max_x = max(p[0] for p in centered)
-            min_y = min(p[1] for p in centered)
-            max_y = max(p[1] for p in centered)
-            w = max(max_x - min_x, 1e-6)
-            h = max(max_y - min_y, 1e-6)
-            scale_x = (w + 2 * chamfer_size) / w
-            scale_y = (h + 2 * chamfer_size) / h
+            # offset for uniform chamfer width regardless of shape/rotation.
+            # use the offset bounds to compute scale_top — more accurate
+            # than raw bounding-box math for rotated/irregular shapes.
+            cs_outer = cs.offset(chamfer_size, mf.JoinType.Round)
+            if cs_outer.is_empty() or cs_outer.area() <= 0:
+                continue
 
+            ob = cs_outer.bounds()
+            ib = cs.bounds()
+            ow = max(ob[2] - ob[0], 1e-6)
+            oh = max(ob[3] - ob[1], 1e-6)
+            iw = max(ib[2] - ib[0], 1e-6)
+            ih = max(ib[3] - ib[1], 1e-6)
+
+            # centre at the original CS bounding-box midpoint so scale_top
+            # expands uniformly from the shape centre
+            icx = (ib[0] + ib[2]) / 2
+            icy = (ib[1] + ib[3]) / 2
+            cs_centred = cs.translate((-icx, -icy))
+
+            # base = original shape (inside pocket), top = wider offset shape
+            # (bin surface). scale_top > 1 creates the taper.
             cutter = (
-                mf.Manifold.extrude(cs, chamfer_size + 0.01, scale_top=(scale_x, scale_y))
-                .translate((cx, cy, wall_top_z - chamfer_size))
+                mf.Manifold.extrude(
+                    cs_centred, chamfer_size + 0.01,
+                    scale_top=(ow / iw, oh / ih),
+                )
+                .translate((icx, icy, wall_top_z - chamfer_size))
             )
             cutters.append(cutter)
         except Exception as e:
@@ -425,6 +439,73 @@ def _make_finger_holes(
                 cutters.append(cutter)
             except Exception as e:
                 logger.warning("finger hole failed: %s", e)
+
+    if not cutters:
+        return None
+    return mf.Manifold.batch_boolean(cutters, mf.OpType.Add)
+
+
+def _make_finger_hole_chamfers(
+    polygons: list[ScaledPolygon],
+    config,
+    wall_top_z: float,
+    chamfer_size: float,
+    offset_x: float,
+    offset_y: float,
+):
+    """Chamfer cutters for finger holes (circles, squares, rectangles)."""
+    import manifold3d as mf
+
+    cutters = []
+    for poly in polygons:
+        for fh in poly.finger_holes:
+            fh_x = fh.x_mm + offset_x
+            fh_y = -(fh.y_mm + offset_y)
+            shape = getattr(fh, 'shape', 'circle')
+            rotation = getattr(fh, 'rotation', 0.0)
+            try:
+                if shape == 'circle':
+                    r = fh.radius_mm
+                    cs = mf.CrossSection.circle(r, circular_segments=ROUND_SEGS)
+                    cs_outer = cs.offset(chamfer_size, mf.JoinType.Round)
+                elif shape == 'square':
+                    size = fh.radius_mm * 2
+                    cs = mf.CrossSection.square((size, size), center=True)
+                    if rotation:
+                        cs = cs.rotate(rotation)
+                    cs_outer = cs.offset(chamfer_size, mf.JoinType.Round)
+                elif shape == 'rectangle':
+                    w = fh.width_mm if fh.width_mm else fh.radius_mm * 2
+                    h = fh.height_mm if fh.height_mm else fh.radius_mm * 2
+                    cs = mf.CrossSection.square((w, h), center=True)
+                    if rotation:
+                        cs = cs.rotate(rotation)
+                    cs_outer = cs.offset(chamfer_size, mf.JoinType.Round)
+                else:
+                    continue
+
+                if cs_outer.is_empty() or cs_outer.area() <= 0:
+                    continue
+
+                # shapes are centred at origin, so scale_top from origin
+                # gives a perfect taper
+                ib = cs.bounds()
+                ob = cs_outer.bounds()
+                iw = max(ib[2] - ib[0], 1e-6)
+                ih = max(ib[3] - ib[1], 1e-6)
+                ow = max(ob[2] - ob[0], 1e-6)
+                oh = max(ob[3] - ob[1], 1e-6)
+
+                cutter = (
+                    mf.Manifold.extrude(
+                        cs, chamfer_size + 0.01,
+                        scale_top=(ow / iw, oh / ih),
+                    )
+                    .translate((fh_x, fh_y, wall_top_z - chamfer_size))
+                )
+                cutters.append(cutter)
+            except Exception as e:
+                logger.warning("finger hole chamfer failed: %s", e)
 
     if not cutters:
         return None
@@ -698,6 +779,9 @@ class ManifoldSTLGenerator:
                     chamfers = _make_chamfer_cutouts(polygons, config, wall_top_z, effective_chamfer, offset_x, offset_y)
                     if chamfers:
                         cutters.append(chamfers)
+                    fh_chamfers = _make_finger_hole_chamfers(polygons, config, wall_top_z, effective_chamfer, offset_x, offset_y)
+                    if fh_chamfers:
+                        cutters.append(fh_chamfers)
                     logger.info("chamfer cutouts: %.2fs", time.monotonic() - t1)
 
         # text labels (recessed cutters + embossed body additions)
