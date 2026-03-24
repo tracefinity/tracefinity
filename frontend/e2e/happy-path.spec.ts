@@ -138,8 +138,8 @@ test.describe.serial('happy path', () => {
     const toolPath = binEditor.locator('path[fill-rule="evenodd"]').first()
     await expect(toolPath).toBeVisible({ timeout: 5_000 })
 
-    // dispatch mousedown directly — click() can miss on SVG paths with fill-rule="evenodd"
-    await toolPath.dispatchEvent('mousedown', { bubbles: true })
+    // force: true needed for SVG paths with fill-rule="evenodd"
+    await toolPath.click({ force: true })
 
     await expect(page.getByRole('button', { name: 'Remove' })).toBeVisible({ timeout: 5_000 })
   })

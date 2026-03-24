@@ -122,6 +122,7 @@ export function BinEditorToolbar({
           <button
             onClick={onRemoveTool}
             className={`${tbBtn} text-red-400 hover:bg-red-900/20`}
+            aria-label="Remove"
           >
             <Trash2 className="w-3 h-3" />
           </button>
