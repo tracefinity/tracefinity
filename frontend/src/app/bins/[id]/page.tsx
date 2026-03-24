@@ -424,7 +424,7 @@ export default function BinPage() {
         {/* canvas + 3D preview side by side, equal width */}
         <div className="flex-1 min-h-0 flex">
           {/* canvas */}
-          <div className="flex-1 min-w-0 relative bg-inset overflow-hidden">
+          <div className="flex-1 min-w-0 relative bg-inset overflow-hidden" data-testid="bin-editor">
             <div className="absolute inset-0">
               <BinEditor
                 placedTools={placedTools}

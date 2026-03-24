@@ -134,8 +134,7 @@ test.describe.serial('happy path', () => {
   })
 
   test('select tool in bin editor', async () => {
-    // target the bin editor SVG (inside the main area, not sidebar thumbnails)
-    const binEditor = page.locator('.bg-inset.rounded-lg svg')
+    const binEditor = page.locator('[data-testid="bin-editor"] svg')
     const toolPath = binEditor.locator('path[fill-rule="evenodd"]').first()
     await expect(toolPath).toBeVisible({ timeout: 5_000 })
 
@@ -155,7 +154,7 @@ test.describe.serial('happy path', () => {
     await textBtn.click()
 
     // click in the bin editor SVG background to place a label
-    const binSvg = page.locator('.bg-inset.rounded-lg svg')
+    const binSvg = page.locator('[data-testid="bin-editor"] svg')
     const box = await binSvg.boundingBox()
     expect(box).toBeTruthy()
     await page.mouse.click(box!.x + box!.width / 3, box!.y + box!.height / 3)
