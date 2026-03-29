@@ -140,13 +140,13 @@ export function ToolEditorCanvas({
                 <line
                   x1={p.x * DISPLAY_SCALE} y1={p.y * DISPLAY_SCALE}
                   x2={next.x * DISPLAY_SCALE} y2={next.y * DISPLAY_SCALE}
-                  stroke="transparent" strokeWidth={20}
+                  stroke="transparent" strokeWidth={20 / zoom}
                   className="cursor-crosshair"
                   onClick={handleEdgeClick(idx)}
                 />
                 <circle
-                  cx={midX} cy={midY} r={5}
-                  fill="rgb(34, 197, 94)" stroke="#1e293b" strokeWidth={2}
+                  cx={midX} cy={midY} r={5 / zoom}
+                  fill="rgb(34, 197, 94)" stroke="#1e293b" strokeWidth={2 / zoom}
                   className="pointer-events-none"
                 />
               </g>
@@ -159,10 +159,10 @@ export function ToolEditorCanvas({
               key={`v-${idx}`}
               cx={p.x * DISPLAY_SCALE}
               cy={p.y * DISPLAY_SCALE}
-              r={8}
+              r={8 / zoom}
               fill={editMode === 'delete-vertex' ? 'rgb(239, 68, 68)' : selection?.type === 'vertex' && selection.pointIdx === idx ? 'rgb(72, 168, 214)' : '#1e293b'}
               stroke={editMode === 'delete-vertex' ? 'rgb(185, 28, 28)' : 'rgb(72, 168, 214)'}
-              strokeWidth={2}
+              strokeWidth={2 / zoom}
               className={editMode === 'delete-vertex' ? 'cursor-pointer' : 'cursor-move'}
               onMouseDown={handleVertexMouseDown(idx)}
               onClick={stopClick}
