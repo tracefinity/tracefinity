@@ -305,7 +305,7 @@ export default function HomePage() {
     <div className="max-w-6xl mx-auto py-4 space-y-6">
       {/* upload */}
       <div data-tour="upload">
-        <ImageUploader onUpload={handleUpload} disabled={uploading} compact={hasData} />
+        <ImageUploader onUpload={handleUpload} disabled={uploading} />
       </div>
 
       {uploading && (
