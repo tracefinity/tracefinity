@@ -5,7 +5,7 @@ import { Upload } from 'lucide-react'
 
 function UploadIllustration() {
   return (
-    <svg viewBox="0 0 280 180" fill="none" className="w-full h-full">
+    <svg viewBox="0 0 280 180" fill="none" className="w-full h-full" style={{ color: 'var(--color-surface)' }}>
       <defs>
         {/* paper shadow */}
         <filter id="paperShadow" x="-10%" y="-10%" width="130%" height="130%">
@@ -24,7 +24,8 @@ function UploadIllustration() {
         </linearGradient>
       </defs>
 
-      {/* transparent bg — inherits from the glass panel */}
+      {/* dark table surface — always dark so tools/paper read clearly */}
+      <rect x="0" y="0" width="280" height="180" rx="6" fill="currentColor" />
 
       {/* paper sheet */}
       <g transform="rotate(-2, 115, 92)" filter="url(#paperShadow)">
@@ -72,17 +73,17 @@ function UploadIllustration() {
           {/* ring end */}
           <ellipse cx="160" cy="155" rx="12" ry="12" fill="#64748b" />
           <ellipse cx="160" cy="155" rx="12" ry="12" fill="#6b7d91" clipPath="inset(0 50% 0 0)" />
-          <ellipse cx="160" cy="155" rx="6" ry="6" fill="#111827" />
+          <ellipse cx="160" cy="155" rx="6" ry="6" fill="currentColor" />
         </g>
       </g>
 
-      {/* hex key (allen key) - small, on paper */}
+      {/* hex key (allen key) - on paper */}
       <g filter="url(#toolShadow)">
         <animate attributeName="opacity" values="0;0;0;1" dur="1.2s" fill="freeze" />
         <animateTransform attributeName="transform" type="translate" values="0,6;0,6;0,6;0,0" dur="1.2s" fill="freeze" />
         <g transform="rotate(40, 120, 115)">
-          <path d="M118 80 L118 125 L140 125" stroke="#475569" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          <path d="M118 80 L118 125 L140 125" stroke="#526077" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          <path d="M118 80 L118 125 L140 125" stroke="#94a3b8" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          <path d="M118 80 L118 125 L140 125" stroke="#b0bec5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </g>
       </g>
 
