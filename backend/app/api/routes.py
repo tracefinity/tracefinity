@@ -105,12 +105,13 @@ def _convert_heic_to_jpeg(content: bytes, original_ext: str) -> tuple[bytes, str
 MAX_UPLOAD_DIM = 2048
 
 
-def _downscale_image(content: bytes, ext: str) -> bytes:
-    """downscale to MAX_UPLOAD_DIM on the long edge. preserves format."""
+def _downscale_image(content: bytes, ext: str) -> tuple[bytes, float]:
+    """downscale to MAX_UPLOAD_DIM on the long edge. preserves format.
+    returns (image_bytes, downscale_ratio) where ratio is <1 when shrunk."""
     img = Image.open(io.BytesIO(content))
     w, h = img.size
     if max(w, h) <= MAX_UPLOAD_DIM:
-        return content
+        return content, 1.0
     scale = MAX_UPLOAD_DIM / max(w, h)
     new_w, new_h = int(w * scale), int(h * scale)
     img = img.resize((new_w, new_h), Image.LANCZOS)
@@ -119,7 +120,7 @@ def _downscale_image(content: bytes, ext: str) -> bytes:
     img.save(buf, format=fmt, quality=90)
     logging.info("downscaled upload %dx%d -> %dx%d (%.1fMB -> %.1fMB)",
                  w, h, new_w, new_h, len(content) / 1e6, buf.tell() / 1e6)
-    return buf.getvalue()
+    return buf.getvalue(), scale
 
 
 image_processor = ImageProcessor()
@@ -259,7 +260,7 @@ async def upload_image(request: Request, image: UploadFile, user_id: str = Depen
         raise HTTPException(status_code=413, detail=f"file too large (max {settings.max_upload_mb}MB)")
 
     content, ext = _convert_heic_to_jpeg(content, ext)
-    content = _downscale_image(content, ext)
+    content, _ = _downscale_image(content, ext)
     image_path = up / "uploads" / f"{session_id}{ext}"
     image_path.write_bytes(content)
 
@@ -292,11 +293,14 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
         _abs(session.original_image_path), corners, req.paper_size
     )
 
-    # resize the corrected image to save storage
+    # resize the corrected image to save storage; adjust scale_factor so
+    # pixel→mm conversion stays correct after the image shrinks.
     corrected_bytes = Path(output_path).read_bytes()
     ext = Path(output_path).suffix
-    corrected_bytes = _downscale_image(corrected_bytes, ext)
+    corrected_bytes, ds_ratio = _downscale_image(corrected_bytes, ext)
     Path(output_path).write_bytes(corrected_bytes)
+    if ds_ratio < 1.0:
+        scale_factor /= ds_ratio
 
     # original upload is no longer needed
     orig = _abs(session.original_image_path)
