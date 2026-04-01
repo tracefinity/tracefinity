@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     @property
     def use_local_model(self) -> bool:
         """use InSPyReNet locally when no cloud API keys are configured."""
-        return self.google_api_key is None and self.openrouter_api_key is None
+        return not self.google_api_key and not self.openrouter_api_key
 
 
 settings = Settings()

@@ -320,7 +320,7 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
 @router.get("/api-keys")
 async def get_available_keys(request: Request):
     """check which api keys/providers are configured via env vars"""
-    has_cloud = settings.google_api_key is not None or settings.openrouter_api_key is not None
+    has_cloud = bool(settings.google_api_key) or bool(settings.openrouter_api_key)
     has_local = settings.use_local_model
     return {
         "google": has_cloud or has_local,
