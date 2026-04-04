@@ -41,7 +41,7 @@ docker run -p 3000:3000 -v ./data:/app/storage -e GOOGLE_API_KEY=your-key ghcr.i
 
 Open http://localhost:3000
 
-By default, Tracefinity uses [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) for local tracing -- no API key needed. Set `GOOGLE_API_KEY` to use Gemini instead. See [Tracing Modes](#tracing-modes) for RAM requirements per model.
+By default, Tracefinity uses [IS-Net](https://github.com/xuebinqin/DIS) for local tracing -- no API key needed. Set `GOOGLE_API_KEY` to use Gemini instead. See [Tracing Modes](#tracing-modes) for RAM requirements per model.
 
 | Variable | Default | Description |
 |-|-|-|
@@ -78,8 +78,8 @@ When no API key is configured, Tracefinity runs a local salient object detection
 
 | Model | Speed (CPU) | Min RAM | Quality | Notes |
 |-|-|-|-|-|
-| [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) (default) | ~3.6s | 8GB | Best | Handles reflections and shiny surfaces well |
-| [IS-Net](https://github.com/xuebinqin/DIS) | ~0.8s | 2GB | Good | Fastest, lowest memory |
+| [IS-Net](https://github.com/xuebinqin/DIS) (default) | ~0.8s | 2GB | Good | Fastest, lowest memory |
+| [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) | ~3.6s | 8GB | Best | Handles reflections and shiny surfaces well |
 | [InSPyReNet](https://github.com/plemeri/InSPyReNet) | ~2.8s | 6GB | Good | Apple Silicon (MPS) support |
 
 Paper corner detection runs [U2-Net Portable](https://github.com/xuebinqin/U-2-Net) alongside the tracer. RAM figures include both models. All models load at startup.

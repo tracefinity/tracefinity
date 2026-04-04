@@ -42,6 +42,6 @@ Configurable via `GEMINI_IMAGE_MODEL` env var. Defaults to `gemini-3.1-flash-ima
 Two models run at all times: U2-Net Portable for paper detection and the configured tracer for tool tracing. Both load at startup. RAM figures are combined (tested in Linux containers).
 
 Tracers (configurable via `TRACERS` env var):
-- `birefnet-lite` (default) -- BiRefNet Lite, best quality, ~3.6s/image, min 8GB
-- `isnet` -- IS-Net, good quality, ~0.8s/image, min 2GB
+- `isnet` (default) -- IS-Net, good quality, ~0.8s/image, min 2GB
+- `birefnet-lite` -- BiRefNet Lite, best quality, ~3.6s/image, min 8GB
 - `inspyrenet` -- InSPyReNet, ~2.8s/image, min 6GB

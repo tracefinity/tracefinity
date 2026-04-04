@@ -33,7 +33,7 @@ class Settings(BaseSettings):
         # auto-detect
         if self.google_api_key or self.openrouter_api_key:
             return ["gemini"]
-        return ["birefnet-lite", "isnet", "inspyrenet"]
+        return ["isnet", "birefnet-lite", "inspyrenet"]
 
     @property
     def use_local_model(self) -> bool:
