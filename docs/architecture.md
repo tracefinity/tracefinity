@@ -1,13 +1,13 @@
 # Architecture
 
 ## Backend (Python/FastAPI)
-- Image upload with auto paper corner detection (OpenCV)
+- Image upload with model-assisted paper corner detection (U2-Net Portable + OpenCV)
 - Perspective correction using user-adjusted corners (portrait + landscape)
-- AI tracing via Google Gemini (`gemini-3-pro-image-preview`)
-- Manual mask upload as alternative to API
+- Tool tracing via local models (BiRefNet Lite, IS-Net, InSPyReNet) or Gemini API
+- Manual mask upload as alternative
 - Session persistence (JSON files)
 - Tool library + bin persistence (JSON files)
-- STL/3MF generation with build123d + moritzmhmk gridfinity library
+- STL/3MF generation with manifold3d
 
 ## Frontend (Next.js 16/React/TypeScript)
 - Dashboard with tool library + bin management

@@ -17,25 +17,47 @@ PX_PER_MM = 10
 
 
 class ImageProcessor:
+    _tool_mask_session = None
+
+    def _get_tool_mask(self, image_path: str) -> np.ndarray:
+        """get a rough tool mask via U2-Net Portable for paper detection."""
+        from rembg import new_session, remove
+        from PIL import Image
+
+        if self._tool_mask_session is None:
+            self._tool_mask_session = new_session("u2netp")
+
+        img = Image.open(image_path).convert("RGB")
+        result = remove(img, session=self._tool_mask_session)
+        alpha = np.array(result)[:, :, 3]
+        _, mask = cv2.threshold(alpha, 127, 255, cv2.THRESH_BINARY)
+        return mask
+
     def detect_paper_corners(self, image_path: str) -> list[tuple[float, float]] | None:
-        """detect paper corners using multiple edge detection strategies"""
+        """detect paper corners by masking out tools first."""
         img = cv2.imread(image_path)
         if img is None:
             return None
 
+        # black out tools so they can't be mistaken for paper
+        tool_mask = self._get_tool_mask(image_path)
+        img[tool_mask > 0] = [0, 0, 0]
+
+        return self._detect_paper(img)
+
+    def _detect_paper(self, img: np.ndarray) -> list[tuple[float, float]] | None:
+        """core paper detection on an image (possibly with tools blacked out)."""
         h, w = img.shape[:2]
-        min_area = (h * w) * 0.05  # paper should be at least 5% of image
-        max_area = (h * w) * 0.85  # but not more than 85% (exclude full-image detections)
-        edge_margin = int(min(h, w) * 0.02)  # 2% margin from edges
+        min_area = (h * w) * 0.05
+        max_area = (h * w) * 0.85
+        edge_margin = int(min(h, w) * 0.02)
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # try brightness-based detection first (paper is usually brightest)
         bright_result = self._detect_bright_region(img, gray, min_area, max_area, edge_margin, h, w)
         if bright_result:
             return bright_result
 
-        # fallback to edge detection strategies
         strategies = [
             self._detect_canny(gray, 50, 150),
             self._detect_canny(gray, 30, 100),
@@ -47,7 +69,6 @@ class ImageProcessor:
         for edges in strategies:
             if edges is None:
                 continue
-
             result = self._find_paper_contour(edges, min_area, max_area, edge_margin, h, w)
             if result:
                 return result
