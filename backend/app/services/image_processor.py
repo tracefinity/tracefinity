@@ -17,15 +17,15 @@ PX_PER_MM = 10
 
 
 class ImageProcessor:
-    _tool_mask_session = None
+    def __init__(self):
+        from rembg import new_session
+        logger.info("loading U2-Net Portable for paper detection")
+        self._tool_mask_session = new_session("u2netp")
 
     def _get_tool_mask(self, image_path: str) -> np.ndarray:
         """get a rough tool mask via U2-Net Portable for paper detection."""
-        from rembg import new_session, remove
+        from rembg import remove
         from PIL import Image
-
-        if self._tool_mask_session is None:
-            self._tool_mask_session = new_session("u2netp")
 
         img = Image.open(image_path).convert("RGB")
         result = remove(img, session=self._tool_mask_session)

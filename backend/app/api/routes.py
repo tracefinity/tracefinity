@@ -145,6 +145,11 @@ def _get_tracer(tracer_id: str | None = None) -> AITracer:
                 local_model_name=tid,
             )
     return _tracers[tid]
+
+# pre-load all configured tracers at startup
+for _tid in settings.available_tracers:
+    _get_tracer(_tid)
+
 polygon_scaler = PolygonScaler()
 stl_generator = ManifoldSTLGenerator()
 

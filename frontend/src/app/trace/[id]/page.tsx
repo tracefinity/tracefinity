@@ -129,6 +129,8 @@ export default function TracePage() {
     }
   }, [session, step, correctedImageUrl, sessionId])
 
+  const singleTracer = tracers.length <= 1
+
   async function handleCornersSubmit() {
     if (corners.length !== 4) return
 
@@ -140,15 +142,41 @@ export default function TracePage() {
       setCorrectedImageUrl(result.corrected_image_url)
       setImageVersion(Date.now())
 
-      // auto-trace when only one tracer is available
-      if (tracers.length === 1) {
-        setStep('trace')
-        handleTrace(tracers[0].id)
+      if (singleTracer && tracers.length === 1) {
+        // single tracer: trace immediately without changing step
+        setTraceStatus(TRACE_STEPS[0])
+        let si = 0
+        statusInterval.current = setInterval(() => {
+          si = Math.min(si + 1, TRACE_STEPS.length - 1)
+          setTraceStatus(TRACE_STEPS[si])
+        }, 3000)
+
+        try {
+          const tid = tracers[0].id
+          const traceResult = await traceTools(
+            sessionId, 'google',
+            hasEnvKey ? undefined : apiKey,
+            tid,
+          )
+          setPolygons(traceResult.polygons)
+          if (traceResult.mask_url) {
+            setMaskUrl(traceResult.mask_url)
+            setMaskVersion(v => v + 1)
+          }
+          setStep('edit')
+        } finally {
+          if (statusInterval.current) {
+            clearInterval(statusInterval.current)
+            statusInterval.current = null
+          }
+          setTraceStatus(null)
+        }
         return
       }
+
       setStep('trace')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'failed to process corners')
+      setError(err instanceof Error ? err.message : 'failed to process')
     } finally {
       setProcessing(false)
     }
@@ -291,16 +319,19 @@ export default function TracePage() {
     )
   }
 
-  const stepIndex = step === 'corners' ? 0 : step === 'trace' ? 1 : 2
+  const steps = singleTracer ? ['Corners', 'Save'] : ['Corners', 'Trace', 'Save']
+  const stepIndex = singleTracer
+    ? (step === 'corners' ? 0 : 1)
+    : (step === 'corners' ? 0 : step === 'trace' ? 1 : 2)
 
   return (
     <div className="h-[calc(100vh-44px)] flex flex-col w-full">
       <StepBar
-        steps={['Corners', 'Trace', 'Save']}
+        steps={steps}
         current={stepIndex}
         onStepClick={(i) => {
           if (i === 0) setStep('corners')
-          else if (i === 1 && correctedImageUrl) setStep('trace')
+          else if (!singleTracer && i === 1 && correctedImageUrl) setStep('trace')
         }}
       />
       <div className="flex-1 flex flex-col md:flex-row min-h-0">
@@ -309,7 +340,7 @@ export default function TracePage() {
         <div className="p-3 space-y-3">
           <div className="glass rounded-[10px] px-3 py-3">
             <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
-              {step === 'corners' && 'Adjust Corners'}
+              {step === 'corners' && (traceStatus ? 'Tracing...' : 'Adjust Corners')}
               {step === 'trace' && 'Trace Tools'}
               {step === 'edit' && 'Select Tools'}
             </h3>
@@ -563,7 +594,7 @@ export default function TracePage() {
               className="btn-primary w-full py-2 text-sm inline-flex items-center justify-center gap-1.5"
             >
               {processing && <Loader2 className="w-4 h-4 animate-spin" />}
-              {processing ? 'Processing...' : 'Continue'}
+              {traceStatus || (processing ? 'Processing...' : 'Continue')}
             </button>
           )}
 

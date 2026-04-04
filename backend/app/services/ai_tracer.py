@@ -81,6 +81,9 @@ class AITracer:
         self.local_model_name = local_model_name
         self._local_remover = None
 
+        if local_model:
+            self._load_local_model()
+
     def _mask_prompt(self, width: int, height: int) -> str:
         if self.model in _NEEDS_ALIGNMENT:
             return MASK_PROMPT_FLASH.format(width=width, height=height)
@@ -140,25 +143,28 @@ class AITracer:
         "isnet": "IS-Net",
     }
 
+    def _load_local_model(self):
+        """load the local model weights at startup."""
+        if self._local_remover is not None:
+            return
+        name = self.local_model_name
+        label = self._LOCAL_MODEL_LABELS.get(name, name)
+        if name in self._REMBG_MODELS:
+            from rembg import new_session
+            logging.info("loading %s via rembg", label)
+            self._local_remover = ("rembg", new_session(self._REMBG_MODELS[name]))
+        else:
+            from transparent_background import Remover
+            import torch
+            device = "mps" if torch.backends.mps.is_available() else "cpu"
+            logging.info("loading %s on %s", label, device)
+            self._local_remover = ("inspyrenet", Remover(mode="base", device=device))
+
     async def _generate_mask_local(self, image_path: str, output_path: str | None = None) -> str | None:
         """generate a foreground mask using a local model (no API key)."""
         from PIL import Image
 
-        name = self.local_model_name
-        label = self._LOCAL_MODEL_LABELS.get(name, name)
-
-        if self._local_remover is None:
-            if name in self._REMBG_MODELS:
-                from rembg import new_session
-                logging.info("loading %s via rembg", label)
-                self._local_remover = ("rembg", new_session(self._REMBG_MODELS[name]))
-            else:
-                from transparent_background import Remover
-                import torch
-                device = "mps" if torch.backends.mps.is_available() else "cpu"
-                logging.info("loading %s on %s", label, device)
-                self._local_remover = ("inspyrenet", Remover(mode="base", device=device))
-
+        label = self._LOCAL_MODEL_LABELS.get(self.local_model_name, self.local_model_name)
         logging.info("generating mask with %s (local)", label)
         pil_img = Image.open(image_path).convert("RGB")
 
