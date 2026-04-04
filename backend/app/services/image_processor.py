@@ -39,7 +39,6 @@ class ImageProcessor:
         if img is None:
             return None
 
-        # black out tools so they can't be mistaken for paper
         tool_mask = self._get_tool_mask(image_path)
         img[tool_mask > 0] = [0, 0, 0]
 
