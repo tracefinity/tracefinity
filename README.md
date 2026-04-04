@@ -76,15 +76,15 @@ Tracefinity supports three ways to trace tool outlines from photos. All three pr
 
 When no API key is configured, Tracefinity runs a local salient object detection model. No API key, no network access, no cost. Model weights download automatically on first trace. Three models are available, selectable via the `TRACERS` env var or the UI dropdown:
 
-| Model | Speed (CPU) | RAM (working set) | Quality | Notes |
+| Model | Speed (CPU) | Min RAM | Quality | Notes |
 |-|-|-|-|-|
-| [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) (default) | ~3.6s | ~10GB | Best | Handles reflections and shiny surfaces well |
-| [IS-Net](https://github.com/xuebinqin/DIS) | ~0.8s | ~2.5GB | Good | Fastest, lowest memory |
-| [InSPyReNet](https://github.com/plemeri/InSPyReNet) | ~2.8s | ~6GB | Good | Apple Silicon (MPS) support |
+| [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) (default) | ~3.6s | 8GB | Best | Handles reflections and shiny surfaces well |
+| [IS-Net](https://github.com/xuebinqin/DIS) | ~0.8s | 2GB | Good | Fastest, lowest memory |
+| [InSPyReNet](https://github.com/plemeri/InSPyReNet) | ~2.8s | 6GB | Good | Apple Silicon (MPS) support |
 
-Paper corner detection also runs [U2-Net Portable](https://github.com/xuebinqin/U-2-Net) at upload time (included in the RAM figures above). All models load at startup.
+Paper corner detection runs [U2-Net Portable](https://github.com/xuebinqin/U-2-Net) alongside the tracer. RAM figures include both models. All models load at startup.
 
-**Minimum RAM: 4GB** (IS-Net). BiRefNet Lite needs **8GB+**.
+**Minimum RAM: 2GB** (IS-Net). BiRefNet Lite needs **8GB**.
 
 See [#21](https://github.com/tracefinity/tracefinity/issues/21) for the benchmark that led to this selection.
 

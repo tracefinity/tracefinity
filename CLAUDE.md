@@ -39,9 +39,9 @@ make dev  # starts backend (:8000) and frontend (:4001) concurrently
 
 Configurable via `GEMINI_IMAGE_MODEL` env var. Defaults to `gemini-3.1-flash-image-preview` locally, `gemini-3-pro-image-preview` in Docker. Also supports `gemini-2.5-flash-image` (faster, needs alignment).
 
-Local models (no API key needed), configurable via `TRACERS` env var:
-- `birefnet-lite` (default) -- BiRefNet Lite, best quality, ~3.6s/image, ~10GB peak
-- `isnet` -- IS-Net, good quality, ~0.8s/image, ~2.5GB (runs on 4GB)
-- `inspyrenet` -- InSPyReNet, ~2.8s/image, ~13GB peak
+Two models run at all times: U2-Net Portable for paper detection and the configured tracer for tool tracing. Both load at startup. RAM figures are combined (tested in Linux containers).
 
-Paper detection (U2-Net Portable) also loads at startup. All models load eagerly, not on first request.
+Tracers (configurable via `TRACERS` env var):
+- `birefnet-lite` (default) -- BiRefNet Lite, best quality, ~3.6s/image, min 8GB
+- `isnet` -- IS-Net, good quality, ~0.8s/image, min 2GB
+- `inspyrenet` -- InSPyReNet, ~2.8s/image, min 6GB
