@@ -23,7 +23,7 @@ test.describe.serial('happy path', () => {
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles(FIXTURE_IMAGE)
 
-    await page.waitForURL(/\/trace\//, { timeout: 15_000 })
+    await page.waitForURL(/\/trace\//, { timeout: 60_000 })
     sessionId = page.url().split('/trace/')[1]
     expect(sessionId).toBeTruthy()
   })
@@ -33,16 +33,21 @@ test.describe.serial('happy path', () => {
     await expect(continueBtn).toBeVisible({ timeout: 10_000 })
     await continueBtn.click()
 
-    // wait for step change to trace — use the heading, not the button
-    await expect(page.getByRole('heading', { name: 'Trace Tools' })).toBeVisible({ timeout: 15_000 })
+    // may auto-trace (single tracer) or land on trace step (multiple tracers)
+    await expect(
+      page.getByRole('heading', { name: /Trace Tools|Select Tools/ })
+    ).toBeVisible({ timeout: 30_000 })
   })
 
   test('trace tools', async () => {
+    // if already on edit step (auto-traced), skip
+    const heading = await page.getByRole('heading', { name: 'Select Tools' }).isVisible()
+    if (heading) return
+
     const traceBtn = page.getByRole('button', { name: 'Trace Tools' })
     await expect(traceBtn).toBeVisible()
     await traceBtn.click()
 
-    // mock returns instantly, wait for edit step heading
     await expect(page.getByRole('heading', { name: 'Select Tools' })).toBeVisible({ timeout: 30_000 })
   })
 

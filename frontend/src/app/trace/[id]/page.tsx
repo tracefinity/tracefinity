@@ -141,7 +141,7 @@ export default function TracePage() {
       setImageVersion(Date.now())
 
       // auto-trace when only one tracer is available
-      if (tracers.length === 1 && tracers[0].id !== 'gemini') {
+      if (tracers.length === 1) {
         setStep('trace')
         handleTrace(tracers[0].id)
         return
@@ -406,7 +406,7 @@ export default function TracePage() {
                     </div>
                   )}
 
-                  {selectedTracer === 'gemini' && (
+                  {selectedTracer === 'gemini' && tracers.length > 1 && (
                     <div className="glass rounded-[10px] overflow-hidden">
                       <button
                         type="button"
@@ -431,7 +431,7 @@ export default function TracePage() {
                     </div>
                   )}
 
-                  {selectedTracer === 'gemini' && !processing && (
+                  {selectedTracer === 'gemini' && tracers.length > 1 && !processing && (
                     <button
                       onClick={() => setProvider('manual')}
                       className="text-xs text-accent/70 hover:text-accent underline underline-offset-2 decoration-accent/30 hover:decoration-accent transition-colors cursor-pointer"
@@ -567,7 +567,7 @@ export default function TracePage() {
             </button>
           )}
 
-          {step === 'trace' && provider === 'google' && (
+          {step === 'trace' && provider === 'google' && (tracers.length > 1 || processing) && (
             <button
               onClick={() => handleTrace()}
               disabled={(selectedTracer === 'gemini' && !hasEnvKey && !apiKey.trim()) || processing}
