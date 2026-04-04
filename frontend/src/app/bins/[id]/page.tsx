@@ -202,25 +202,47 @@ export default function BinPage() {
     setPlacedTools(updated)
   }, [])
 
-  // auto-size: fit grid to bounding box of all placed tools
+  // auto-size: fit grid to bounding box of all placed tools, recentre if grid changes
   useEffect(() => {
     if (!autoSize || placedTools.length === 0) return
-    let maxX = -Infinity, maxY = -Infinity
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const tool of placedTools) {
       for (const p of tool.points) {
+        minX = Math.min(minX, p.x)
+        minY = Math.min(minY, p.y)
         maxX = Math.max(maxX, p.x)
         maxY = Math.max(maxY, p.y)
       }
     }
-    // half-margin each side: wall + clearance + a bit of breathing room
     const halfMargin = config.wall_thickness + config.cutout_clearance + 0.25
-    const needX = Math.max(1, Math.ceil((maxX + halfMargin) / GRID_UNIT))
-    const needY = Math.max(1, Math.ceil((maxY + halfMargin) / GRID_UNIT))
-    setConfig(prev => {
-      if (prev.grid_x === needX && prev.grid_y === needY) return prev
-      return { ...prev, grid_x: needX, grid_y: needY }
-    })
-  }, [autoSize, placedTools, config.wall_thickness, config.cutout_clearance])
+    const toolW = maxX - minX
+    const toolH = maxY - minY
+    const needX = Math.max(1, Math.ceil((toolW + 2 * halfMargin) / GRID_UNIT))
+    const needY = Math.max(1, Math.ceil((toolH + 2 * halfMargin) / GRID_UNIT))
+
+    const gridChanged = config.grid_x !== needX || config.grid_y !== needY
+    if (gridChanged) {
+      setConfig(prev => ({ ...prev, grid_x: needX, grid_y: needY }))
+    }
+
+    // recentre tools if grid changed or tools are off-centre
+    const binW = (gridChanged ? needX : config.grid_x) * GRID_UNIT
+    const binH = (gridChanged ? needY : config.grid_y) * GRID_UNIT
+    const toolCx = (minX + maxX) / 2
+    const toolCy = (minY + maxY) / 2
+    const dx = binW / 2 - toolCx
+    const dy = binH / 2 - toolCy
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+      setPlacedTools(prev => prev.map(tool => ({
+        ...tool,
+        points: tool.points.map(p => ({ x: p.x + dx, y: p.y + dy })),
+        finger_holes: tool.finger_holes.map(fh => ({ ...fh, x: fh.x + dx, y: fh.y + dy })),
+        interior_rings: (tool.interior_rings ?? []).map(ring =>
+          ring.map(p => ({ x: p.x + dx, y: p.y + dy }))
+        ),
+      })))
+    }
+  }, [autoSize, placedTools, config.grid_x, config.grid_y, config.wall_thickness, config.cutout_clearance])
 
   const handleToggleSmoothed = useCallback(async (toolId: string, smoothed: boolean) => {
     try {
@@ -257,23 +279,24 @@ export default function BinPage() {
     const needX = Math.max(config.grid_x, Math.ceil((toolW + margin) / GRID_UNIT))
     const needY = Math.max(config.grid_y, Math.ceil((toolH + margin) / GRID_UNIT))
 
-    let placed = tool
     if (needX !== config.grid_x || needY !== config.grid_y) {
-      const newBinW = needX * GRID_UNIT
-      const newBinH = needY * GRID_UNIT
-      const toolCx = (minX + maxX) / 2
-      const toolCy = (minY + maxY) / 2
-      const dx = newBinW / 2 - toolCx
-      const dy = newBinH / 2 - toolCy
-      placed = {
-        ...tool,
-        points: tool.points.map(p => ({ x: p.x + dx, y: p.y + dy })),
-        finger_holes: tool.finger_holes.map(fh => ({ ...fh, x: fh.x + dx, y: fh.y + dy })),
-        interior_rings: (tool.interior_rings ?? []).map(ring =>
-          ring.map(p => ({ x: p.x + dx, y: p.y + dy }))
-        ),
-      }
       setConfig(prev => ({ ...prev, grid_x: needX, grid_y: needY }))
+    }
+
+    // always centre the tool in the bin
+    const binW = needX * GRID_UNIT
+    const binH = needY * GRID_UNIT
+    const toolCx = (minX + maxX) / 2
+    const toolCy = (minY + maxY) / 2
+    const dx = binW / 2 - toolCx
+    const dy = binH / 2 - toolCy
+    const placed = {
+      ...tool,
+      points: tool.points.map(p => ({ x: p.x + dx, y: p.y + dy })),
+      finger_holes: tool.finger_holes.map(fh => ({ ...fh, x: fh.x + dx, y: fh.y + dy })),
+      interior_rings: (tool.interior_rings ?? []).map(ring =>
+        ring.map(p => ({ x: p.x + dx, y: p.y + dy }))
+      ),
     }
 
     setPlacedTools(prev => [...prev, placed])
