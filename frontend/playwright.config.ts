@@ -20,7 +20,7 @@ export default defineConfig({
       cwd: '../backend',
       port: 8000,
       reuseExistingServer: !process.env.CI,
-      timeout: 30_000,
+      timeout: 120_000,
     },
     {
       command: 'npm run dev',

@@ -41,7 +41,7 @@ docker run -p 3000:3000 -v ./data:/app/storage -e GOOGLE_API_KEY=your-key ghcr.i
 
 Open http://localhost:3000
 
-By default, Tracefinity uses [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) for local tracing -- no API key needed. Set `GOOGLE_API_KEY` to use Gemini instead.
+By default, Tracefinity uses [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) for local tracing -- no API key needed. Set `GOOGLE_API_KEY` to use Gemini instead. See [Tracing Modes](#tracing-modes) for RAM requirements per model.
 
 | Variable | Default | Description |
 |-|-|-|
@@ -76,11 +76,15 @@ Tracefinity supports three ways to trace tool outlines from photos. All three pr
 
 When no API key is configured, Tracefinity runs a local salient object detection model. No API key, no network access, no cost. Model weights download automatically on first trace. Three models are available, selectable via the `TRACERS` env var or the UI dropdown:
 
-| Model | Speed (CPU) | Quality | Notes |
-|-|-|-|-|
-| [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) (default) | ~3.6s | Best | Handles reflections and shiny surfaces well |
-| [IS-Net](https://github.com/xuebinqin/DIS) | ~0.8s | Good | Fastest option |
-| [InSPyReNet](https://github.com/plemeri/InSPyReNet) | ~2.8s | Good | Lightweight, Apple Silicon (MPS) support |
+| Model | Speed (CPU) | RAM (working set) | Quality | Notes |
+|-|-|-|-|-|
+| [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) (default) | ~3.6s | ~10GB | Best | Handles reflections and shiny surfaces well |
+| [IS-Net](https://github.com/xuebinqin/DIS) | ~0.8s | ~2.5GB | Good | Fastest, lowest memory |
+| [InSPyReNet](https://github.com/plemeri/InSPyReNet) | ~2.8s | ~6GB | Good | Apple Silicon (MPS) support |
+
+Paper corner detection also runs [U2-Net Portable](https://github.com/xuebinqin/U-2-Net) at upload time (included in the RAM figures above). All models load at startup.
+
+**Minimum RAM: 4GB** (IS-Net). BiRefNet Lite needs **8GB+**.
 
 See [#21](https://github.com/tracefinity/tracefinity/issues/21) for the benchmark that led to this selection.
 
