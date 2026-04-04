@@ -70,6 +70,7 @@ class AITracer:
         openrouter_image_model: str | None = None,
         openrouter_label_model: str | None = None,
         local_model: bool = False,
+        local_model_name: str = "inspyrenet",
     ):
         self.model = model
         self.label_model = label_model
@@ -77,6 +78,7 @@ class AITracer:
         self.openrouter_image_model = openrouter_image_model or f"google/{model}"
         self.openrouter_label_model = openrouter_label_model or f"google/{label_model}"
         self.local_model = local_model
+        self.local_model_name = local_model_name
         self._local_remover = None
 
     def _mask_prompt(self, width: int, height: int) -> str:
@@ -108,14 +110,8 @@ class AITracer:
         if not contours:
             return [], mask_output_path
 
-        try:
-            labels = await self._get_labels(image_path, contours, api_key)
-        except Exception:
-            labels = [f"tool {i + 1}" for i in range(len(contours))]
-
         polygons = []
         for i, (exterior, holes) in enumerate(contours):
-            label = labels[i] if i < len(labels) else f"tool {i + 1}"
             points = [Point(x=p[0], y=p[1]) for p in exterior]
             interior_rings = [
                 [Point(x=p[0], y=p[1]) for p in hole]
@@ -125,33 +121,59 @@ class AITracer:
                 Polygon(
                     id=str(uuid.uuid4()),
                     points=points,
-                    label=label,
+                    label=f"tool {i + 1}",
                     interior_rings=interior_rings,
                 )
             )
 
         return polygons, mask_output_path
 
+    # rembg model names for each local model option
+    _REMBG_MODELS = {
+        "birefnet-lite": "birefnet-general-lite",
+        "isnet": "isnet-general-use",
+    }
+
+    _LOCAL_MODEL_LABELS = {
+        "inspyrenet": "InSPyReNet",
+        "birefnet-lite": "BiRefNet Lite",
+        "isnet": "IS-Net",
+    }
+
     async def _generate_mask_local(self, image_path: str, output_path: str | None = None) -> str | None:
-        """generate a foreground mask using InSPyReNet (local, no API key)."""
+        """generate a foreground mask using a local model (no API key)."""
         from PIL import Image
 
+        name = self.local_model_name
+        label = self._LOCAL_MODEL_LABELS.get(name, name)
+
         if self._local_remover is None:
-            from transparent_background import Remover
-            import torch
-            device = "mps" if torch.backends.mps.is_available() else "cpu"
-            logging.info("loading InSPyReNet on %s", device)
-            self._local_remover = Remover(mode="base", device=device)
+            if name in self._REMBG_MODELS:
+                from rembg import new_session
+                logging.info("loading %s via rembg", label)
+                self._local_remover = ("rembg", new_session(self._REMBG_MODELS[name]))
+            else:
+                from transparent_background import Remover
+                import torch
+                device = "mps" if torch.backends.mps.is_available() else "cpu"
+                logging.info("loading %s on %s", label, device)
+                self._local_remover = ("inspyrenet", Remover(mode="base", device=device))
 
-        logging.info("generating mask with InSPyReNet (local)")
+        logging.info("generating mask with %s (local)", label)
         pil_img = Image.open(image_path).convert("RGB")
-        result = self._local_remover.process(pil_img, type="map")
 
-        # convert to black-tool-on-white-bg format (matching gemini mask convention)
-        mask_np = np.array(result.convert("L"))
-        _, binary = cv2.threshold(mask_np, 127, 255, cv2.THRESH_BINARY)
-        # InSPyReNet: foreground=white. our convention: tool=black, bg=white
-        mask_out = cv2.bitwise_not(binary)
+        backend, remover = self._local_remover
+        if backend == "rembg":
+            from rembg import remove
+            result = remove(pil_img, session=remover)
+            alpha = np.array(result)[:, :, 3]
+            _, binary = cv2.threshold(alpha, 127, 255, cv2.THRESH_BINARY)
+            mask_out = cv2.bitwise_not(binary)
+        else:
+            result = remover.process(pil_img, type="map")
+            mask_np = np.array(result.convert("L"))
+            _, binary = cv2.threshold(mask_np, 127, 255, cv2.THRESH_BINARY)
+            mask_out = cv2.bitwise_not(binary)
 
         if output_path:
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)

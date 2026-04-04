@@ -124,14 +124,27 @@ def _downscale_image(content: bytes, ext: str) -> tuple[bytes, float]:
 
 
 image_processor = ImageProcessor()
-ai_tracer = AITracer(
-    model=settings.gemini_image_model,
-    label_model=settings.gemini_label_model,
-    openrouter_key=settings.openrouter_api_key,
-    openrouter_image_model=settings.openrouter_image_model,
-    openrouter_label_model=settings.openrouter_label_model,
-    local_model=settings.use_local_model,
-)
+
+# one AITracer per local model so each can cache its loaded model
+_tracers: dict[str, AITracer] = {}
+
+
+def _get_tracer(tracer_id: str | None = None) -> AITracer:
+    """get or create a tracer for the given ID."""
+    tid = tracer_id or settings.available_tracers[0]
+    if tid not in _tracers:
+        if tid == "gemini":
+            _tracers[tid] = AITracer(
+                model=settings.gemini_image_model,
+                openrouter_key=settings.openrouter_api_key,
+                openrouter_image_model=settings.openrouter_image_model,
+            )
+        else:
+            _tracers[tid] = AITracer(
+                local_model=True,
+                local_model_name=tid,
+            )
+    return _tracers[tid]
 polygon_scaler = PolygonScaler()
 stl_generator = ManifoldSTLGenerator()
 
@@ -321,15 +334,29 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
     )
 
 
+TRACER_LABELS = {
+    "gemini": "Gemini API",
+    "inspyrenet": "InSPyReNet",
+    "birefnet-lite": "BiRefNet Lite",
+    "isnet": "IS-Net",
+}
+
+
 @router.get("/api-keys")
 async def get_available_keys(request: Request):
-    """check which api keys/providers are configured via env vars"""
+    """return available tracers and provider info."""
+    tracers = settings.available_tracers
     has_cloud = bool(settings.google_api_key) or bool(settings.openrouter_api_key)
     has_local = settings.use_local_model
+    primary = tracers[0] if tracers else None
     return {
         "google": has_cloud or has_local,
         "provider": "local" if has_local else "gemini" if has_cloud else None,
-        "provider_label": "Local (InSPyReNet)" if has_local else "Gemini API" if has_cloud else None,
+        "provider_label": TRACER_LABELS.get(primary, primary) if primary else None,
+        "tracers": [
+            {"id": t, "label": TRACER_LABELS.get(t, t)}
+            for t in tracers
+        ],
     }
 
 
@@ -340,15 +367,20 @@ async def trace_tools(request: Request, session_id: str, req: TraceRequest, user
     if not session or not session.corrected_image_path:
         raise HTTPException(status_code=400, detail="must set corners first")
 
+    tracer_id = req.tracer or settings.available_tracers[0]
+    if tracer_id not in settings.available_tracers:
+        raise HTTPException(status_code=400, detail=f"tracer '{tracer_id}' not available")
+
     api_key = settings.google_api_key or req.api_key
-    if not api_key and not settings.openrouter_api_key and not settings.use_local_model:
+    if tracer_id == "gemini" and not api_key and not settings.openrouter_api_key:
         raise HTTPException(status_code=400, detail="no api key provided")
 
     up = _user_path(user_id)
     mask_output_path = str(up / "processed" / f"{session_id}_mask.png")
 
+    tracer = _get_tracer(tracer_id)
     try:
-        polygons, mask_path = await ai_tracer.trace_tools(
+        polygons, mask_path = await tracer.trace_tools(
             _abs(session.corrected_image_path),
             api_key,
             mask_output_path,
@@ -400,7 +432,7 @@ async def trace_from_mask(request: Request, session_id: str, mask: UploadFile, u
     mask_path = up / "processed" / f"{session_id}_mask.png"
     mask_path.write_bytes(content)
 
-    contours = ai_tracer._trace_mask(str(mask_path), _abs(session.corrected_image_path))
+    contours = _get_tracer()._trace_mask(str(mask_path), _abs(session.corrected_image_path))
 
     if not contours:
         raise HTTPException(status_code=400, detail="no tool outlines found in mask")

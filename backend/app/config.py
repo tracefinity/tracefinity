@@ -17,13 +17,28 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     proxy_secret: Optional[str] = None
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:4001"]
+    tracers: Optional[str] = None
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @property
+    def available_tracers(self) -> list[str]:
+        """list of tracer IDs available to users.
+
+        set TRACERS env var to a comma-separated list, e.g. "birefnet-lite,isnet"
+        or "gemini,birefnet-lite". if not set, auto-detects from API keys.
+        """
+        if self.tracers:
+            return [t.strip() for t in self.tracers.split(",") if t.strip()]
+        # auto-detect
+        if self.google_api_key or self.openrouter_api_key:
+            return ["gemini"]
+        return ["birefnet-lite", "isnet", "inspyrenet"]
+
+    @property
     def use_local_model(self) -> bool:
-        """use InSPyReNet locally when no cloud API keys are configured."""
-        return not self.google_api_key and not self.openrouter_api_key
+        """true when the primary tracer is a local model (not gemini)."""
+        return self.available_tracers[0] != "gemini" if self.available_tracers else True
 
 
 settings = Settings()
