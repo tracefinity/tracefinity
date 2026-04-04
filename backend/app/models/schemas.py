@@ -58,6 +58,7 @@ class CornersResponse(BaseModel):
 class TraceRequest(BaseModel):
     provider: Literal["google"] = "google"
     api_key: str | None = None
+    tracer: str | None = None
 
 
 class TraceResponse(BaseModel):

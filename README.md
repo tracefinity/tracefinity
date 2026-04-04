@@ -13,7 +13,7 @@
 
 ## How It Works
 
-1. Place tools on A4/Letter paper (portrait or landscape)
+1. Place tools on A4/Letter paper (tools can overflow the edges)
 2. Take a photo from above
 3. Upload and adjust paper corners for scale calibration
 4. AI traces tool outlines automatically
@@ -41,11 +41,12 @@ docker run -p 3000:3000 -v ./data:/app/storage -e GOOGLE_API_KEY=your-key ghcr.i
 
 Open http://localhost:3000
 
-By default, Tracefinity uses a local [InSPyReNet](https://github.com/plemeri/InSPyReNet) model for tracing -- no API key needed. Set `GOOGLE_API_KEY` to use Gemini instead for higher accuracy on complex tools.
+By default, Tracefinity uses [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) for local tracing -- no API key needed. Set `GOOGLE_API_KEY` to use Gemini instead.
 
 | Variable | Default | Description |
 |-|-|-|
-| `GOOGLE_API_KEY` | | Gemini API key. When set, uses Gemini instead of the local model |
+| `GOOGLE_API_KEY` | | Gemini API key. Uses Gemini instead of local models |
+| `TRACERS` | auto-detected | Comma-separated list of available tracers, e.g. `gemini,birefnet-lite,isnet` |
 | `GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-image-preview` | Gemini model for mask generation (see below) |
 
 ### From Source
@@ -71,9 +72,17 @@ Open http://localhost:4001
 
 Tracefinity supports three ways to trace tool outlines from photos. All three produce the same output -- black and white mask images that get converted to editable polygons via OpenCV contour extraction.
 
-### Local model (default)
+### Local models (default)
 
-When no API key is configured, Tracefinity uses [InSPyReNet](https://github.com/plemeri/InSPyReNet), a background removal model that runs entirely on your machine. No API key, no network access, no cost. ~0.7s per image on Apple Silicon, ~2-3s on CPU. Model weights (~80MB) download automatically on first trace. See [#13](https://github.com/tracefinity/tracefinity/issues/13) for how this model was chosen.
+When no API key is configured, Tracefinity runs a local salient object detection model. No API key, no network access, no cost. Model weights download automatically on first trace. Three models are available, selectable via the `TRACERS` env var or the UI dropdown:
+
+| Model | Speed (CPU) | Quality | Notes |
+|-|-|-|-|
+| [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) (default) | ~3.6s | Best | Handles reflections and shiny surfaces well |
+| [IS-Net](https://github.com/xuebinqin/DIS) | ~0.8s | Good | Fastest option |
+| [InSPyReNet](https://github.com/plemeri/InSPyReNet) | ~2.8s | Good | Lightweight, Apple Silicon (MPS) support |
+
+See [#21](https://github.com/tracefinity/tracefinity/issues/21) for the benchmark that led to this selection.
 
 ### Gemini API
 
@@ -107,6 +116,8 @@ No API key and prefer not to use the local model? Upload a mask manually:
 - **Interior rings** -- Hollow tools (e.g. spanners) traced correctly with holes preserved
 - **Bin builder** -- Drag and arrange tools with snap-to-grid, auto-sizing to fit the gridfinity grid
 - **Cutout clearance** -- Configurable tolerance so tools fit without being too loose
+- **Cutout chamfer** -- Bevelled top edges on tool pockets for easy tool insertion
+- **Contrast insert** -- Generate a separate STL for printing tool silhouettes in a different colour
 - **Text labels** -- Recessed or embossed text on bins
 - **Gridfinity compatible** -- Proper base profile, magnet holes, stacking lip
 - **Live 3D preview** -- See your bin in three.js before printing

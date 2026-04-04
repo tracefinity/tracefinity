@@ -76,20 +76,27 @@ export async function setCorners(
   })
 }
 
-export async function getAvailableKeys(): Promise<{ google: boolean; provider: string | null; provider_label: string | null }> {
+export interface TracerInfo {
+  id: string
+  label: string
+}
+
+export async function getAvailableKeys(): Promise<{ google: boolean; provider: string | null; provider_label: string | null; tracers: TracerInfo[] }> {
   return fetchApi('/api/api-keys')
 }
 
 export async function traceTools(
   sessionId: string,
   provider: 'google',
-  apiKey?: string
+  apiKey?: string,
+  tracer?: string,
 ): Promise<TraceResponse> {
   return fetchApi(`/api/sessions/${sessionId}/trace`, {
     method: 'POST',
     body: JSON.stringify({
       provider,
       api_key: apiKey || null,
+      tracer: tracer || null,
     }),
   })
 }
