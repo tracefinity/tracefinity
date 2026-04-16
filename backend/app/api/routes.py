@@ -242,6 +242,15 @@ def _run_generate(
         success = stl_generator.generate_insert(scaled, gen_req, str(insert_path), offset_x, offset_y)
         if success:
             insert_stl_url = f"/storage/{user_id}/outputs/{entity_id}_insert.stl"
+            # bundle bin + insert into a ZIP so users get both files
+            if zip_path.exists():
+                with zipfile.ZipFile(str(zip_path), 'a') as zf:
+                    zf.write(str(insert_path), f"{entity_id}_insert.stl")
+            else:
+                with zipfile.ZipFile(str(zip_path), 'w', zipfile.ZIP_DEFLATED) as zf:
+                    zf.write(str(output_path), f"{entity_id}.stl")
+                    zf.write(str(insert_path), f"{entity_id}_insert.stl")
+                zip_url = f"/storage/{user_id}/outputs/{entity_id}_parts.zip"
 
     hash_path.write_text(input_hash)
 
