@@ -831,17 +831,19 @@ class ManifoldSTLGenerator:
         offset_x: float,
         offset_y: float,
     ) -> bool:
-        # Generate insert STL, tool silhouettes extruded to insert_height.
         import manifold3d as mf
 
         insert_height = getattr(config, 'insert_height', 1.0)
         shapes = []
+        failed = 0
         for poly in polygons:
             shifted = [
                 (p[0] + offset_x, -(p[1] + offset_y))
                 for p in poly.points_mm
             ]
             if len(shifted) < 3:
+                logger.warning("insert: skipping polygon %s (%d points)", poly.id, len(shifted))
+                failed += 1
                 continue
             shifted_holes = []
             for hole in (poly.interior_rings_mm or []):
@@ -854,6 +856,8 @@ class ManifoldSTLGenerator:
             try:
                 rings = _shapely_to_cross_sections(shifted, shifted_holes)
                 if not rings:
+                    logger.warning("insert: empty cross-section for polygon %s", poly.id)
+                    failed += 1
                     continue
                 has_holes = len(rings) > 1
                 cs = mf.CrossSection(rings, mf.FillRule.EvenOdd) if has_holes else mf.CrossSection(rings)
@@ -861,14 +865,20 @@ class ManifoldSTLGenerator:
                     cs = mf.CrossSection([r[::-1] for r in rings], mf.FillRule.EvenOdd if has_holes else mf.FillRule.Positive)
                 if cs.area() > 0:
                     shapes.append(mf.Manifold.extrude(cs, insert_height))
+                else:
+                    logger.warning("insert: zero-area cross-section for polygon %s", poly.id)
+                    failed += 1
             except Exception as e:
-                logger.warning("insert polygon failed: %s", e)
+                logger.warning("insert polygon %s failed: %s", poly.id, e)
+                failed += 1
 
         if not shapes:
+            logger.error("insert generation produced no shapes (%d polygons, %d failed)", len(polygons), failed)
             return False
 
         combined = mf.Manifold.batch_boolean(shapes, mf.OpType.Add)
         _export_stl(combined, output_path)
+        logger.info("insert: exported %d shapes to %s", len(shapes), output_path)
         return True
 
     @staticmethod
