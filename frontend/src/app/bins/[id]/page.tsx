@@ -56,6 +56,7 @@ export default function BinPage() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
   const generateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastGenerateRef = useRef<string>('')
   const generatingRef = useRef(false)
@@ -134,6 +135,7 @@ export default function BinPage() {
     generatingRef.current = true
     setGenerating(true)
     setError(null)
+    setWarning(null)
     setStlUrl(null)
     setStlUrls([])
     setThreemfUrl(null)
@@ -152,6 +154,7 @@ export default function BinPage() {
       setInsertStlUrl(result.insert_stl_url ? getImageUrl(result.insert_stl_url) : null)
       setSplitCount(result.split_count || 1)
       setStlVersion(v => v + 1)
+      setWarning(result.warning || null)
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : 'generation failed')
@@ -372,6 +375,11 @@ export default function BinPage() {
         {/* export buttons */}
         <div className="p-3 flex-shrink-0 space-y-1.5">
           {error && <Alert variant="error">{error}</Alert>}
+          {warning && (
+            <div className="text-[10px] text-amber-400 bg-amber-900/20 border border-amber-800/50 rounded px-2 py-1">
+              {warning}
+            </div>
+          )}
           {splitCount > 1 && (
             <div className="text-[10px] text-amber-400 bg-amber-900/20 border border-amber-800/50 rounded px-2 py-1">
               Split into {splitCount} pieces

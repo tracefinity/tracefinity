@@ -149,6 +149,7 @@ class GenerateResponse(BaseModel):
     split_count: int = 1
     zip_url: str | None = None
     insert_stl_url: str | None = None
+    warning: str | None = None
 
 
 class Layout(BaseModel):

@@ -9,6 +9,8 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 from fastapi import APIRouter, Depends, UploadFile, HTTPException
 from fastapi.responses import FileResponse, Response
 from starlette.requests import Request
@@ -203,6 +205,9 @@ def _run_generate(
             f"/storage/{user_id}/outputs/{entity_id}_insert.stl"
             if insert_path.exists() else None
         )
+        cached_warning = None
+        if getattr(gen_req, 'insert_enabled', False) and not insert_path.exists():
+            cached_warning = "Insert generation failed -- check server logs for details"
         return GenerateResponse(
             stl_url=f"/storage/{user_id}/outputs/{entity_id}.stl",
             stl_urls=stl_urls,
@@ -210,6 +215,7 @@ def _run_generate(
             split_count=max(1, len(stl_urls)),
             zip_url=f"/storage/{user_id}/outputs/{entity_id}_parts.zip" if zip_path.exists() else None,
             insert_stl_url=insert_stl_url,
+            warning=cached_warning,
         )
 
     threemf_path.unlink(missing_ok=True)
@@ -234,15 +240,19 @@ def _run_generate(
             zip_url = f"/storage/{user_id}/outputs/{entity_id}_parts.zip"
 
     insert_stl_url = None
+    warning = None
     if getattr(gen_req, 'insert_enabled', False) and scaled:
         bin_width = gen_req.grid_x * GF_GRID
         bin_depth = gen_req.grid_y * GF_GRID
         offset_x = -bin_width / 2
         offset_y = -bin_depth / 2
-        success = stl_generator.generate_insert(scaled, gen_req, str(insert_path), offset_x, offset_y)
+        try:
+            success = stl_generator.generate_insert(scaled, gen_req, str(insert_path), offset_x, offset_y)
+        except Exception:
+            logger.exception("insert generation crashed")
+            success = False
         if success:
             insert_stl_url = f"/storage/{user_id}/outputs/{entity_id}_insert.stl"
-            # bundle bin + insert into a ZIP so users get both files
             if zip_path.exists():
                 with zipfile.ZipFile(str(zip_path), 'a') as zf:
                     zf.write(str(insert_path), f"{entity_id}_insert.stl")
@@ -251,6 +261,8 @@ def _run_generate(
                     zf.write(str(output_path), f"{entity_id}.stl")
                     zf.write(str(insert_path), f"{entity_id}_insert.stl")
                 zip_url = f"/storage/{user_id}/outputs/{entity_id}_parts.zip"
+        else:
+            warning = "Insert generation failed -- check server logs for details"
 
     hash_path.write_text(input_hash)
 
@@ -265,6 +277,7 @@ def _run_generate(
         split_count=max(1, len(stl_urls)),
         zip_url=zip_url,
         insert_stl_url=insert_stl_url,
+        warning=warning,
     )
 
 

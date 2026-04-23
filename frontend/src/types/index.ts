@@ -90,6 +90,7 @@ export interface GenerateResponse {
   split_count?: number
   zip_url?: string | null
   insert_stl_url?: string | null
+  warning?: string | null
 }
 
 export interface BinConfig {
