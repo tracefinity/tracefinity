@@ -843,6 +843,7 @@ class ManifoldSTLGenerator:
             ]
             if len(shifted) < 3:
                 logger.warning("insert: skipping polygon %s (%d points)", poly.id, len(shifted))
+                failed += 1
                 continue
             shifted_holes = []
             for hole in (poly.interior_rings_mm or []):

@@ -207,7 +207,7 @@ def _run_generate(
         )
         cached_warning = None
         if getattr(gen_req, 'insert_enabled', False) and not insert_path.exists():
-            cached_warning = "Insert generation failed -- check server logs for details"
+            cached_warning = "Insert generation failed. Try re-tracing the tools or adjusting their placement."
         return GenerateResponse(
             stl_url=f"/storage/{user_id}/outputs/{entity_id}.stl",
             stl_urls=stl_urls,
@@ -262,7 +262,7 @@ def _run_generate(
                     zf.write(str(insert_path), f"{entity_id}_insert.stl")
                 zip_url = f"/storage/{user_id}/outputs/{entity_id}_parts.zip"
         else:
-            warning = "Insert generation failed -- check server logs for details"
+            warning = "Insert generation failed. Try re-tracing the tools or adjusting their placement."
 
     hash_path.write_text(input_hash)
 

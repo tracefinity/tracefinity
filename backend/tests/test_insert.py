@@ -1,11 +1,8 @@
 """Tests for contrast insert STL generation."""
 import os
-import sys
 import tempfile
 
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.services.stl_generator_manifold import ManifoldSTLGenerator
 from app.services.polygon_scaler import ScaledPolygon
