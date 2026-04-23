@@ -15,6 +15,14 @@ import { Alert } from '@/components/Alert'
 import { useDebouncedSave } from '@/hooks/useDebouncedSave'
 import { GRID_UNIT } from '@/lib/constants'
 
+function InfoBanner({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[10px] text-amber-400 bg-amber-900/20 border border-amber-800/50 rounded px-2 py-1">
+      {children}
+    </div>
+  )
+}
+
 function defaultConfig(): BinConfig {
   return {
     grid_x: 2,
@@ -376,14 +384,10 @@ export default function BinPage() {
         <div className="p-3 flex-shrink-0 space-y-1.5">
           {error && <Alert variant="error">{error}</Alert>}
           {warning && (
-            <div className="text-[10px] text-amber-400 bg-amber-900/20 border border-amber-800/50 rounded px-2 py-1">
-              {warning}
-            </div>
+            <InfoBanner>{warning}</InfoBanner>
           )}
           {splitCount > 1 && (
-            <div className="text-[10px] text-amber-400 bg-amber-900/20 border border-amber-800/50 rounded px-2 py-1">
-              Split into {splitCount} pieces
-            </div>
+            <InfoBanner>Split into {splitCount} pieces</InfoBanner>
           )}
           {hasExports && (
             <div className="relative" ref={exportRef}>

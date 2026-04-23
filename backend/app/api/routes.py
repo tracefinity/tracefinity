@@ -9,13 +9,13 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 from fastapi import APIRouter, Depends, UploadFile, HTTPException
 from fastapi.responses import FileResponse, Response
 from starlette.requests import Request
 from PIL import Image
 import io
+
+logger = logging.getLogger(__name__)
 
 from app.config import settings, ensure_user_dirs
 from app.auth import get_user_id
