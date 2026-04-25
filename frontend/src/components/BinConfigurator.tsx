@@ -3,6 +3,16 @@
 import { Info } from 'lucide-react'
 import type { BinConfig } from '@/types'
 
+const GF_HEIGHT_UNIT = 7.0
+const GF_BASE_HEIGHT = 4.75
+const LIP_NOTCH_DEPTH = 3.8
+
+function calcMaxCutoutDepth(heightUnits: number, stackingLip: boolean): number {
+  const wallTopZ = heightUnits * GF_HEIGHT_UNIT
+  const lipDeduction = stackingLip ? LIP_NOTCH_DEPTH : 0
+  return Math.max(5, wallTopZ - GF_BASE_HEIGHT - 2 - lipDeduction)
+}
+
 interface Props {
   config: BinConfig
   onChange: (config: BinConfig) => void
@@ -122,7 +132,7 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
     onChange({ ...config, ...partial })
   }
 
-  const maxCutoutDepth = Math.max(5, config.height_units * 7 - 2)
+  const maxCutoutDepth = calcMaxCutoutDepth(config.height_units, config.stacking_lip)
   const binWidth = config.grid_x * 42
   const binDepth = config.grid_y * 42
   const needsSplit = config.bed_size > 0 && (binWidth > config.bed_size || binDepth > config.bed_size)
@@ -168,7 +178,7 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
         max={20}
         unit="u"
         onChange={(v) => {
-          const newMax = Math.max(5, v * 7 - 2)
+          const newMax = calcMaxCutoutDepth(v, config.stacking_lip)
           update({ height_units: v, cutout_depth: Math.min(config.cutout_depth, newMax) })
         }}
       />
@@ -243,7 +253,10 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
         )}
         <Toggle
           checked={config.stacking_lip}
-          onChange={(v) => update({ stacking_lip: v })}
+          onChange={(v) => {
+            const newMax = calcMaxCutoutDepth(config.height_units, v)
+            update({ stacking_lip: v, cutout_depth: Math.min(config.cutout_depth, newMax) })
+          }}
           label="Stacking lip"
           help="Raised rim at the top so bins can stack securely on top of each other."
         />

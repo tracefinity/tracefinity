@@ -753,7 +753,8 @@ class ManifoldSTLGenerator:
         pocket_depth = 5
         if polygons:
             floor_z = GF_BASE_HEIGHT
-            max_depth = wall_top_z - floor_z - 2
+            lip_deduction = (LIP_D3 + LIP_D4) if config.stacking_lip else 0
+            max_depth = wall_top_z - floor_z - 2 - lip_deduction
             effective_cutout = config.cutout_depth
             if getattr(config, 'insert_enabled', False):
                 effective_cutout += getattr(config, 'insert_height', 1.0)
