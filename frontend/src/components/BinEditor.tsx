@@ -20,6 +20,7 @@ interface Props {
   onToggleSmoothed?: (toolId: string, smoothed: boolean) => void
   smoothLevels?: Map<string, number>
   onSmoothLevelChange?: (toolId: string, level: number) => void
+  onDraggingChange?: (dragging: boolean) => void
 }
 
 type Tool = 'select' | 'text'
@@ -49,6 +50,7 @@ export function BinEditor({
   onToggleSmoothed,
   smoothLevels,
   onSmoothLevelChange,
+  onDraggingChange,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [selection, setSelection] = useState<Selection>(null)
@@ -71,6 +73,8 @@ export function BinEditor({
   useEffect(() => { onChangeRef.current = onPlacedToolsChange }, [onPlacedToolsChange])
   useEffect(() => { textLabelsRef.current = textLabels }, [textLabels])
   useEffect(() => { onTextLabelsChangeRef.current = onTextLabelsChange }, [onTextLabelsChange])
+
+  useEffect(() => { onDraggingChange?.(dragging !== null) }, [dragging, onDraggingChange])
 
   const binWidthMm = gridX * GRID_UNIT
   const binHeightMm = gridY * GRID_UNIT
