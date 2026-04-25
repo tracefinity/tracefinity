@@ -5,9 +5,10 @@ import type { BinConfig } from '@/types'
 
 const GF_HEIGHT_UNIT = 7.0
 const GF_BASE_HEIGHT = 4.75
+// lip_d3 (1.2) + lip_d4 (2.6)
 const LIP_NOTCH_DEPTH = 3.8
 
-function calcMaxCutoutDepth(heightUnits: number, stackingLip: boolean): number {
+export function calcMaxCutoutDepth(heightUnits: number, stackingLip: boolean): number {
   const wallTopZ = heightUnits * GF_HEIGHT_UNIT
   const lipDeduction = stackingLip ? LIP_NOTCH_DEPTH : 0
   return Math.max(5, wallTopZ - GF_BASE_HEIGHT - 2 - lipDeduction)
