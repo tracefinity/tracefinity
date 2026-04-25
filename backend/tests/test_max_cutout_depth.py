@@ -1,6 +1,4 @@
 """Tests for max cutout depth calculation in stl_generator_manifold."""
-import pytest
-
 from app.services.stl_generator_manifold import (
     GF_BASE_HEIGHT,
     GF_HEIGHT_UNIT,
