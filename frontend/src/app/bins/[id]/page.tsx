@@ -75,6 +75,7 @@ export default function BinPage() {
   const smoothLevelTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const [autoSize, setAutoSize] = useState(true)
+  const [isDragging, setIsDragging] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const exportRef = useRef<HTMLDivElement>(null)
 
@@ -215,7 +216,7 @@ export default function BinPage() {
 
   // auto-size: fit grid to bounding box of all placed tools, recentre if grid changes
   useEffect(() => {
-    if (!autoSize || placedTools.length === 0) return
+    if (!autoSize || isDragging || placedTools.length === 0) return
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const tool of placedTools) {
       for (const p of tool.points) {
@@ -253,7 +254,7 @@ export default function BinPage() {
         ),
       })))
     }
-  }, [autoSize, placedTools, config.grid_x, config.grid_y, config.wall_thickness, config.cutout_clearance])
+  }, [autoSize, isDragging, placedTools, config.grid_x, config.grid_y, config.wall_thickness, config.cutout_clearance])
 
   const handleToggleSmoothed = useCallback(async (toolId: string, smoothed: boolean) => {
     try {
@@ -474,6 +475,7 @@ export default function BinPage() {
                 onToggleSmoothed={handleToggleSmoothed}
                 smoothLevels={smoothLevels}
                 onSmoothLevelChange={handleSmoothLevelChange}
+                onDraggingChange={setIsDragging}
               />
             </div>
 
