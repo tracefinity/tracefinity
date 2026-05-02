@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Plus, Circle, Square, RectangleHorizontal, Fingerprint } from 'lucide-react'
+import { Plus, Circle, Disc, Square, RectangleHorizontal, Fingerprint } from 'lucide-react'
 import type { Point, FingerHole } from '@/types'
 import { simplifyPolygon, smoothEpsilon, snapToGrid as snapToGridUtil } from '@/lib/svg'
 import { DISPLAY_SCALE, SNAP_GRID, ZOOM_FACTOR } from '@/lib/constants'
@@ -302,6 +302,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     switch (editMode) {
       case 'finger-hole': return { ...base, radius: 15, shape: 'circle' as const }
       case 'circle': return { ...base, radius: 10, shape: 'circle' as const }
+      case 'cylinder': return { ...base, radius: 10, shape: 'cylinder' as const }
       case 'square': return { ...base, radius: 10, shape: 'square' as const }
       case 'rectangle': return { ...base, radius: 15, width: 30, height: 20, shape: 'rectangle' as const }
       default: return null
@@ -393,7 +394,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       didPanRef.current = false
       return
     }
-    if (editMode === 'finger-hole' || editMode === 'circle' || editMode === 'square' || editMode === 'rectangle') {
+    if (editMode === 'finger-hole' || editMode === 'circle' || editMode === 'cylinder' || editMode === 'square' || editMode === 'rectangle') {
       const pos = screenToMm(e.clientX, e.clientY)
       const cutout = createCutout(snapToGrid(pos.x), snapToGrid(pos.y))
       if (cutout) {
@@ -551,16 +552,18 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     onInteriorRingsChange(updated)
   }, [currentRings, points, fingerHoles, pushHistory, onInteriorRingsChange])
 
-  const isCutoutMode = editMode === 'finger-hole' || editMode === 'circle' || editMode === 'square' || editMode === 'rectangle'
+  const isCutoutMode = editMode === 'finger-hole' || editMode === 'circle' || editMode === 'cylinder' || editMode === 'square' || editMode === 'rectangle'
 
   const cutoutModeIcon = editMode === 'finger-hole' ? <Fingerprint className="w-4.5 h-4.5" />
     : editMode === 'circle' ? <Circle className="w-4.5 h-4.5" />
+    : editMode === 'cylinder' ? <Disc className="w-4.5 h-4.5" />
     : editMode === 'square' ? <Square className="w-4.5 h-4.5" />
     : editMode === 'rectangle' ? <RectangleHorizontal className="w-4.5 h-4.5" />
     : <Plus className="w-4.5 h-4.5" />
 
   const cutoutModeLabel = editMode === 'finger-hole' ? 'Finger hole'
     : editMode === 'circle' ? 'Circle'
+    : editMode === 'cylinder' ? 'Cylinder'
     : editMode === 'square' ? 'Square'
     : editMode === 'rectangle' ? 'Rectangle'
     : 'Cutout'
