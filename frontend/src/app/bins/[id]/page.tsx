@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { BinEditor } from '@/components/BinEditor'
-import { BinConfigurator } from '@/components/BinConfigurator'
+import { BinConfigurator, calcMaxCutoutDepth } from '@/components/BinConfigurator'
 import { BinPreview3D } from '@/components/BinPreview3D'
 import { ToolBrowser } from '@/components/ToolBrowser'
 import { getBin, updateBin, generateBinStl, getBinStlUrl, getBinZipUrl, getBinThreemfUrl, getBinInsertUrl, getImageUrl, listTools, updateTool } from '@/lib/api'
@@ -470,6 +470,8 @@ export default function BinPage() {
                 gridX={config.grid_x}
                 gridY={config.grid_y}
                 wallThickness={config.wall_thickness}
+                defaultCutoutDepth={config.cutout_depth}
+                maxCutoutDepth={calcMaxCutoutDepth(config.height_units, config.stacking_lip)}
                 onEditTool={(toolId) => router.push(`/tools/${toolId}`)}
                 smoothedToolIds={smoothedToolIds}
                 onToggleSmoothed={handleToggleSmoothed}

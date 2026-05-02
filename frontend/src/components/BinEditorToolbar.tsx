@@ -1,8 +1,73 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { MousePointer2, Trash2, Magnet, Type, Pencil, Maximize2 } from 'lucide-react'
-import type { PlacedTool, TextLabel } from '@/types'
+import type { FingerHole, PlacedTool, TextLabel } from '@/types'
 import { SNAP_GRID } from '@/lib/constants'
+
+interface DepthInputProps {
+  value: number | null | undefined
+  defaultDepth: number
+  maxDepth: number
+  onCommit: (depth: number | null) => void
+  resetKey: string
+}
+
+function DepthInput({ value, defaultDepth, maxDepth, onCommit, resetKey }: DepthInputProps) {
+  const [text, setText] = useState<string>(value == null ? '' : String(value))
+
+  // sync local text when the selected item changes (resetKey switches)
+  useEffect(() => {
+    setText(value == null ? '' : String(value))
+  }, [resetKey, value])
+
+  const commit = (raw: string) => {
+    const trimmed = raw.trim()
+    if (trimmed === '') {
+      onCommit(null)
+      return
+    }
+    const n = parseFloat(trimmed)
+    if (Number.isNaN(n)) {
+      // revert local text to last committed value
+      setText(value == null ? '' : String(value))
+      return
+    }
+    const clamped = Math.max(5, Math.min(maxDepth, n))
+    setText(String(clamped))
+    onCommit(clamped)
+  }
+
+  return (
+    <>
+      <input
+        type="number"
+        value={text}
+        placeholder={defaultDepth.toFixed(1)}
+        step={0.5}
+        onChange={e => setText(e.target.value)}
+        onBlur={e => commit(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur()
+          if (e.key === 'Escape') {
+            setText(value == null ? '' : String(value))
+            ;(e.currentTarget as HTMLInputElement).blur()
+          }
+        }}
+        className="w-12 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent"
+      />
+      {value != null && (
+        <button
+          onClick={() => { setText(''); onCommit(null) }}
+          className="text-[10px] text-text-muted hover:text-text-secondary px-1"
+          title="Reset to default"
+        >
+          ×
+        </button>
+      )}
+    </>
+  )
+}
 
 type Tool = 'select' | 'text'
 
@@ -14,6 +79,8 @@ interface Props {
   handleRecenter: () => void
   selectedTool: PlacedTool | null
   selectedLabel: TextLabel | null
+  selectedHole: FingerHole | null
+  selectedHoleToolId: string | null
   onEditTool?: (toolId: string) => void
   onRemoveTool: () => void
   onRemoveLabel: () => void
@@ -22,6 +89,10 @@ interface Props {
   onToggleSmoothed?: (toolId: string, smoothed: boolean) => void
   onSmoothLevelChange?: (toolId: string, level: number) => void
   onUpdateLabel: (updates: Partial<TextLabel>) => void
+  defaultCutoutDepth: number
+  maxCutoutDepth: number
+  onSetCutoutDepthOverride: (toolId: string, depth: number | null) => void
+  onSetHoleDepthOverride: (toolId: string, holeId: string, depth: number | null) => void
 }
 
 const tbBtn = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-[7px] text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap'
@@ -36,6 +107,8 @@ export function BinEditorToolbar({
   handleRecenter,
   selectedTool,
   selectedLabel,
+  selectedHole,
+  selectedHoleToolId,
   onEditTool,
   onRemoveTool,
   onRemoveLabel,
@@ -44,6 +117,10 @@ export function BinEditorToolbar({
   onToggleSmoothed,
   onSmoothLevelChange,
   onUpdateLabel,
+  defaultCutoutDepth,
+  maxCutoutDepth,
+  onSetCutoutDepthOverride,
+  onSetHoleDepthOverride,
 }: Props) {
   return (
     <>
@@ -110,6 +187,19 @@ export function BinEditorToolbar({
               className="w-16 h-1 accent-accent"
             />
           )}
+          <div
+            className="flex items-center gap-1 text-[10px] text-text-muted"
+            title={`Cutout depth (mm). Default: ${defaultCutoutDepth.toFixed(1)}mm. Max: ${maxCutoutDepth.toFixed(1)}mm.`}
+          >
+            <span>Depth</span>
+            <DepthInput
+              value={selectedTool.depth_override}
+              defaultDepth={defaultCutoutDepth}
+              maxDepth={maxCutoutDepth}
+              onCommit={(d) => onSetCutoutDepthOverride(selectedTool.id, d)}
+              resetKey={`tool:${selectedTool.id}`}
+            />
+          </div>
           {onEditTool && (
             <button
               onClick={() => onEditTool(selectedTool.tool_id)}
@@ -180,6 +270,33 @@ export function BinEditorToolbar({
           <button onClick={onRemoveLabel} className={`${tbBtn} text-red-400 hover:bg-red-900/20`}>
             <Trash2 className="w-3 h-3" />
           </button>
+        </>
+      )}
+
+      {selectedHole && selectedHoleToolId && (
+        <>
+          <div className="w-px h-4 bg-glass-border mx-1 flex-shrink-0" />
+          <span className="text-[10px] text-text-muted">
+            {selectedHole.shape || 'circle'}
+            {selectedHole.shape === 'rectangle' && selectedHole.width && selectedHole.height
+              ? ` ${selectedHole.width.toFixed(0)}×${selectedHole.height.toFixed(0)}mm`
+              : selectedHole.shape === 'square'
+              ? ` ${(selectedHole.radius * 2).toFixed(0)}mm`
+              : ` r=${selectedHole.radius.toFixed(1)}mm`}
+          </span>
+          <div
+            className="flex items-center gap-1 text-[10px] text-text-muted"
+            title={`Cutout depth (mm). Default: ${defaultCutoutDepth.toFixed(1)}mm. Max: ${maxCutoutDepth.toFixed(1)}mm. Set deeper than the tool to clear protruding features.`}
+          >
+            <span>Depth</span>
+            <DepthInput
+              value={selectedHole.depth_override}
+              defaultDepth={defaultCutoutDepth}
+              maxDepth={maxCutoutDepth}
+              onCommit={(d) => onSetHoleDepthOverride(selectedHoleToolId, selectedHole.id, d)}
+              resetKey={`hole:${selectedHoleToolId}:${selectedHole.id}`}
+            />
+          </div>
         </>
       )}
     </>

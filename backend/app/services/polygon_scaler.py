@@ -33,6 +33,7 @@ class ScaledFingerHole:
         width_mm: float | None = None,
         height_mm: float | None = None,
         rotation: float = 0.0,
+        depth_override: float | None = None,
     ):
         self.id = id
         self.x_mm = x_mm
@@ -42,15 +43,17 @@ class ScaledFingerHole:
         self.width_mm = width_mm
         self.height_mm = height_mm
         self.rotation = rotation
+        self.depth_override = depth_override
 
 
 class ScaledPolygon:
-    def __init__(self, id: str, points_mm: list[tuple[float, float]], label: str, finger_holes: list[ScaledFingerHole] = None, interior_rings_mm: list[list[tuple[float, float]]] = None):
+    def __init__(self, id: str, points_mm: list[tuple[float, float]], label: str, finger_holes: list[ScaledFingerHole] = None, interior_rings_mm: list[list[tuple[float, float]]] = None, depth_override: float | None = None):
         self.id = id
         self.points_mm = points_mm
         self.label = label
         self.finger_holes = finger_holes or []
         self.interior_rings_mm = interior_rings_mm or []
+        self.depth_override = depth_override
 
 
 class PolygonScaler:
@@ -138,7 +141,7 @@ class PolygonScaler:
                 coords = polygon.points_mm
                 holes = polygon.interior_rings_mm
 
-            return ScaledPolygon(polygon.id, coords, polygon.label, polygon.finger_holes, holes)
+            return ScaledPolygon(polygon.id, coords, polygon.label, polygon.finger_holes, holes, depth_override=polygon.depth_override)
 
         except Exception:
             return polygon
@@ -158,7 +161,7 @@ class PolygonScaler:
             if simplified.geom_type == "Polygon" and len(simplified.exterior.coords) >= 4:
                 coords = list(simplified.exterior.coords)[:-1]
                 holes = [list(interior.coords)[:-1] for interior in simplified.interiors]
-                return ScaledPolygon(polygon.id, coords, polygon.label, polygon.finger_holes, holes)
+                return ScaledPolygon(polygon.id, coords, polygon.label, polygon.finger_holes, holes, depth_override=polygon.depth_override)
         except Exception:
             pass
 
@@ -181,7 +184,7 @@ class PolygonScaler:
         smoothed_rings = [_chaikin_smooth(ring) for ring in simplified.interior_rings_mm]
         # clean up dense chaikin output — remove near-collinear points that
         # cause clipper2 chord artifacts, while keeping the smooth shape
-        result = ScaledPolygon(polygon.id, smoothed_pts, polygon.label, polygon.finger_holes, smoothed_rings)
+        result = ScaledPolygon(polygon.id, smoothed_pts, polygon.label, polygon.finger_holes, smoothed_rings, depth_override=polygon.depth_override)
         return self.simplify(result, tolerance_mm=0.05)
 
     def compute_bounding_box(
