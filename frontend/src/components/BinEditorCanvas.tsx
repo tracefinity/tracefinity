@@ -10,6 +10,7 @@ type Tool = 'select' | 'text'
 
 type Selection =
   | { type: 'tool'; toolId: string }
+  | { type: 'hole'; toolId: string; holeId: string }
   | { type: 'label'; labelId: string }
   | null
 
@@ -45,6 +46,7 @@ interface Props {
   handleLabelMouseDown: (labelId: string) => (e: React.MouseEvent) => void
   handleLabelRotateMouseDown: (labelId: string) => (e: React.MouseEvent) => void
   handleLabelDoubleClick: (labelId: string) => (e: React.MouseEvent) => void
+  onHoleClick: (toolId: string, holeId: string, e: React.MouseEvent) => void
   handleBackgroundClick: (e: React.MouseEvent) => void
   stopClick: (e: React.MouseEvent) => void
   stopClickUnlessText: (e: React.MouseEvent) => void
@@ -85,6 +87,7 @@ export function BinEditorCanvas({
   handleLabelMouseDown,
   handleLabelRotateMouseDown,
   handleLabelDoubleClick,
+  onHoleClick,
   handleBackgroundClick,
   stopClick,
   stopClickUnlessText,
@@ -164,7 +167,12 @@ export function BinEditorCanvas({
                   onClick={stopClickUnlessText}
                 />
 
-                <CutoutOverlay holes={tool.finger_holes} />
+                <CutoutOverlay
+                  holes={tool.finger_holes}
+                  interactive={activeTool === 'select'}
+                  selectedId={selection?.type === 'hole' && selection.toolId === tool.id ? selection.holeId : undefined}
+                  onMouseDown={(holeId, e) => onHoleClick(tool.id, holeId, e)}
+                />
               </g>
             )
           })}

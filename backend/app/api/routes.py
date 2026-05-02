@@ -1021,6 +1021,7 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
                 fh.id, fh.x, fh.y, fh.radius,
                 shape=fh.shape, width_mm=fh.width, height_mm=fh.height,
                 rotation=fh.rotation,
+                depth_override=fh.depth_override,
             )
             for fh in pt.finger_holes
         ]
@@ -1028,7 +1029,7 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
             [(p.x, p.y) for p in ring]
             for ring in pt.interior_rings
         ]
-        sp = ScaledPolygon(pt.id, points_mm, pt.name, fholes, interior_rings_mm)
+        sp = ScaledPolygon(pt.id, points_mm, pt.name, fholes, interior_rings_mm, depth_override=pt.depth_override)
         sp = polygon_scaler.add_clearance(sp, bc.cutout_clearance)
         source_tool = user_tools.get(pt.tool_id)
         if source_tool and source_tool.smoothed:

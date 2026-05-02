@@ -171,6 +171,15 @@ def _build_shell(config: GenerateRequest):
 
 # ── cutter builders ───────────────────────────────────────────────────────────
 
+def _resolve_pocket_depth(override: float | None, config, max_depth: float) -> float:
+    """Per-feature pocket depth: override → config.cutout_depth fallback,
+    plus insert_height when enabled, clamped to [5, max_depth]."""
+    base = override if override is not None else config.cutout_depth
+    if getattr(config, 'insert_enabled', False):
+        base += getattr(config, 'insert_height', 1.0)
+    return max(5, min(base, max_depth))
+
+
 def _make_magnet_holes(config: GenerateRequest):
     """Batch union of all magnet hole cylinders (4 per grid cell, or corners only)."""
     import manifold3d as mf
@@ -259,7 +268,7 @@ def _make_polygon_cutouts(
     polygons: list[ScaledPolygon],
     config: GenerateRequest,
     wall_top_z: float,
-    pocket_depth: float,
+    max_depth: float,
     offset_x: float,
     offset_y: float,
 ):
@@ -296,6 +305,7 @@ def _make_polygon_cutouts(
             if cs.area() <= 0:
                 cs = mf.CrossSection([r[::-1] for r in rings], mf.FillRule.EvenOdd if has_holes else mf.FillRule.Positive)
             if cs.area() > 0:
+                pocket_depth = _resolve_pocket_depth(poly.depth_override, config, max_depth)
                 cutter = mf.Manifold.extrude(cs, pocket_depth + 0.01).translate(
                     (0.0, 0.0, wall_top_z - pocket_depth)
                 )
@@ -313,6 +323,7 @@ def _make_chamfer_cutouts(
     config,
     wall_top_z: float,
     chamfer_size: float,
+    max_depth: float,
     offset_x: float,
     offset_y: float,
 ):
@@ -321,6 +332,9 @@ def _make_chamfer_cutouts(
     Uses CrossSection.offset() for uniform chamfer width regardless of shape
     or rotation, then extrudes with scale_top to taper from the offset shape
     (at the bin surface) down to approximately the original shape.
+
+    Chamfer is clamped per-polygon to (pocket_depth - 1) so deep cutouts get
+    their full chamfer and shallow ones don't punch through the floor.
     """
     import manifold3d as mf
 
@@ -337,6 +351,12 @@ def _make_chamfer_cutouts(
             sh = [(p[0] + offset_x, -(p[1] + offset_y)) for p in hole]
             if len(sh) >= 3:
                 shifted_holes.append(sh)
+
+        pocket_depth = _resolve_pocket_depth(poly.depth_override, config, max_depth)
+        eff_chamfer = min(chamfer_size, max(0.0, pocket_depth - 1))
+        if eff_chamfer <= 0:
+            continue
+
         try:
             rings = _shapely_to_cross_sections(shifted, shifted_holes)
             if not rings:
@@ -354,7 +374,7 @@ def _make_chamfer_cutouts(
             # offset for uniform chamfer width regardless of shape/rotation.
             # use the offset bounds to compute scale_top — more accurate
             # than raw bounding-box math for rotated/irregular shapes.
-            cs_outer = cs.offset(chamfer_size, mf.JoinType.Round)
+            cs_outer = cs.offset(eff_chamfer, mf.JoinType.Round)
             if cs_outer.is_empty() or cs_outer.area() <= 0:
                 continue
 
@@ -375,10 +395,10 @@ def _make_chamfer_cutouts(
             # (bin surface). scale_top > 1 creates the taper.
             cutter = (
                 mf.Manifold.extrude(
-                    cs_centred, chamfer_size + 0.01,
+                    cs_centred, eff_chamfer + 0.01,
                     scale_top=(ow / iw, oh / ih),
                 )
-                .translate((icx, icy, wall_top_z - chamfer_size))
+                .translate((icx, icy, wall_top_z - eff_chamfer))
             )
             cutters.append(cutter)
         except Exception as e:
@@ -393,11 +413,14 @@ def _make_finger_holes(
     polygons: list[ScaledPolygon],
     config: GenerateRequest,
     wall_top_z: float,
-    pocket_depth: float,
+    max_depth: float,
     offset_x: float,
     offset_y: float,
 ):
-    """Batch union of all finger hole cutters."""
+    """Batch union of all finger hole cutters.
+
+    Per-feature depth: each hole resolves to its own depth_override, falling
+    back to the parent polygon's override, then the global cutout_depth."""
     import manifold3d as mf
 
     cutters = []
@@ -407,6 +430,8 @@ def _make_finger_holes(
             fh_y = -(fh.y_mm + offset_y)
             shape = getattr(fh, 'shape', 'circle')
             rotation = getattr(fh, 'rotation', 0.0)
+            override = fh.depth_override if fh.depth_override is not None else poly.depth_override
+            pocket_depth = _resolve_pocket_depth(override, config, max_depth)
             try:
                 if shape == 'circle':
                     r = fh.radius_mm
@@ -456,10 +481,14 @@ def _make_finger_hole_chamfers(
     config,
     wall_top_z: float,
     chamfer_size: float,
+    max_depth: float,
     offset_x: float,
     offset_y: float,
 ):
-    """Chamfer cutters for finger holes (circles, squares, rectangles)."""
+    """Chamfer cutters for finger holes (circles, squares, rectangles).
+
+    Per-feature: chamfer is clamped to (pocket_depth - 1) of each finger hole's
+    own depth (override → parent polygon override → global cutout_depth)."""
     import manifold3d as mf
 
     cutters = []
@@ -469,24 +498,29 @@ def _make_finger_hole_chamfers(
             fh_y = -(fh.y_mm + offset_y)
             shape = getattr(fh, 'shape', 'circle')
             rotation = getattr(fh, 'rotation', 0.0)
+            override = fh.depth_override if fh.depth_override is not None else poly.depth_override
+            pocket_depth = _resolve_pocket_depth(override, config, max_depth)
+            eff_chamfer = min(chamfer_size, max(0.0, pocket_depth - 1))
+            if eff_chamfer <= 0:
+                continue
             try:
                 if shape == 'circle' or shape == 'cylinder':
                     r = fh.radius_mm
                     cs = mf.CrossSection.circle(r, circular_segments=ROUND_SEGS)
-                    cs_outer = cs.offset(chamfer_size, mf.JoinType.Round)
+                    cs_outer = cs.offset(eff_chamfer, mf.JoinType.Round)
                 elif shape == 'square':
                     size = fh.radius_mm * 2
                     cs = mf.CrossSection.square((size, size), center=True)
                     if rotation:
                         cs = cs.rotate(rotation)
-                    cs_outer = cs.offset(chamfer_size, mf.JoinType.Round)
+                    cs_outer = cs.offset(eff_chamfer, mf.JoinType.Round)
                 elif shape == 'rectangle':
                     w = fh.width_mm if fh.width_mm else fh.radius_mm * 2
                     h = fh.height_mm if fh.height_mm else fh.radius_mm * 2
                     cs = mf.CrossSection.square((w, h), center=True)
                     if rotation:
                         cs = cs.rotate(rotation)
-                    cs_outer = cs.offset(chamfer_size, mf.JoinType.Round)
+                    cs_outer = cs.offset(eff_chamfer, mf.JoinType.Round)
                 else:
                     continue
 
@@ -504,10 +538,10 @@ def _make_finger_hole_chamfers(
 
                 cutter = (
                     mf.Manifold.extrude(
-                        cs, chamfer_size + 0.01,
+                        cs, eff_chamfer + 0.01,
                         scale_top=(ow / iw, oh / ih),
                     )
-                    .translate((fh_x, fh_y, wall_top_z - chamfer_size))
+                    .translate((fh_x, fh_y, wall_top_z - eff_chamfer))
                 )
                 cutters.append(cutter)
             except Exception as e:
@@ -761,35 +795,33 @@ class ManifoldSTLGenerator:
             floor_z = GF_BASE_HEIGHT
             lip_deduction = (LIP_D3 + LIP_D4) if config.stacking_lip else 0
             max_depth = wall_top_z - floor_z - 2 - lip_deduction
-            effective_cutout = config.cutout_depth
-            if getattr(config, 'insert_enabled', False):
-                effective_cutout += getattr(config, 'insert_height', 1.0)
-            pocket_depth = max(5, min(effective_cutout, max_depth))
+            # Default pocket_depth (used by text labels below) still tracks the
+            # global cutout_depth; per-cutout overrides are resolved inside the
+            # cutter functions via _resolve_pocket_depth.
+            pocket_depth = _resolve_pocket_depth(None, config, max_depth)
 
             t1 = time.monotonic()
-            cutouts = _make_polygon_cutouts(polygons, config, wall_top_z, pocket_depth, offset_x, offset_y)
+            cutouts = _make_polygon_cutouts(polygons, config, wall_top_z, max_depth, offset_x, offset_y)
             if cutouts:
                 cutters.append(cutouts)
             logger.info("polygon cutouts (%d): %.2fs", len(polygons), time.monotonic() - t1)
 
             t1 = time.monotonic()
-            fholes = _make_finger_holes(polygons, config, wall_top_z, pocket_depth, offset_x, offset_y)
+            fholes = _make_finger_holes(polygons, config, wall_top_z, max_depth, offset_x, offset_y)
             if fholes:
                 cutters.append(fholes)
             logger.info("finger holes: %.2fs", time.monotonic() - t1)
 
             chamfer_size = getattr(config, 'cutout_chamfer', 0.0)
             if chamfer_size > 0:
-                effective_chamfer = min(chamfer_size, max(0, pocket_depth - 1))
-                if effective_chamfer > 0:
-                    t1 = time.monotonic()
-                    chamfers = _make_chamfer_cutouts(polygons, config, wall_top_z, effective_chamfer, offset_x, offset_y)
-                    if chamfers:
-                        cutters.append(chamfers)
-                    fh_chamfers = _make_finger_hole_chamfers(polygons, config, wall_top_z, effective_chamfer, offset_x, offset_y)
-                    if fh_chamfers:
-                        cutters.append(fh_chamfers)
-                    logger.info("chamfer cutouts: %.2fs", time.monotonic() - t1)
+                t1 = time.monotonic()
+                chamfers = _make_chamfer_cutouts(polygons, config, wall_top_z, chamfer_size, max_depth, offset_x, offset_y)
+                if chamfers:
+                    cutters.append(chamfers)
+                fh_chamfers = _make_finger_hole_chamfers(polygons, config, wall_top_z, chamfer_size, max_depth, offset_x, offset_y)
+                if fh_chamfers:
+                    cutters.append(fh_chamfers)
+                logger.info("chamfer cutouts: %.2fs", time.monotonic() - t1)
 
         # text labels (recessed cutters + embossed body additions)
         text_body = None

@@ -28,7 +28,7 @@ class TestCylinderShape:
         poly = _scaled_poly_with_hole("cylinder")
         config = BinParams(cutout_depth=15.0)
         result = _make_finger_holes(
-            [poly], config, wall_top_z=33.0, pocket_depth=15.0,
+            [poly], config, wall_top_z=33.0, max_depth=15.0,
             offset_x=0.0, offset_y=0.0,
         )
         assert result is not None
@@ -45,7 +45,7 @@ class TestCylinderShape:
         config = BinParams(cutout_depth=12.0)
         wall_top = 30.0
         result = _make_finger_holes(
-            [poly], config, wall_top_z=wall_top, pocket_depth=12.0,
+            [poly], config, wall_top_z=wall_top, max_depth=12.0,
             offset_x=0.0, offset_y=0.0,
         )
         assert result is not None
@@ -58,7 +58,7 @@ class TestCylinderShape:
         config = BinParams(cutout_depth=15.0, cutout_chamfer=1.0)
         result = _make_finger_hole_chamfers(
             [poly], config, wall_top_z=33.0, chamfer_size=1.0,
-            offset_x=0.0, offset_y=0.0,
+            max_depth=15.0, offset_x=0.0, offset_y=0.0,
         )
         assert result is not None
 
@@ -77,8 +77,8 @@ class TestCylinderShape:
         circ_poly = _scaled_poly_with_hole("circle", radius=radius)
         config = BinParams(cutout_depth=depth)
 
-        cyl = _make_finger_holes([cyl_poly], config, wall_top_z=wall_top, pocket_depth=depth, offset_x=0.0, offset_y=0.0)
-        circ = _make_finger_holes([circ_poly], config, wall_top_z=wall_top, pocket_depth=depth, offset_x=0.0, offset_y=0.0)
+        cyl = _make_finger_holes([cyl_poly], config, wall_top_z=wall_top, max_depth=depth, offset_x=0.0, offset_y=0.0)
+        circ = _make_finger_holes([circ_poly], config, wall_top_z=wall_top, max_depth=depth, offset_x=0.0, offset_y=0.0)
         cyl_floor_z = cyl.bounding_box()[2]
         circ_floor_z = circ.bounding_box()[2]
 

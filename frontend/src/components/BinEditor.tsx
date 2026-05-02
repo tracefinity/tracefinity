@@ -15,6 +15,8 @@ interface Props {
   gridX: number
   gridY: number
   wallThickness: number
+  defaultCutoutDepth: number
+  maxCutoutDepth: number
   onEditTool?: (toolId: string) => void
   smoothedToolIds?: Set<string>
   onToggleSmoothed?: (toolId: string, smoothed: boolean) => void
@@ -27,6 +29,7 @@ type Tool = 'select' | 'text'
 
 type Selection =
   | { type: 'tool'; toolId: string }
+  | { type: 'hole'; toolId: string; holeId: string }
   | { type: 'label'; labelId: string }
   | null
 
@@ -45,6 +48,8 @@ export function BinEditor({
   gridX,
   gridY,
   wallThickness,
+  defaultCutoutDepth,
+  maxCutoutDepth,
   onEditTool,
   smoothedToolIds,
   onToggleSmoothed,
@@ -450,12 +455,41 @@ export function BinEditor({
     ? placedTools.find(t => t.id === selection.toolId)
     : null
 
+  const selectedHole = selection?.type === 'hole'
+    ? placedTools
+        .find(t => t.id === selection.toolId)
+        ?.finger_holes.find(fh => fh.id === selection.holeId)
+    : null
+
   const updateSelectedLabel = (updates: Partial<TextLabel>) => {
     if (selection?.type !== 'label') return
     onTextLabelsChange(textLabels.map(l => {
       if (l.id !== selection.labelId) return l
       return { ...l, ...updates }
     }))
+  }
+
+  const setCutoutDepthOverride = (toolId: string, depth: number | null) => {
+    onPlacedToolsChange(placedTools.map(t =>
+      t.id === toolId ? { ...t, depth_override: depth } : t
+    ))
+  }
+
+  const setHoleDepthOverride = (toolId: string, holeId: string, depth: number | null) => {
+    onPlacedToolsChange(placedTools.map(t => {
+      if (t.id !== toolId) return t
+      return {
+        ...t,
+        finger_holes: t.finger_holes.map(fh =>
+          fh.id === holeId ? { ...fh, depth_override: depth } : fh
+        ),
+      }
+    }))
+  }
+
+  const handleHoleClick = (toolId: string, holeId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelection({ type: 'hole', toolId, holeId })
   }
 
   const handleEditingLabelKeyDown = (e: React.KeyboardEvent) => {
@@ -480,6 +514,8 @@ export function BinEditor({
           handleRecenter={handleRecenter}
           selectedTool={selectedTool ?? null}
           selectedLabel={selectedLabel ?? null}
+          selectedHole={selectedHole ?? null}
+          selectedHoleToolId={selection?.type === 'hole' ? selection.toolId : null}
           onEditTool={onEditTool}
           onRemoveTool={handleDeleteTool}
           onRemoveLabel={handleDeleteLabel}
@@ -488,6 +524,10 @@ export function BinEditor({
           onToggleSmoothed={onToggleSmoothed}
           onSmoothLevelChange={onSmoothLevelChange}
           onUpdateLabel={updateSelectedLabel}
+          defaultCutoutDepth={defaultCutoutDepth}
+          maxCutoutDepth={maxCutoutDepth}
+          onSetCutoutDepthOverride={setCutoutDepthOverride}
+          onSetHoleDepthOverride={setHoleDepthOverride}
         />
       </div>
       <BinEditorCanvas
@@ -499,6 +539,7 @@ export function BinEditor({
         wallThickness={wallThickness}
         placedTools={placedTools}
         selection={selection}
+        onHoleClick={handleHoleClick}
         textLabels={textLabels}
         editingLabelId={editingLabelId}
         editingText={editingText}
