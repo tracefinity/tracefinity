@@ -19,8 +19,9 @@ PX_PER_MM = 10
 class ImageProcessor:
     def __init__(self):
         from rembg import new_session
+        from app.services.ort_runtime import get_onnx_providers
         logger.info("loading U2-Net Portable for paper detection")
-        self._tool_mask_session = new_session("u2netp")
+        self._tool_mask_session = new_session("u2netp", providers=get_onnx_providers())
 
     def _get_tool_mask(self, image_path: str) -> np.ndarray:
         """get a rough tool mask via U2-Net Portable for paper detection."""
