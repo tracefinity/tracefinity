@@ -22,6 +22,8 @@
   --color-glass-bg: rgba(255, 255, 255, 0.035);
   --color-glass-border: rgba(255, 255, 255, 0.07);
   --color-glass-hover: rgba(255, 255, 255, 0.055);
+  --color-toolbar-solid-bg: #15181f;
+  --color-toolbar-solid-border: rgba(255, 255, 255, 0.12);
   color-scheme: dark;
 }
 
@@ -41,6 +43,8 @@
   --color-glass-bg: rgba(255, 255, 255, 0.65);
   --color-glass-border: rgba(0, 0, 0, 0.06);
   --color-glass-hover: rgba(255, 255, 255, 0.8);
+  --color-toolbar-solid-bg: #ffffff;
+  --color-toolbar-solid-border: rgba(0, 0, 0, 0.08);
   color-scheme: light;
 }
 
@@ -119,6 +123,12 @@ body {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-radius: 10px;
+  }
+  .editor-photo-active .glass-toolbar {
+    background: var(--color-toolbar-solid-bg);
+    border-color: var(--color-toolbar-solid-border);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
   .glass-card {
     background: var(--color-glass-bg);

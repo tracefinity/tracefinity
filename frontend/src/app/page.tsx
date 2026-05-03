@@ -5,12 +5,23 @@ import { useRouter } from 'next/navigation'
 import { ImageUploader } from '@/components/ImageUploader'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { uploadImage, listTools, listBins, deleteTool, deleteBin, createBin, getImageUrl } from '@/lib/api'
-import type { ToolSummary, BinSummary, BinPreviewTool, Point } from '@/types'
+import type { ToolSummary, BinSummary, BinPreviewTool, Point, ToolImageContext, AffineMatrix } from '@/types'
 import { polygonPathData } from '@/lib/svg'
 import { Trash2, Package, Plus, Loader2, Grid3X3, Search, ArrowUpDown } from 'lucide-react'
 import { Alert } from '@/components/Alert'
 import { PhotoIllustration, CornersIllustration, TraceIllustration, OrganiseIllustration } from '@/components/OnboardingIllustrations'
 import { GRID_UNIT } from '@/lib/constants'
+
+function thumbnailRotationStyle(transform: AffineMatrix | null): React.CSSProperties | undefined {
+  if (!transform) return undefined
+  const [a, b, c, d] = transform
+  const s = Math.sqrt(a * a + b * b)
+  if (s < 1e-9) return undefined
+  return {
+    transform: `matrix(${a / s}, ${b / s}, ${c / s}, ${d / s}, 0, 0)`,
+    transformOrigin: 'center',
+  }
+}
 
 function ToolOutline({ points, interiorRings }: { points: Point[]; interiorRings?: Point[][] }) {
   if (points.length === 0) return null
@@ -41,6 +52,50 @@ function ToolOutline({ points, interiorRings }: { points: Point[]; interiorRings
         fill="#475569"
         stroke="#8b95a5"
         strokeWidth={Math.max(vw, vh) * 0.015}
+      />
+    </svg>
+  )
+}
+
+function toolViewBox(points: Point[]) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const p of points) {
+    minX = Math.min(minX, p.x)
+    minY = Math.min(minY, p.y)
+    maxX = Math.max(maxX, p.x)
+    maxY = Math.max(maxY, p.y)
+  }
+
+  const w = maxX - minX
+  const h = maxY - minY
+  const pad = Math.max(w, h) * 0.12
+  return {
+    x: minX - pad,
+    y: minY - pad,
+    width: w + pad * 2,
+    height: h + pad * 2,
+  }
+}
+
+function SourceImagePreview({ context, points }: { context: ToolImageContext; points: Point[] }) {
+  if (points.length === 0) return null
+  const vb = toolViewBox(points)
+  const [a, b, c, d, e, f] = context.transform
+
+  return (
+    <svg
+      viewBox={`${vb.x} ${vb.y} ${vb.width} ${vb.height}`}
+      className="absolute inset-0 w-full h-full p-4 transition-opacity duration-150 group-hover:opacity-30"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <image
+        href={getImageUrl(context.image_url)}
+        x={0}
+        y={0}
+        width={context.image_width}
+        height={context.image_height}
+        transform={`matrix(${a} ${b} ${c} ${d} ${e} ${f})`}
+        preserveAspectRatio="none"
       />
     </svg>
   )
@@ -337,12 +392,20 @@ export default function HomePage() {
                 className="glass-card overflow-hidden cursor-pointer group"
               >
                 <div className="aspect-square bg-inset relative overflow-hidden">
-                  {tool.thumbnail_url ? (
+                  {tool.image_context ? (
+                    <>
+                      <SourceImagePreview context={tool.image_context} points={tool.points} />
+                      <div className="absolute inset-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        <ToolOutline points={tool.points} interiorRings={tool.interior_rings} />
+                      </div>
+                    </>
+                  ) : tool.thumbnail_url ? (
                     <>
                       <img
                         src={getImageUrl(tool.thumbnail_url)}
                         alt=""
                         className="absolute inset-0 w-full h-full object-contain p-3 transition-opacity duration-150 group-hover:opacity-30"
+                        style={thumbnailRotationStyle(tool.image_transform)}
                       />
                       <div className="absolute inset-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                         <ToolOutline points={tool.points} interiorRings={tool.interior_rings} />

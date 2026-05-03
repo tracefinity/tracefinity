@@ -1,7 +1,7 @@
 'use client'
 
 import { RefObject, useState } from 'react'
-import type { Point, FingerHole } from '@/types'
+import type { Point, FingerHole, ToolImageContext } from '@/types'
 import { polygonPathData, smoothPathData } from '@/lib/svg'
 import { DISPLAY_SCALE } from '@/lib/constants'
 import { CutoutOverlay } from '@/components/CutoutOverlay'
@@ -44,6 +44,9 @@ interface Props {
   handleHoleRotateMouseDown: (holeId: string) => (e: React.MouseEvent) => void
   handleRotatePolygonMouseDown: (e: React.MouseEvent) => void
   onRingClick: (ringIndex: number) => void
+  sourceImageContext?: ToolImageContext | null
+  showSourceImage: boolean
+  sourceImageOpacity: number
 
 }
 
@@ -56,9 +59,21 @@ export function ToolEditorCanvas({
   handleEdgeClick, handleVertexMouseDown,
   displayHoles, handleHoleMouseDown, handleResizeMouseDown, handleHoleRotateMouseDown,
   handleRotatePolygonMouseDown, onRingClick,
+  sourceImageContext, showSourceImage, sourceImageOpacity,
 }: Props) {
   const stopClick = (e: React.MouseEvent) => e.stopPropagation()
   const [hoveredRing, setHoveredRing] = useState<number | null>(null)
+  const sourceImage = sourceImageContext && showSourceImage ? (() => {
+    const [a, b, c, d, e, f] = sourceImageContext.transform
+    const ds = DISPLAY_SCALE
+    return {
+      url: sourceImageContext.image_url,
+      width: sourceImageContext.image_width,
+      height: sourceImageContext.image_height,
+      // image-pixel coords -> display-mm coords (already includes scale + origin + rotation/flip)
+      transform: `matrix(${a * ds} ${b * ds} ${c * ds} ${d * ds} ${e * ds} ${f * ds})`,
+    }
+  })() : null
 
   return (
     <>
@@ -75,6 +90,20 @@ export function ToolEditorCanvas({
         >
           {/* background fill */}
           <rect x={zvbX} y={zvbY} width={zvbW} height={zvbH} fill="var(--color-inset)" />
+
+          {sourceImage && (
+            <image
+              href={sourceImage.url}
+              x={0}
+              y={0}
+              width={sourceImage.width}
+              height={sourceImage.height}
+              transform={sourceImage.transform}
+              preserveAspectRatio="none"
+              opacity={sourceImageOpacity}
+              className="pointer-events-none select-none"
+            />
+          )}
 
           {/* grid lines */}
           {Array.from({ length: Math.ceil((gridMaxX - gridMinX) / gridStep) + 1 }).map((_, i) => {
@@ -108,9 +137,9 @@ export function ToolEditorCanvas({
           <path
             d={smoothed ? smoothPathData(displayPoints, interiorRings, DISPLAY_SCALE) : polygonPathData(displayPoints, interiorRings, DISPLAY_SCALE)}
             fillRule="evenodd"
-            fill="rgb(71, 85, 105)"
-            stroke="rgb(148, 163, 184)"
-            strokeWidth={2 / zoom}
+            fill={sourceImage ? 'rgba(71, 85, 105, 0.18)' : 'rgb(71, 85, 105)'}
+            stroke={sourceImage ? 'rgb(226, 232, 240)' : 'rgb(148, 163, 184)'}
+            strokeWidth={(sourceImage ? 2.5 : 2) / zoom}
           />
 
           {/* per-ring hit areas for fill-ring mode */}

@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Plus, Circle, Square, RectangleHorizontal, Fingerprint } from 'lucide-react'
-import type { Point, FingerHole } from '@/types'
+import { Plus, Circle, Square, RectangleHorizontal, Fingerprint, ImageIcon, Eye, EyeOff } from 'lucide-react'
+import type { Point, FingerHole, ToolImageContext, AffineMatrix } from '@/types'
 import { simplifyPolygon, smoothEpsilon, snapToGrid as snapToGridUtil } from '@/lib/svg'
+import { rotateAround, flipAround } from '@/lib/affine'
 import { DISPLAY_SCALE, SNAP_GRID, ZOOM_FACTOR } from '@/lib/constants'
 import { useHistory } from '@/hooks/useHistory'
 import { ToolEditorToolbar } from '@/components/ToolEditorToolbar'
@@ -16,6 +17,12 @@ interface Props {
   interiorRings?: Point[][]
   smoothed: boolean
   smoothLevel: number
+  sourceImageContext?: ToolImageContext | null
+  showSourceImage?: boolean
+  onShowSourceImageChange?: (show: boolean) => void
+  sourceImageOpacity?: number
+  onSourceImageOpacityChange?: (opacity: number) => void
+  onImageTransformChange?: (transform: AffineMatrix) => void
   onPointsChange: (points: Point[]) => void
   onFingerHolesChange: (holes: FingerHole[]) => void
   onSmoothedChange: (smoothed: boolean) => void
@@ -40,7 +47,7 @@ interface HistoryEntry {
   interiorRings: Point[][]
 }
 
-export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoothLevel, onPointsChange, onFingerHolesChange, onSmoothedChange, onSmoothLevelChange, onInteriorRingsChange }: Props) {
+export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoothLevel, sourceImageContext, showSourceImage = false, onShowSourceImageChange, sourceImageOpacity = 0.45, onSourceImageOpacityChange, onImageTransformChange, onPointsChange, onFingerHolesChange, onSmoothedChange, onSmoothLevelChange, onInteriorRingsChange }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [selection, setSelection] = useState<Selection>(null)
   const [editMode, setEditMode] = useState<EditMode>('select')
@@ -84,12 +91,17 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const dragHolesRef = useRef(dragHoles)
   const onPointsRef = useRef(onPointsChange)
   const onHolesRef = useRef(onFingerHolesChange)
+  const imageTransformRef = useRef<AffineMatrix | null>(sourceImageContext?.transform ?? null)
+  const onImageTransformRef = useRef(onImageTransformChange)
   useEffect(() => { pointsRef.current = points }, [points])
   useEffect(() => { holesRef.current = fingerHoles }, [fingerHoles])
   useEffect(() => { dragPointsRef.current = dragPoints }, [dragPoints])
   useEffect(() => { dragHolesRef.current = dragHoles }, [dragHoles])
   useEffect(() => { onPointsRef.current = onPointsChange }, [onPointsChange])
   useEffect(() => { onHolesRef.current = onFingerHolesChange }, [onFingerHolesChange])
+  useEffect(() => { imageTransformRef.current = sourceImageContext?.transform ?? null }, [sourceImageContext?.transform])
+  useEffect(() => { onImageTransformRef.current = onImageTransformChange }, [onImageTransformChange])
+  const rotateDragRef = useRef<{ delta: number; cx: number; cy: number } | null>(null)
   const currentRingsRef = useRef(currentRings)
   useEffect(() => { currentRingsRef.current = currentRings }, [currentRings])
   const zoomRef = useRef(zoom)
@@ -254,6 +266,12 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     pushHistory({ points: newPts, fingerHoles: newHoles, interiorRings: currentRings })
     onPointsRef.current(newPts)
     onHolesRef.current(newHoles)
+    const m = imageTransformRef.current
+    if (m && onImageTransformRef.current) {
+      const next = rotateAround(m, rad, cx, cy)
+      imageTransformRef.current = next
+      onImageTransformRef.current(next)
+    }
   }, [pushHistory, currentRings])
 
   const flipAll = useCallback((axis: 'horizontal' | 'vertical') => {
@@ -279,6 +297,12 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     onPointsRef.current(newPts)
     onHolesRef.current(newHoles)
     onInteriorRingsChange?.(newRings)
+    const m = imageTransformRef.current
+    if (m && onImageTransformRef.current) {
+      const next = flipAround(m, axis, cx, cy)
+      imageTransformRef.current = next
+      onImageTransformRef.current(next)
+    }
   }, [pushHistory, onInteriorRingsChange])
 
   const handleRotatePolygonMouseDown = (e: React.MouseEvent) => {
@@ -496,6 +520,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       })
       setDragPoints(newPts)
       setDragHoles(newHoles)
+      rotateDragRef.current = { delta, cx, cy }
     } else if (dragging.type === 'pan') {
       const dx = (e.clientX - dragging.startClientX) / dragging.svgScale
       const dy = (e.clientY - dragging.startClientY) / dragging.svgScale
@@ -515,6 +540,16 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       if (dragPointsRef.current) onPointsRef.current(finalPoints)
       if (dragHolesRef.current) onHolesRef.current(finalHoles)
       pushHistory({ points: finalPoints, fingerHoles: finalHoles, interiorRings: currentRingsRef.current })
+      if (dragging.type === 'rotate-polygon' && rotateDragRef.current) {
+        const { delta, cx, cy } = rotateDragRef.current
+        const m = imageTransformRef.current
+        if (m && delta !== 0 && onImageTransformRef.current) {
+          const next = rotateAround(m, delta, cx, cy)
+          imageTransformRef.current = next
+          onImageTransformRef.current(next)
+        }
+      }
+      rotateDragRef.current = null
       setDragPoints(null)
       setDragHoles(null)
     }
@@ -597,6 +632,9 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
         handleHoleRotateMouseDown={handleHoleRotateMouseDown}
         handleRotatePolygonMouseDown={handleRotatePolygonMouseDown}
         onRingClick={handleFillRing}
+        sourceImageContext={sourceImageContext}
+        showSourceImage={showSourceImage}
+        sourceImageOpacity={sourceImageOpacity}
       />
 
       {/* floating toolbar: top centre */}
@@ -655,6 +693,30 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
 
       {/* floating zoom controls: bottom right */}
       <div className="absolute bottom-3.5 right-3.5 z-20 glass-toolbar px-1 py-0.5 flex items-center gap-0.5 text-[11px]">
+        {sourceImageContext && (
+          <>
+            <button
+              onClick={() => onShowSourceImageChange?.(!showSourceImage)}
+              className={`p-1 rounded-[7px] transition-colors ${showSourceImage ? 'text-accent bg-accent-muted' : 'text-text-muted hover:text-text-secondary hover:bg-border/50'}`}
+              title={showSourceImage ? 'Hide source photo' : 'Show source photo'}
+            >
+              {showSourceImage ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+            </button>
+            <ImageIcon className={`w-3.5 h-3.5 mx-0.5 ${showSourceImage ? 'text-text-secondary' : 'text-text-muted opacity-50'}`} />
+            <input
+              type="range"
+              min={0.1}
+              max={1}
+              step={0.05}
+              value={sourceImageOpacity}
+              disabled={!showSourceImage}
+              onChange={e => onSourceImageOpacityChange?.(parseFloat(e.target.value))}
+              className="w-16 h-1 accent-accent disabled:opacity-40"
+              title={`Source photo opacity: ${Math.round(sourceImageOpacity * 100)}%`}
+            />
+            <div className="h-3.5 w-px bg-border-subtle mx-0.5" />
+          </>
+        )}
         <button
           onClick={() => setZoom(z => Math.max(0.5, z / ZOOM_FACTOR))}
           className="px-2 py-1 rounded-[7px] text-text-muted hover:text-text-primary hover:bg-border/50 transition-colors"

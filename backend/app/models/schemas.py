@@ -212,6 +212,14 @@ class Tool(BaseModel):
     smoothed: bool = False
     smooth_level: float = 0.0
     source_session_id: str | None = None
+    source_polygon_id: str | None = None
+    source_image_path: str | None = None
+    source_image_width: int | None = None
+    source_image_height: int | None = None
+    source_origin_x_mm: float | None = None
+    source_origin_y_mm: float | None = None
+    source_scale_factor: float | None = None
+    source_image_transform: list[float] | None = None  # 2D affine [a, b, c, d, e, f] mapping image-px to mm
     thumbnail_path: str | None = None
     created_at: str | None = None
 
@@ -226,6 +234,8 @@ class ToolSummary(BaseModel):
     smoothed: bool = False
     smooth_level: float = 0.5
     thumbnail_url: str | None = None
+    image_transform: list[float] | None = None
+    image_context: dict | None = None
 
 
 class ToolUpdateRequest(BaseModel):
@@ -235,6 +245,7 @@ class ToolUpdateRequest(BaseModel):
     interior_rings: list[list[Point]] | None = None
     smoothed: bool | None = None
     smooth_level: float | None = None
+    source_image_transform: list[float] | None = None
 
 
 class ToolListResponse(BaseModel):
