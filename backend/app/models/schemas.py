@@ -17,7 +17,7 @@ class FingerHole(BaseModel):
     width: float | None = None  # for rectangles
     height: float | None = None  # for rectangles
     rotation: float = 0.0  # degrees
-    shape: Literal["circle", "square", "rectangle"] = "circle"
+    shape: Literal["circle", "cylinder", "square", "rectangle"] = "circle"
 
 
 class TextLabel(BaseModel):

@@ -9,7 +9,7 @@ export interface FingerHole {
   y: number
   radius: number
   rotation?: number
-  shape?: 'circle' | 'square' | 'rectangle'
+  shape?: 'circle' | 'cylinder' | 'square' | 'rectangle'
   width?: number
   height?: number
 }

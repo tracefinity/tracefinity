@@ -31,13 +31,20 @@ export function CutoutOverlay({ holes, zoom = 1, interactive, selectedId, editMo
 
         return (
           <g key={fh.id} transform={rotation !== 0 ? `rotate(${rotation} ${x} ${y})` : undefined}>
-            {shape === 'circle' && (
+            {(shape === 'circle' || shape === 'cylinder') && (
               <circle
                 cx={x} cy={y} r={r}
                 fill={fill} stroke={stroke} strokeWidth={strokeWidth}
                 className={cursor}
                 onMouseDown={interactive && onMouseDown ? (e) => onMouseDown(fh.id, e) : undefined}
                 onClick={interactive && onClick ? onClick : undefined}
+              />
+            )}
+            {shape === 'cylinder' && (
+              <circle
+                cx={x} cy={y} r={Math.max(0.5, r * 0.35)}
+                fill="none" stroke={stroke} strokeWidth={strokeWidth}
+                className="pointer-events-none"
               />
             )}
             {(shape === 'square' || shape === 'rectangle') && (
