@@ -1,15 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { Loader2, Check, Download } from 'lucide-react'
 import Link from 'next/link'
-import { getTool, updateTool, getToolSvgUrl } from '@/lib/api'
+import { getTool, updateTool, getToolSvgUrl, getImageUrl } from '@/lib/api'
 import { useDebouncedSave } from '@/hooks/useDebouncedSave'
 import { ToolEditor } from '@/components/ToolEditor'
 import { Alert } from '@/components/Alert'
 import { Breadcrumb } from '@/components/Breadcrumb'
-import type { Tool, Point, FingerHole } from '@/types'
+import type { Tool, Point, FingerHole, AffineMatrix } from '@/types'
 
 export default function ToolPage() {
   const params = useParams()
@@ -19,6 +19,27 @@ export default function ToolPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState('')
+  const [showSourceImage, setShowSourceImage] = useState(false)
+  const [sourceImageOpacity, setSourceImageOpacity] = useState(0.45)
+
+  const sourceImageContext = useMemo(
+    () => tool?.image_context
+      ? { ...tool.image_context, image_url: getImageUrl(tool.image_context.image_url) }
+      : null,
+    [tool?.image_context]
+  )
+
+  const handleImageTransformChange = useCallback((transform: AffineMatrix) => {
+    setTool(prev => prev && prev.image_context
+      ? { ...prev, image_context: { ...prev.image_context, transform } }
+      : prev)
+  }, [])
+
+  useEffect(() => {
+    setShowSourceImage(Boolean(sourceImageContext))
+  }, [sourceImageContext])
+
+  const photoActive = Boolean(sourceImageContext) && showSourceImage
   useEffect(() => {
     async function load() {
       try {
@@ -37,7 +58,15 @@ export default function ToolPage() {
   const { saving, saved } = useDebouncedSave(
     async () => {
       if (!tool) return
-      await updateTool(toolId, { name, points: tool.points, finger_holes: tool.finger_holes, interior_rings: tool.interior_rings, smoothed: tool.smoothed, smooth_level: tool.smooth_level })
+      await updateTool(toolId, {
+        name,
+        points: tool.points,
+        finger_holes: tool.finger_holes,
+        interior_rings: tool.interior_rings,
+        smoothed: tool.smoothed,
+        smooth_level: tool.smooth_level,
+        ...(tool.image_context ? { source_image_transform: tool.image_context.transform } : {}),
+      })
     },
     [tool, name, toolId],
     150,
@@ -82,7 +111,7 @@ export default function ToolPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-44px)] relative overflow-hidden">
+    <div className={`h-[calc(100vh-44px)] relative overflow-hidden${photoActive ? ' editor-photo-active' : ''}`}>
       {/* floating breadcrumb panel */}
       <div className="absolute top-3.5 left-3.5 z-20 glass-toolbar px-3 py-1.5 flex items-center gap-3">
         <Breadcrumb segments={[
@@ -111,6 +140,12 @@ export default function ToolPage() {
         interiorRings={tool.interior_rings}
         smoothed={tool.smoothed}
         smoothLevel={tool.smooth_level}
+        sourceImageContext={sourceImageContext}
+        showSourceImage={showSourceImage}
+        onShowSourceImageChange={setShowSourceImage}
+        sourceImageOpacity={sourceImageOpacity}
+        onSourceImageOpacityChange={setSourceImageOpacity}
+        onImageTransformChange={handleImageTransformChange}
         onPointsChange={handlePointsChange}
         onFingerHolesChange={handleFingerHolesChange}
         onSmoothedChange={handleSmoothedChange}

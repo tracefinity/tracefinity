@@ -123,7 +123,20 @@ export interface Tool {
   smoothed: boolean
   smooth_level: number
   source_session_id: string | null
+  image_context: ToolImageContext | null
   created_at: string | null
+}
+
+export type AffineMatrix = [number, number, number, number, number, number]
+
+export interface ToolImageContext {
+  image_url: string
+  image_width: number
+  image_height: number
+  origin_x_mm: number
+  origin_y_mm: number
+  scale_factor: number
+  transform: AffineMatrix
 }
 
 export interface ToolSummary {
@@ -136,6 +149,8 @@ export interface ToolSummary {
   smoothed: boolean
   smooth_level: number
   thumbnail_url: string | null
+  image_transform: AffineMatrix | null
+  image_context: ToolImageContext | null
 }
 
 // --- bins ---
