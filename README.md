@@ -47,6 +47,7 @@ By default, Tracefinity uses [IS-Net](https://github.com/xuebinqin/DIS) for loca
 |-|-|-|
 | `GOOGLE_API_KEY` | | Gemini API key. Uses Gemini instead of local models |
 | `TRACERS` | auto-detected | Comma-separated list of available tracers, e.g. `gemini,birefnet-lite,isnet` |
+| `TRACEFINITY_ONNX_PROVIDER` | `auto` | Local ONNX provider: `auto`, `cuda`, or `cpu` |
 | `GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-image-preview` | Gemini model for mask generation (see below) |
 
 ### From Source
@@ -80,11 +81,17 @@ When no API key is configured, Tracefinity runs a local salient object detection
 |-|-|-|-|-|
 | [IS-Net](https://github.com/xuebinqin/DIS) (default) | ~0.8s | 2GB | Good | Fastest, lowest memory |
 | [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) | ~3.6s | 8GB | Best | Handles reflections and shiny surfaces well |
+| [BiRefNet General](https://github.com/ZhengPeng7/BiRefNet) | GPU recommended | 8GB+ | Best | Full general BiRefNet model for higher-quality masks |
 | [InSPyReNet](https://github.com/plemeri/InSPyReNet) | ~2.8s | 6GB | Good | Apple Silicon (MPS) support |
 
 Paper corner detection runs [U2-Net Portable](https://github.com/xuebinqin/U-2-Net) alongside the tracer. RAM figures include both models. All models load at startup.
 
 **Minimum RAM: 2GB** (IS-Net). BiRefNet Lite needs **8GB**.
+
+For NVIDIA GPU tracing from source, install `backend/requirements.txt` and set
+`TRACEFINITY_ONNX_PROVIDER=cuda` to require CUDA. This uses ONNX Runtime GPU for
+the `rembg` models (`isnet`, `birefnet-lite`, `birefnet-general`)
+and avoids PyTorch CUDA for those tracers.
 
 See [#21](https://github.com/tracefinity/tracefinity/issues/21) for the benchmark that led to this selection.
 

@@ -133,12 +133,14 @@ class AITracer:
 
     # rembg model names for each local model option
     _REMBG_MODELS = {
+        "birefnet-general": "birefnet-general",
         "birefnet-lite": "birefnet-general-lite",
         "isnet": "isnet-general-use",
     }
 
     _LOCAL_MODEL_LABELS = {
         "inspyrenet": "InSPyReNet",
+        "birefnet-general": "BiRefNet General",
         "birefnet-lite": "BiRefNet Lite",
         "isnet": "IS-Net",
     }
@@ -151,12 +153,16 @@ class AITracer:
         label = self._LOCAL_MODEL_LABELS.get(name, name)
         if name in self._REMBG_MODELS:
             from rembg import new_session
-            logging.info("loading %s via rembg", label)
-            self._local_remover = ("rembg", new_session(self._REMBG_MODELS[name]))
+            from app.services.ort_runtime import get_onnx_providers
+            providers = get_onnx_providers()
+            logging.info("loading %s via rembg with providers: %s", label, providers)
+            session = new_session(self._REMBG_MODELS[name], providers=providers)
+            logging.info("%s actual ONNX providers: %s", label, session.inner_session.get_providers())
+            self._local_remover = ("rembg", session)
         else:
             from transparent_background import Remover
             import torch
-            device = "mps" if torch.backends.mps.is_available() else "cpu"
+            device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
             logging.info("loading %s on %s", label, device)
             self._local_remover = ("inspyrenet", Remover(mode="base", device=device))
 
