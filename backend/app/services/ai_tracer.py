@@ -160,26 +160,80 @@ class AITracer:
             logging.info("loading %s on %s", label, device)
             self._local_remover = ("inspyrenet", Remover(mode="base", device=device))
 
-    async def _generate_mask_local(self, image_path: str, output_path: str | None = None) -> str | None:
-        """generate a foreground mask using a local model (no API key)."""
-        from PIL import Image
+    @staticmethod
+    def _detect_paper_rect(img: np.ndarray) -> tuple[int, int, int, int] | None:
+        """find the axis-aligned paper rect in a corrected image.
+        paper = bright AND desaturated. erodes before bounding so the rect
+        lands strictly inside the paper, not on the fringe."""
+        h, w = img.shape[:2]
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        s_chan = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)[:, :, 1]
 
-        label = self._LOCAL_MODEL_LABELS.get(self.local_model_name, self.local_model_name)
-        logging.info("generating mask with %s (local)", label)
-        pil_img = Image.open(image_path).convert("RGB")
+        best: tuple[int, int, int, int, int] | None = None
+        for thresh_val in (200, 190, 180, 170):
+            _, bright = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY)
+            _, low_sat = cv2.threshold(s_chan, 60, 255, cv2.THRESH_BINARY_INV)
+            binary = cv2.bitwise_and(bright, low_sat)
+            binary = cv2.erode(binary, np.ones((9, 9), np.uint8), iterations=2)
+            binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8), iterations=3)
+            contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours:
+                continue
+            largest = max(contours, key=cv2.contourArea)
+            area = cv2.contourArea(largest)
+            if area < (h * w) * 0.1:
+                continue
+            x, y, bw, bh = cv2.boundingRect(largest)
+            if bw < 100 or bh < 100:
+                continue
+            if best is None or area > best[0]:
+                best = (int(area), x, y, bw, bh)
 
+        if best is None:
+            return None
+        return best[1], best[2], best[3], best[4]
+
+    def _saliency_on_image(self, pil_img):
+        """run the configured local model, return foreground mask (fg=255)."""
         backend, remover = self._local_remover
         if backend == "rembg":
             from rembg import remove
             result = remove(pil_img, session=remover)
             alpha = np.array(result)[:, :, 3]
             _, binary = cv2.threshold(alpha, 127, 255, cv2.THRESH_BINARY)
-            mask_out = cv2.bitwise_not(binary)
+            return binary
+        result = remover.process(pil_img, type="map")
+        mask_np = np.array(result.convert("L"))
+        _, binary = cv2.threshold(mask_np, 127, 255, cv2.THRESH_BINARY)
+        return binary
+
+    async def _generate_mask_local(self, image_path: str, output_path: str | None = None) -> str | None:
+        """generate a foreground mask using a local model (no API key).
+
+        crop to the paper rect before running the model. saliency models pick
+        the most salient object — on the full corrected image that's the bright
+        paper, not the tool. cropped to the paper, the tool becomes salient."""
+        from PIL import Image
+
+        label = self._LOCAL_MODEL_LABELS.get(self.local_model_name, self.local_model_name)
+        logging.info("generating mask with %s (local)", label)
+        pil_img = Image.open(image_path).convert("RGB")
+        np_bgr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+
+        rect = self._detect_paper_rect(np_bgr)
+        if rect is not None:
+            x, y, rw, rh = rect
+            logging.info("cropping to paper rect %dx%d at (%d,%d) before saliency", rw, rh, x, y)
+            cropped = pil_img.crop((x, y, x + rw, y + rh))
+            inside = self._saliency_on_image(cropped)
+            full = np.zeros((np_bgr.shape[0], np_bgr.shape[1]), dtype=np.uint8)
+            full[y:y + rh, x:x + rw] = inside
         else:
-            result = remover.process(pil_img, type="map")
-            mask_np = np.array(result.convert("L"))
-            _, binary = cv2.threshold(mask_np, 127, 255, cv2.THRESH_BINARY)
-            mask_out = cv2.bitwise_not(binary)
+            logging.info("paper rect not detected; running saliency on full image")
+            full = self._saliency_on_image(pil_img)
+
+        # tool=BLACK, bg=WHITE
+        mask_out = cv2.bitwise_not(full)
 
         if output_path:
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
