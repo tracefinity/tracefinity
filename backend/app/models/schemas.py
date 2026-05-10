@@ -218,6 +218,12 @@ class Tool(BaseModel):
     source_image_width: int | None = None
     source_image_height: int | None = None
     source_image_transform: list[float] | None = None  # 2D affine [a, b, c, d, e, f] mapping image-px to mm
+    category: str | None = None
+    drawer: str | None = None
+    tags: list[str] = []
+    project_ids: list[str] = []
+    review_status: str | None = None
+    needs_cleanup: bool = False
     thumbnail_path: str | None = None
     created_at: str | None = None
 
@@ -238,6 +244,12 @@ class ToolSummary(BaseModel):
     thumbnail_url: str | None = None
     image_transform: list[float] | None = None
     image_context: dict | None = None
+    category: str | None = None
+    drawer: str | None = None
+    tags: list[str] = []
+    project_ids: list[str] = []
+    review_status: str | None = None
+    needs_cleanup: bool = False
 
 
 class ToolUpdateRequest(BaseModel):
@@ -248,6 +260,12 @@ class ToolUpdateRequest(BaseModel):
     smoothed: bool | None = None
     smooth_level: float | None = None
     source_image_transform: list[float] | None = None
+    category: str | None = None
+    drawer: str | None = None
+    tags: list[str] | None = None
+    project_ids: list[str] | None = None
+    review_status: str | None = None
+    needs_cleanup: bool | None = None
 
 
 class ToolListResponse(BaseModel):
@@ -283,6 +301,7 @@ class BinConfig(BinParams):
 class BinModel(BaseModel):
     id: str
     name: str | None = None
+    project_id: str | None = None
     bin_config: BinConfig = BinConfig()
     placed_tools: list[PlacedTool] = []
     text_labels: list[TextLabel] = []
@@ -297,6 +316,7 @@ class BinPreviewTool(BaseModel):
 class BinSummary(BaseModel):
     id: str
     name: str | None
+    project_id: str | None = None
     created_at: str | None
     tool_count: int
     has_stl: bool
@@ -311,6 +331,7 @@ class BinListResponse(BaseModel):
 
 class BinUpdateRequest(BaseModel):
     name: str | None = None
+    project_id: str | None = None
     bin_config: BinConfig | None = None
     placed_tools: list[PlacedTool] | None = None
     text_labels: list[TextLabel] | None = None
@@ -318,4 +339,5 @@ class BinUpdateRequest(BaseModel):
 
 class CreateBinRequest(BaseModel):
     name: str | None = None
+    project_id: str | None = None
     tool_ids: list[str] = []  # pre-place these tools

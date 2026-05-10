@@ -816,6 +816,12 @@ async def list_tools(request: Request, user_id: str = Depends(get_user_id)):
             thumbnail_url=thumb_url,
             image_transform=tool.source_image_transform,
             image_context=image_context,
+            category=tool.category,
+            drawer=tool.drawer,
+            tags=tool.tags,
+            project_ids=tool.project_ids,
+            review_status=tool.review_status,
+            needs_cleanup=tool.needs_cleanup,
         ))
     summaries.sort(key=lambda t: t.created_at or "", reverse=True)
     return ToolListResponse(tools=summaries)
@@ -857,6 +863,18 @@ async def update_tool(request: Request, tool_id: str, req: ToolUpdateRequest, us
         tool.smooth_level = req.smooth_level
     if req.source_image_transform is not None:
         tool.source_image_transform = req.source_image_transform
+    if "category" in req.model_fields_set:
+        tool.category = req.category
+    if "drawer" in req.model_fields_set:
+        tool.drawer = req.drawer
+    if req.tags is not None:
+        tool.tags = req.tags
+    if req.project_ids is not None:
+        tool.project_ids = req.project_ids
+    if "review_status" in req.model_fields_set:
+        tool.review_status = req.review_status
+    if req.needs_cleanup is not None:
+        tool.needs_cleanup = req.needs_cleanup
     user_tools.set(tool_id, tool)
     return StatusResponse(status="ok")
 
@@ -996,6 +1014,7 @@ async def list_bins(request: Request, user_id: str = Depends(get_user_id)):
         summaries.append(BinSummary(
             id=bid,
             name=bin_data.name,
+            project_id=bin_data.project_id,
             created_at=bin_data.created_at,
             tool_count=len(bin_data.placed_tools),
             has_stl=bin_data.stl_path is not None,
@@ -1073,6 +1092,7 @@ async def create_bin(request: Request, req: CreateBinRequest, user_id: str = Dep
     bin_data = BinModel(
         id=bin_id,
         name=req.name,
+        project_id=req.project_id,
         bin_config=bc,
         placed_tools=placed,
         created_at=datetime.utcnow().isoformat(),
@@ -1090,6 +1110,8 @@ async def update_bin(request: Request, bin_id: str, req: BinUpdateRequest, user_
 
     if req.name is not None:
         bin_data.name = req.name
+    if "project_id" in req.model_fields_set:
+        bin_data.project_id = req.project_id
     if req.bin_config is not None:
         bin_data.bin_config = req.bin_config
     if req.placed_tools is not None:
