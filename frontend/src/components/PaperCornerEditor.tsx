@@ -15,9 +15,14 @@ const HANDLE_HIT_RADIUS = 24
 export function PaperCornerEditor({ imageUrl, corners, onCornersChange }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const draftCornersRef = useRef<Point[] | null>(null)
+  const pendingPointRef = useRef<Point | null>(null)
+  const rafRef = useRef<number | null>(null)
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 })
   const [fitted, setFitted] = useState({ width: 0, height: 0 })
   const [dragging, setDragging] = useState<number | null>(null)
+  const [draftCorners, setDraftCorners] = useState<Point[] | null>(null)
+  const displayCorners = draftCorners ?? corners
 
   useEffect(() => {
     let cancelled = false
@@ -39,6 +44,14 @@ export function PaperCornerEditor({ imageUrl, corners, onCornersChange }: Props)
     img.src = imageUrl
     return () => { cancelled = true }
   }, [imageUrl])
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+      }
+    }
+  }, [])
 
   // fit container to available space while preserving aspect ratio
   useEffect(() => {
@@ -78,47 +91,99 @@ export function PaperCornerEditor({ imageUrl, corners, onCornersChange }: Props)
     [imageSize]
   )
 
+  const startDrag = useCallback((index: number) => {
+    draftCornersRef.current = corners
+    setDraftCorners(corners)
+    setDragging(index)
+  }, [corners])
+
   const handleMouseDown = (index: number) => (e: React.MouseEvent) => {
     e.preventDefault()
-    setDragging(index)
+    startDrag(index)
   }
 
   const handleTouchStart = (index: number) => (e: React.TouchEvent) => {
     e.preventDefault()
-    setDragging(index)
+    startDrag(index)
   }
+
+  const queueDraftCorner = useCallback(
+    (index: number, point: Point) => {
+      pendingPointRef.current = point
+      if (rafRef.current !== null) return
+
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null
+        const pending = pendingPointRef.current
+        pendingPointRef.current = null
+        if (!pending) return
+
+        setDraftCorners((current) => {
+          const base = current ?? draftCornersRef.current ?? corners
+          const updated = [...base]
+          updated[index] = pending
+          draftCornersRef.current = updated
+          return updated
+        })
+      })
+    },
+    [corners]
+  )
+
+  const updateDrag = useCallback(
+    (clientX: number, clientY: number) => {
+      if (dragging === null) return
+      const point = getScaledPoint(clientX, clientY)
+      queueDraftCorner(dragging, point)
+    },
+    [dragging, getScaledPoint, queueDraftCorner]
+  )
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (dragging === null) return
-      const point = getScaledPoint(e.clientX, e.clientY)
-      const updated = [...corners]
-      updated[dragging] = point
-      onCornersChange(updated)
+      updateDrag(e.clientX, e.clientY)
     },
-    [dragging, corners, getScaledPoint, onCornersChange]
+    [updateDrag]
   )
 
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
-      if (dragging === null) return
       e.preventDefault()
       const t = e.touches[0]
-      const point = getScaledPoint(t.clientX, t.clientY)
-      const updated = [...corners]
-      updated[dragging] = point
-      onCornersChange(updated)
+      if (!t) return
+      updateDrag(t.clientX, t.clientY)
     },
-    [dragging, corners, getScaledPoint, onCornersChange]
+    [updateDrag]
   )
 
-  const handleMouseUp = useCallback(() => {
+  const finishDrag = useCallback(() => {
+    if (dragging === null) return
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+
+    const pending = pendingPointRef.current
+    pendingPointRef.current = null
+    let finalCorners = draftCornersRef.current ?? corners
+    if (pending) {
+      finalCorners = [...finalCorners]
+      finalCorners[dragging] = pending
+    }
+
+    draftCornersRef.current = null
+    setDraftCorners(null)
     setDragging(null)
-  }, [])
+    onCornersChange(finalCorners)
+  }, [corners, dragging, onCornersChange])
+
+  const handleMouseUp = useCallback(() => {
+    finishDrag()
+  }, [finishDrag])
 
   const handleTouchEnd = useCallback(() => {
-    setDragging(null)
-  }, [])
+    finishDrag()
+  }, [finishDrag])
 
   useEffect(() => {
     if (dragging !== null) {
@@ -158,9 +223,9 @@ export function PaperCornerEditor({ imageUrl, corners, onCornersChange }: Props)
         />
 
         <svg className="absolute inset-0 w-full h-full pointer-events-none">
-          {corners.length === 4 && (
+          {displayCorners.length === 4 && (
             <polygon
-              points={corners
+              points={displayCorners
                 .map((c) => `${c.x * displayScale},${c.y * displayScale}`)
                 .join(' ')}
               fill="rgba(90, 180, 222, 0.1)"
@@ -169,7 +234,7 @@ export function PaperCornerEditor({ imageUrl, corners, onCornersChange }: Props)
             />
           )}
 
-          {corners.map((corner, index) => (
+          {displayCorners.map((corner, index) => (
             <g key={index}>
               <circle
                 cx={corner.x * displayScale}
