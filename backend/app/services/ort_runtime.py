@@ -68,14 +68,25 @@ def get_onnx_providers(require_gpu: bool = False):
     - cuda: require CUDAExecutionProvider
     - cpu: CPUExecutionProvider only
     """
-    import onnxruntime as ort
-
-    requested = os.getenv("TRACEFINITY_ONNX_PROVIDER", "auto").lower()
+    requested = os.getenv("TRACEFINITY_ONNX_PROVIDER", "auto").strip().lower()
     if requested not in {"auto", "cuda", "cpu"}:
         raise ValueError("TRACEFINITY_ONNX_PROVIDER must be one of: auto, cuda, cpu")
 
     if requested == "cpu":
+        if require_gpu:
+            raise RuntimeError(
+                "TRACEFINITY_ONNX_PROVIDER=cpu cannot be used with a GPU-required tracer. "
+                "Use TRACEFINITY_ONNX_PROVIDER=auto or cuda with onnxruntime-gpu installed."
+            )
         return ["CPUExecutionProvider"]
+
+    try:
+        import onnxruntime as ort
+    except ImportError as exc:
+        raise RuntimeError(
+            "onnxruntime is required for local rembg tracers. Install backend/requirements.txt, "
+            "or backend/requirements-gpu.txt for CUDA support."
+        ) from exc
 
     _add_nvidia_dll_dirs()
     _preload_onnxruntime_cuda_dlls()

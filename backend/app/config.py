@@ -4,6 +4,8 @@ from pydantic_settings import BaseSettings
 from pathlib import Path
 from typing import Optional
 
+from app.services.tracer_registry import DEFAULT_LOCAL_TRACERS, validate_tracer_ids
+
 
 class Settings(BaseSettings):
     storage_path: Path = Path("./storage")
@@ -29,11 +31,11 @@ class Settings(BaseSettings):
         or "gemini,birefnet-lite". if not set, auto-detects from API keys.
         """
         if self.tracers:
-            return [t.strip() for t in self.tracers.split(",") if t.strip()]
+            return validate_tracer_ids([t.strip() for t in self.tracers.split(",") if t.strip()])
         # auto-detect
         if self.google_api_key or self.openrouter_api_key:
             return ["gemini"]
-        return ["isnet", "birefnet-lite", "inspyrenet"]
+        return list(DEFAULT_LOCAL_TRACERS)
 
     @property
     def use_local_model(self) -> bool:

@@ -11,6 +11,7 @@ import cv2
 import numpy as np
 
 from app.models.schemas import Polygon, Point
+from app.services.tracer_registry import GPU_REQUIRED_TRACERS, LOCAL_MODEL_LABELS, REMBG_MODELS
 
 
 # gemini-3-pro respects output dimensions precisely, so a direct
@@ -131,40 +132,28 @@ class AITracer:
 
         return polygons, mask_output_path
 
-    # rembg model names for each local model option
-    _REMBG_MODELS = {
-        "birefnet-general": "birefnet-general",
-        "birefnet-lite": "birefnet-general-lite",
-        "isnet": "isnet-general-use",
-    }
-
-    _LOCAL_MODEL_LABELS = {
-        "inspyrenet": "InSPyReNet",
-        "birefnet-general": "BiRefNet General",
-        "birefnet-lite": "BiRefNet Lite",
-        "isnet": "IS-Net",
-    }
-
     def _load_local_model(self):
-        """load the local model weights at startup."""
+        """load local model weights when the tracer is first constructed."""
         if self._local_remover is not None:
             return
         name = self.local_model_name
-        label = self._LOCAL_MODEL_LABELS.get(name, name)
-        if name in self._REMBG_MODELS:
+        label = LOCAL_MODEL_LABELS.get(name, name)
+        if name in REMBG_MODELS:
             from rembg import new_session
             from app.services.ort_runtime import get_onnx_providers
-            providers = get_onnx_providers()
+            providers = get_onnx_providers(require_gpu=name in GPU_REQUIRED_TRACERS)
             logging.info("loading %s via rembg with providers: %s", label, providers)
-            session = new_session(self._REMBG_MODELS[name], providers=providers)
+            session = new_session(REMBG_MODELS[name], providers=providers)
             logging.info("%s actual ONNX providers: %s", label, session.inner_session.get_providers())
             self._local_remover = ("rembg", session)
-        else:
+        elif name == "inspyrenet":
             from transparent_background import Remover
             import torch
             device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
             logging.info("loading %s on %s", label, device)
             self._local_remover = ("inspyrenet", Remover(mode="base", device=device))
+        else:
+            raise ValueError(f"unsupported local tracer: {name}")
 
     @staticmethod
     def _detect_paper_rect(img: np.ndarray) -> tuple[int, int, int, int] | None:
@@ -221,7 +210,7 @@ class AITracer:
         paper, not the tool. cropped to the paper, the tool becomes salient."""
         from PIL import Image
 
-        label = self._LOCAL_MODEL_LABELS.get(self.local_model_name, self.local_model_name)
+        label = LOCAL_MODEL_LABELS.get(self.local_model_name, self.local_model_name)
         logging.info("generating mask with %s (local)", label)
         pil_img = Image.open(image_path).convert("RGB")
         np_bgr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)

@@ -62,6 +62,7 @@ from app.services.tool_store import ToolStore
 from app.services.bin_store import BinStore
 from app.services.bin_service import sync_placed_tools
 from app.services.image_service import generate_tool_thumbnail
+from app.services.tracer_registry import TRACER_LABELS, validate_tracer_ids
 router = APIRouter()
 
 # Heuristic mismatch score combining a label penalty with bbox and point deltas measured in mm.
@@ -73,6 +74,9 @@ try:
     pillow_heif.register_heif_opener()
 except ImportError:
     pass
+
+# Fail fast for misspelled TRACERS values without loading local model weights.
+validate_tracer_ids(settings.available_tracers)
 
 # per-user store registry
 _store_cache: dict[str, tuple[SessionStore, ToolStore, BinStore]] = {}
@@ -479,15 +483,6 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
         corrected_image_url=f"/storage/{session.corrected_image_path}",
         scale_factor=scale_factor,
     )
-
-
-TRACER_LABELS = {
-    "gemini": "Gemini API",
-    "inspyrenet": "InSPyReNet",
-    "birefnet-general": "BiRefNet General",
-    "birefnet-lite": "BiRefNet Lite",
-    "isnet": "IS-Net",
-}
 
 
 @router.get("/api-keys")
