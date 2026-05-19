@@ -1,0 +1,249 @@
+from fastapi.testclient import TestClient
+
+from app.config import ensure_user_dirs, settings
+from app.main import app
+from app.models.schemas import (
+    BinConfig,
+    BinModel,
+    BinProject,
+    BinProjectBinsRequest,
+    BinProjectCreateBinRequest,
+    BinProjectCreateRequest,
+    BinProjectToolsRequest,
+    BinProjectUpdateRequest,
+    Tool,
+    PlacedTool,
+)
+from app.services.project_service import project_health, project_status, repair_project_links
+from app.services.bin_store import BinStore
+from app.services.project_store import ProjectStore
+from app.services.tool_store import ToolStore
+import app.api.routes as routes
+
+
+def test_old_project_records_get_defaults():
+    project = BinProject.model_validate({
+        "id": "project-1",
+        "name": "Top drawer",
+    })
+
+    assert project.description is None
+    assert project.tool_ids == []
+    assert project.bin_ids == []
+    assert project.status == "active"
+    assert project.target_grid_x is None
+    assert project.target_grid_y is None
+    assert project.default_bin_config is None
+    assert project.notes is None
+
+
+def test_project_metadata_round_trips():
+    project = BinProject.model_validate({
+        "id": "project-1",
+        "name": "Top drawer",
+        "description": "Metric tools",
+        "status": "ready_to_print",
+        "tool_ids": ["tool-1", "tool-2"],
+        "bin_ids": ["bin-1"],
+        "target_grid_x": 4,
+        "target_grid_y": 5,
+        "default_bin_config": {"grid_x": 3, "grid_y": 2},
+        "notes": "print first bin as test",
+        "created_at": "2026-05-10T00:00:00",
+        "updated_at": "2026-05-10T00:00:01",
+    })
+    data = project.model_dump()
+
+    assert data["tool_ids"] == ["tool-1", "tool-2"]
+    assert data["bin_ids"] == ["bin-1"]
+    assert data["status"] == "ready_to_print"
+    assert data["target_grid_x"] == 4
+    assert data["default_bin_config"]["grid_x"] == 3
+    assert data["notes"] == "print first bin as test"
+
+
+def test_project_requests_support_clearable_fields():
+    create_req = BinProjectCreateRequest(
+        name="Top drawer",
+        tool_ids=["tool-1"],
+        default_bin_config=BinConfig(grid_x=4, grid_y=3),
+    )
+    update_req = BinProjectUpdateRequest(description=None, notes=None, target_grid_x=None)
+    tools_req = BinProjectToolsRequest(tool_ids=["tool-1", "tool-2"])
+    bins_req = BinProjectBinsRequest(bin_ids=["bin-1"], import_tools=True)
+    bin_req = BinProjectCreateBinRequest(name="Top drawer bin", tool_ids=["tool-1"])
+
+    assert create_req.tool_ids == ["tool-1"]
+    assert create_req.default_bin_config.grid_x == 4
+    assert "description" in update_req.model_fields_set
+    assert "notes" in update_req.model_fields_set
+    assert "target_grid_x" in update_req.model_fields_set
+    assert tools_req.tool_ids == ["tool-1", "tool-2"]
+    assert bins_req.import_tools is True
+    assert bin_req.tool_ids == ["tool-1"]
+
+
+def test_project_store_round_trips(tmp_path):
+    store = ProjectStore(tmp_path)
+    project = BinProject(id="project-1", name="Top drawer", tool_ids=["tool-1"])
+
+    store.set(project.id, project)
+    reloaded = ProjectStore(tmp_path)
+
+    assert reloaded.get("project-1").name == "Top drawer"
+    assert reloaded.get("project-1").tool_ids == ["tool-1"]
+
+
+def test_project_store_delete_keeps_other_projects(tmp_path):
+    store = ProjectStore(tmp_path)
+    store.set("project-1", BinProject(id="project-1", name="Top drawer"))
+    store.set("project-2", BinProject(id="project-2", name="Bottom drawer"))
+
+    deleted = store.delete("project-1")
+
+    assert deleted.name == "Top drawer"
+    assert store.get("project-1") is None
+    assert store.get("project-2").name == "Bottom drawer"
+
+
+def test_project_status_tracks_placed_and_unplaced():
+    project = BinProject(id="project-1", name="Top drawer", tool_ids=["tool-1", "tool-2", "tool-3"])
+    linked_bins = [
+        BinModel(
+            id="bin-1",
+            placed_tools=[
+                PlacedTool(id="pt-1", tool_id="tool-1", name="Tool 1", points=[]),
+                PlacedTool(id="pt-2", tool_id="tool-2", name="Tool 2", points=[]),
+            ],
+        ),
+        BinModel(
+            id="bin-2",
+            placed_tools=[
+                PlacedTool(id="pt-3", tool_id="tool-2", name="Tool 2 duplicate", points=[]),
+                PlacedTool(id="pt-4", tool_id="other-tool", name="Other", points=[]),
+            ],
+        ),
+    ]
+
+    status = project_status(project, linked_bins)
+
+    assert status["placed_tool_ids"] == ["tool-1", "tool-2"]
+    assert status["unplaced_tool_ids"] == ["tool-3"]
+
+
+def _tool(tool_id: str, project_ids: list[str] | None = None) -> Tool:
+    return Tool(
+        id=tool_id,
+        name=tool_id,
+        points=[
+            {"x": 0, "y": 0},
+            {"x": 10, "y": 0},
+            {"x": 10, "y": 10},
+        ],
+        project_ids=project_ids or [],
+    )
+
+
+def _api_client(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "storage_path", tmp_path)
+    monkeypatch.setattr(routes.settings, "storage_path", tmp_path)
+    routes._store_cache.clear()
+    routes._project_store_cache.clear()
+    ensure_user_dirs(tmp_path / "default")
+    return TestClient(app)
+
+
+def _seed_tool(tool_id: str):
+    _, tool_store, _ = routes.get_stores("default")
+    tool_store.set(tool_id, _tool(tool_id))
+
+
+def test_project_create_bin_derives_placed_status_without_persisting_state(tmp_path, monkeypatch):
+    client = _api_client(tmp_path, monkeypatch)
+    _seed_tool("tool-1")
+
+    project_resp = client.post("/api/bin-projects", json={"name": "Top drawer", "tool_ids": ["tool-1"]})
+    assert project_resp.status_code == 200
+    project_id = project_resp.json()["id"]
+
+    bin_resp = client.post(f"/api/bin-projects/{project_id}/create-bin", json={"tool_ids": ["tool-1"]})
+    assert bin_resp.status_code == 200
+
+    detail = client.get(f"/api/bin-projects/{project_id}").json()
+
+    assert detail["placed_tool_ids"] == ["tool-1"]
+    assert detail["unplaced_tool_ids"] == []
+
+
+def test_project_placed_status_updates_when_bin_contents_change(tmp_path, monkeypatch):
+    client = _api_client(tmp_path, monkeypatch)
+    _seed_tool("tool-1")
+
+    project = client.post("/api/bin-projects", json={"name": "Top drawer", "tool_ids": ["tool-1"]}).json()
+    bin_data = client.post("/api/bins", json={"name": "Working bin", "project_id": project["id"], "tool_ids": ["tool-1"]}).json()
+
+    assert client.get(f"/api/bin-projects/{project['id']}").json()["placed_tool_ids"] == ["tool-1"]
+
+    update_resp = client.put(f"/api/bins/{bin_data['id']}", json={"placed_tools": []})
+    assert update_resp.status_code == 200
+    detail = client.get(f"/api/bin-projects/{project['id']}").json()
+
+    assert detail["placed_tool_ids"] == []
+    assert detail["unplaced_tool_ids"] == ["tool-1"]
+
+
+def test_project_health_reports_and_repairs_safe_link_mismatches(tmp_path):
+    project_store = ProjectStore(tmp_path)
+    tool_store = ToolStore(tmp_path)
+    bin_store = BinStore(tmp_path)
+
+    tool_store.set("tool-1", _tool("tool-1"))
+    tool_store.set("tool-extra", _tool("tool-extra", ["project-1"]))
+    bin_store.set("bin-1", BinModel(id="bin-1", project_id=None))
+    bin_store.set("bin-2", BinModel(id="bin-2", project_id="project-1"))
+    project = BinProject(
+        id="project-1",
+        name="Top drawer",
+        tool_ids=["tool-1", "missing-tool"],
+        bin_ids=["bin-1", "missing-bin"],
+    )
+    project_store.set(project.id, project)
+
+    issues = project_health(project, tool_store, bin_store)
+
+    assert {issue.code for issue in issues} >= {
+        "missing_tool",
+        "missing_bin",
+        "tool_missing_project_id",
+        "tool_extra_project_id",
+        "bin_missing_project_id",
+    }
+
+    repaired = repair_project_links(project_store, project, tool_store, bin_store)
+
+    assert repaired.tool_ids == ["tool-1"]
+    assert "missing-bin" not in repaired.bin_ids
+    assert "bin-2" in repaired.bin_ids
+    assert tool_store.get("tool-1").project_ids == ["project-1"]
+    assert tool_store.get("tool-extra").project_ids == []
+    assert bin_store.get("bin-1").project_id == "project-1"
+
+
+def test_project_health_reports_outside_bin_tools():
+    project = BinProject(id="project-1", name="Top drawer", tool_ids=["tool-1"], bin_ids=["bin-1"])
+    class ToolStoreStub:
+        def all(self):
+            return {"tool-1": _tool("tool-1", ["project-1"]), "tool-2": _tool("tool-2")}
+    class BinStoreStub:
+        def all(self):
+            return {
+                "bin-1": BinModel(
+                    id="bin-1",
+                    project_id="project-1",
+                    placed_tools=[PlacedTool(id="pt-1", tool_id="tool-2", name="Tool 2", points=[])],
+                )
+            }
+
+    issues = project_health(project, ToolStoreStub(), BinStoreStub())
+
+    assert any(issue.code == "outside_tool" and not issue.repairable for issue in issues)

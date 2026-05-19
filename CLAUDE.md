@@ -1,6 +1,6 @@
 # Tracefinity
 
-Tool tracing app that generates 3D-printable gridfinity bins from photos. Backend is Python/FastAPI with OpenCV and manifold3d; frontend is Next.js 16/React 19/TypeScript with react-three-fiber for 3D preview.
+Tool tracing app that generates 3D-printable gridfinity bins from photos. Backend is Python/FastAPI with OpenCV and manifold3d; frontend is Next.js 16/React 19/TypeScript with react-three-fiber for 3D preview. Bin projects group tools and bins for planning larger drawer/workspace workflows.
 
 ## Docs
 

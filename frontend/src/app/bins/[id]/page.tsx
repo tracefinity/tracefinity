@@ -13,6 +13,7 @@ import { Download, Loader2, Package, ChevronDown, Check } from 'lucide-react'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import { Alert } from '@/components/Alert'
 import { useDebouncedSave } from '@/hooks/useDebouncedSave'
+import { useProjectSource } from '@/hooks/useProjectSource'
 import { GRID_UNIT } from '@/lib/constants'
 
 function InfoBanner({ children }: { children: React.ReactNode }) {
@@ -48,6 +49,7 @@ export default function BinPage() {
   const router = useRouter()
   const params = useParams()
   const binId = params.id as string
+  const projectSource = useProjectSource('Bins')
 
   const [binData, setBinData] = useState<BinData | null>(null)
   const [placedTools, setPlacedTools] = useState<PlacedTool[]>([])
@@ -362,7 +364,7 @@ export default function BinPage() {
           <div className="glass rounded-[10px] px-3 py-3">
             <div className="flex items-center gap-2 mb-3">
               <Breadcrumb segments={[
-                { label: 'Bins', href: '/' },
+                { label: projectSource.rootLabel, href: projectSource.rootHref },
                 { label: name || 'Untitled', editable: true, onEdit: (v) => setName(v) },
               ]} />
               {saving && <Loader2 className="w-3 h-3 animate-spin text-text-muted flex-shrink-0" />}
@@ -454,6 +456,8 @@ export default function BinPage() {
             binWidthMm={binW}
             binHeightMm={binH}
             layout="horizontal"
+            projectId={projectSource.projectId}
+            currentToolIds={placedTools.map(tool => tool.tool_id)}
           />
         </div>
 
@@ -472,7 +476,7 @@ export default function BinPage() {
                 wallThickness={config.wall_thickness}
                 defaultCutoutDepth={config.cutout_depth}
                 maxCutoutDepth={calcMaxCutoutDepth(config.height_units, config.stacking_lip)}
-                onEditTool={(toolId) => router.push(`/tools/${toolId}`)}
+                onEditTool={(toolId) => router.push(projectSource.scopedHref(`/tools/${toolId}`))}
                 smoothedToolIds={smoothedToolIds}
                 onToggleSmoothed={handleToggleSmoothed}
                 smoothLevels={smoothLevels}

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, Loader2, Search } from 'lucide-react'
-import { listTools } from '@/lib/api'
-import type { ToolSummary, PlacedTool, Point } from '@/types'
+import { getProject, listTools } from '@/lib/api'
+import type { BinProject, ToolSummary, PlacedTool, Point } from '@/types'
 import { getTool } from '@/lib/api'
 import { polygonPathData } from '@/lib/svg'
 
@@ -12,6 +12,8 @@ interface Props {
   binWidthMm: number
   binHeightMm: number
   layout?: 'grid' | 'horizontal'
+  projectId?: string | null
+  currentToolIds?: string[]
 }
 
 function ToolThumbnail({ points, interiorRings }: { points: Point[]; interiorRings?: Point[][] }) {
@@ -40,29 +42,52 @@ function ToolThumbnail({ points, interiorRings }: { points: Point[]; interiorRin
       <path
         d={pathData}
         fillRule="evenodd"
-        fill="rgb(100, 116, 139)"
-        stroke="rgb(148, 163, 184)"
+        fill="var(--color-tool-fill)"
+        stroke="var(--color-tool-stroke)"
         strokeWidth={Math.max(vw, vh) * 0.015}
       />
     </svg>
   )
 }
 
-export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm, layout = 'grid' }: Props) {
+export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm, layout = 'grid', projectId, currentToolIds = [] }: Props) {
   const [tools, setTools] = useState<ToolSummary[]>([])
+  const [project, setProject] = useState<BinProject | null>(null)
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [showPlaced, setShowPlaced] = useState(false)
+
+  const projectToolIds = useMemo(() => new Set(project?.tool_ids || []), [project])
+  const placedToolIds = useMemo(() => {
+    return new Set([...(project?.placed_tool_ids || []), ...currentToolIds])
+  }, [project, currentToolIds])
+
+  const visibleTools = useMemo(() => {
+    let list = projectId ? tools.filter(tool => projectToolIds.has(tool.id)) : tools
+    if (projectId && !showPlaced) list = list.filter(tool => !placedToolIds.has(tool.id))
+    return list
+  }, [tools, projectId, projectToolIds, placedToolIds, showPlaced])
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return tools
+    if (!search.trim()) return visibleTools
     const q = search.toLowerCase()
-    return tools.filter(t => t.name.toLowerCase().includes(q))
-  }, [tools, search])
+    return visibleTools.filter(t => t.name.toLowerCase().includes(q))
+  }, [visibleTools, search])
 
   useEffect(() => {
-    listTools().then(setTools).catch(() => {}).finally(() => setLoading(false))
-  }, [])
+    setLoading(true)
+    Promise.all([
+      listTools(),
+      projectId ? getProject(projectId).catch(() => null) : Promise.resolve(null),
+    ])
+      .then(([toolList, projectData]) => {
+        setTools(toolList)
+        setProject(projectData)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [projectId])
 
   async function handleAdd(toolSummary: ToolSummary) {
     setAdding(toolSummary.id)
@@ -126,7 +151,16 @@ export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm, layout = 'grid
         {/* header with label + inline filter */}
         <div className="flex items-center gap-2">
           <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px]">Library</h3>
-          <span className="text-[10px] text-text-muted bg-elevated px-1.5 py-px rounded-full">{tools.length}</span>
+          <span className="text-[10px] text-text-muted bg-elevated px-1.5 py-px rounded-full">{visibleTools.length}</span>
+          {projectId && (
+            <button
+              onClick={() => setShowPlaced(prev => !prev)}
+              className="text-[10px] text-text-secondary glass-sm rounded-[7px] px-1.5 py-px hover:bg-glass-hover transition-colors cursor-pointer"
+              title="Show project tools already placed in bins."
+            >
+              {showPlaced ? 'Hide placed' : 'Show placed'}
+            </button>
+          )}
           {tools.length > 4 && (
             <div className="relative ml-auto">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted" />
@@ -135,7 +169,7 @@ export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm, layout = 'grid
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Filter..."
-                className="w-24 pl-6 pr-2 py-1 text-[10px] bg-elevated border border-border-subtle rounded text-text-primary outline-none focus:border-accent focus:w-36 transition-all"
+                className="w-24 pl-6 pr-2 py-1 text-[10px] bg-elevated border border-border-subtle rounded-[7px] text-text-primary outline-none focus:border-accent focus:w-36 transition-all"
               />
             </div>
           )}
@@ -147,7 +181,7 @@ export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm, layout = 'grid
               key={tool.id}
               onClick={() => handleAdd(tool)}
               disabled={adding === tool.id}
-              className="group flex-shrink-0 w-[90px] glass-sm rounded-lg overflow-hidden text-left transition-all duration-150 hover:bg-glass-hover cursor-pointer"
+              className="group flex-shrink-0 w-[90px] glass-sm rounded-[8px] overflow-hidden text-left transition-all duration-150 hover:bg-glass-hover cursor-pointer"
             >
               <div className="h-[52px] p-1.5 flex items-center justify-center bg-inset/30 relative">
                 {adding === tool.id ? (
@@ -155,6 +189,9 @@ export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm, layout = 'grid
                 ) : (
                   <>
                     <ToolThumbnail points={tool.points} interiorRings={tool.interior_rings} />
+                    {projectId && placedToolIds.has(tool.id) && (
+                      <span className="absolute top-1 left-1 rounded-[7px] bg-accent-muted px-1 py-px text-[9px] text-accent">Placed</span>
+                    )}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
                       <Plus className="w-4 h-4 text-white" />
                     </div>
@@ -168,6 +205,9 @@ export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm, layout = 'grid
           ))}
           {filtered.length === 0 && search && (
             <span className="text-[10px] text-text-muted py-2 flex-shrink-0">No matches</span>
+          )}
+          {filtered.length === 0 && !search && projectId && (
+            <span className="text-[10px] text-text-muted py-2 flex-shrink-0">No unplaced project tools</span>
           )}
         </div>
       </div>
@@ -184,7 +224,7 @@ export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm, layout = 'grid
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Filter tools..."
-            className="w-full pl-6 pr-2 py-1.5 text-xs bg-elevated border border-border-subtle rounded text-text-primary outline-none focus:border-accent"
+            className="w-full pl-6 pr-2 py-1.5 text-xs bg-elevated border border-border-subtle rounded-[7px] text-text-primary outline-none focus:border-accent"
           />
         </div>
       )}
@@ -194,13 +234,18 @@ export function ToolBrowser({ onAddTool, binWidthMm, binHeightMm, layout = 'grid
           key={tool.id}
           onClick={() => handleAdd(tool)}
           disabled={adding === tool.id}
-          className="group relative bg-elevated hover:bg-border rounded overflow-hidden text-left transition-colors cursor-pointer"
+          className="group relative bg-elevated hover:bg-border rounded-[8px] overflow-hidden text-left transition-colors cursor-pointer"
         >
           <div className="aspect-square p-2 flex items-center justify-center bg-inset/50">
             {adding === tool.id ? (
               <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
             ) : (
-              <ToolThumbnail points={tool.points} interiorRings={tool.interior_rings} />
+              <>
+                <ToolThumbnail points={tool.points} interiorRings={tool.interior_rings} />
+                {projectId && placedToolIds.has(tool.id) && (
+                  <span className="absolute top-1 left-1 rounded-[7px] bg-accent-muted px-1 py-px text-[9px] text-accent">Placed</span>
+                )}
+              </>
             )}
           </div>
           <div className="px-1.5 py-1 flex items-center justify-between gap-1">

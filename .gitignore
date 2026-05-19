@@ -30,6 +30,8 @@ storage/
 # ide
 .idea/
 .vscode/
+.agents/
+.planning/
 *.swp
 
 # os

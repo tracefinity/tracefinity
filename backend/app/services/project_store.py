@@ -1,0 +1,61 @@
+from __future__ import annotations
+
+import json
+import tempfile
+import threading
+from pathlib import Path
+from typing import Optional
+
+from app.models.schemas import BinProject
+
+
+class ProjectStore:
+    def __init__(self, storage_path: Path):
+        self.file_path = storage_path / "bin-projects.json"
+        self._projects: dict[str, BinProject] = {}
+        self._lock = threading.Lock()
+        self._load()
+
+    def _load(self):
+        if self.file_path.exists():
+            try:
+                data = json.loads(self.file_path.read_text())
+                for pid, pdata in data.items():
+                    self._projects[pid] = BinProject.model_validate(pdata)
+            except Exception:
+                self._projects = {}
+
+    def _save(self):
+        data = {pid: p.model_dump() for pid, p in self._projects.items()}
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=self.file_path.parent,
+            prefix=".bin-projects_",
+            suffix=".tmp",
+        )
+        try:
+            with open(temp_fd, "w") as f:
+                json.dump(data, f, indent=2)
+            Path(temp_path).replace(self.file_path)
+        except Exception:
+            Path(temp_path).unlink(missing_ok=True)
+            raise
+
+    def get(self, project_id: str) -> Optional[BinProject]:
+        with self._lock:
+            return self._projects.get(project_id)
+
+    def set(self, project_id: str, project: BinProject):
+        with self._lock:
+            self._projects[project_id] = project
+            self._save()
+
+    def delete(self, project_id: str) -> Optional[BinProject]:
+        with self._lock:
+            project = self._projects.pop(project_id, None)
+            if project:
+                self._save()
+            return project
+
+    def all(self) -> dict[str, BinProject]:
+        with self._lock:
+            return self._projects.copy()

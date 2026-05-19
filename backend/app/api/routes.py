@@ -43,6 +43,15 @@ from app.models.schemas import (
     ToolUpdateRequest,
     SaveToolsRequest,
     SaveToolsResponse,
+    BinProject,
+    BinProjectDetail,
+    BinProjectListResponse,
+    BinProjectCreateRequest,
+    BinProjectUpdateRequest,
+    BinProjectToolsRequest,
+    BinProjectCreateBinRequest,
+    BinProjectBinsRequest,
+    ProjectHealthResponse,
     PlacedTool,
     BinModel,
     BinConfig,
@@ -60,9 +69,22 @@ from app.services.stl_generator_manifold import ManifoldSTLGenerator
 from app.services.session_store import SessionStore
 from app.services.tool_store import ToolStore
 from app.services.bin_store import BinStore
+from app.services.project_store import ProjectStore
 from app.services.bin_service import sync_placed_tools
 from app.services.image_service import generate_tool_thumbnail
 from app.services.tracer_registry import TRACER_LABELS, validate_tracer_ids
+from app.services.project_service import (
+    add_bin_to_project,
+    add_project_to_tools,
+    health_response,
+    make_project_detail,
+    make_project_summary,
+    project_health,
+    remove_bin_from_all_projects,
+    remove_bin_from_project,
+    remove_project_from_tools,
+    repair_project_links,
+)
 router = APIRouter()
 
 # Heuristic mismatch score combining a label penalty with bbox and point deltas measured in mm.
@@ -80,6 +102,7 @@ validate_tracer_ids(settings.available_tracers)
 
 # per-user store registry
 _store_cache: dict[str, tuple[SessionStore, ToolStore, BinStore]] = {}
+_project_store_cache: dict[str, ProjectStore] = {}
 
 
 def get_stores(user_id: str) -> tuple[SessionStore, ToolStore, BinStore]:
@@ -92,6 +115,14 @@ def get_stores(user_id: str) -> tuple[SessionStore, ToolStore, BinStore]:
             BinStore(user_path),
         )
     return _store_cache[user_id]
+
+
+def get_project_store(user_id: str) -> ProjectStore:
+    if user_id not in _project_store_cache:
+        user_path = settings.storage_path / user_id
+        ensure_user_dirs(user_path)
+        _project_store_cache[user_id] = ProjectStore(user_path)
+    return _project_store_cache[user_id]
 
 
 def _user_path(user_id: str) -> Path:
@@ -182,6 +213,7 @@ def _translate_finger_holes(holes: list[FingerHole], dx: float, dy: float) -> li
             id=fh.id, x=fh.x + dx, y=fh.y + dy,
             radius=fh.radius, width=fh.width, height=fh.height,
             rotation=fh.rotation, shape=fh.shape,
+            depth_override=fh.depth_override,
         )
         for fh in holes
     ]
@@ -305,6 +337,72 @@ def _tool_image_context(tool: Tool, sessions: SessionStore, load_missing_dimensi
         "scale_factor": math.hypot(transform[0], transform[1]),
         "transform": transform,
     }, updated
+
+
+def _now_iso() -> str:
+    return datetime.utcnow().isoformat()
+
+
+def _build_bin_from_tools(
+    bin_id: str,
+    name: str | None,
+    project_id: str | None,
+    tool_ids: list[str],
+    user_tools: ToolStore,
+    default_config: BinConfig | None = None,
+) -> BinModel:
+    placed: list[PlacedTool] = []
+    all_points_mm: list[tuple[float, float]] = []
+
+    for tool_id in tool_ids:
+        tool = user_tools.get(tool_id)
+        if not tool:
+            raise HTTPException(status_code=404, detail=f"tool {tool_id} not found")
+
+        all_points_mm.extend([(p.x, p.y) for p in tool.points])
+        placed.append(PlacedTool(
+            id=str(uuid.uuid4()),
+            tool_id=tool_id,
+            name=tool.name,
+            points=list(tool.points),
+            finger_holes=list(tool.finger_holes),
+            interior_rings=list(tool.interior_rings),
+        ))
+
+    bc = BinConfig.model_validate(default_config.model_dump()) if default_config else BinConfig()
+    if all_points_mm:
+        all_xs = [p[0] for p in all_points_mm]
+        all_ys = [p[1] for p in all_points_mm]
+        tool_width = max(all_xs) - min(all_xs)
+        tool_height = max(all_ys) - min(all_ys)
+
+        clearance = bc.cutout_clearance
+        wall = bc.wall_thickness
+        needed_w = tool_width + 2 * clearance + 2 * wall + 0.5
+        needed_h = tool_height + 2 * clearance + 2 * wall + 0.5
+
+        grid_x = max(1, int((needed_w + GF_GRID - 1) // GF_GRID))
+        grid_y = max(1, int((needed_h + GF_GRID - 1) // GF_GRID))
+        bc.grid_x = min(grid_x, 10)
+        bc.grid_y = min(grid_y, 10)
+
+        bin_w = bc.grid_x * GF_GRID
+        bin_h = bc.grid_y * GF_GRID
+        offset_x = bin_w / 2
+        offset_y = bin_h / 2
+        for pt in placed:
+            pt.points = _translate_points(pt.points, offset_x, offset_y)
+            pt.finger_holes = _translate_finger_holes(pt.finger_holes, offset_x, offset_y)
+            pt.interior_rings = [_translate_points(ring, offset_x, offset_y) for ring in pt.interior_rings]
+
+    return BinModel(
+        id=bin_id,
+        name=name,
+        project_id=project_id,
+        bin_config=bc,
+        placed_tools=placed,
+        created_at=_now_iso(),
+    )
 
 
 def _run_generate(
@@ -816,6 +914,12 @@ async def list_tools(request: Request, user_id: str = Depends(get_user_id)):
             thumbnail_url=thumb_url,
             image_transform=tool.source_image_transform,
             image_context=image_context,
+            category=tool.category,
+            drawer=tool.drawer,
+            tags=tool.tags,
+            project_ids=tool.project_ids,
+            review_status=tool.review_status,
+            needs_cleanup=tool.needs_cleanup,
         ))
     summaries.sort(key=lambda t: t.created_at or "", reverse=True)
     return ToolListResponse(tools=summaries)
@@ -857,6 +961,18 @@ async def update_tool(request: Request, tool_id: str, req: ToolUpdateRequest, us
         tool.smooth_level = req.smooth_level
     if req.source_image_transform is not None:
         tool.source_image_transform = req.source_image_transform
+    if "category" in req.model_fields_set:
+        tool.category = req.category
+    if "drawer" in req.model_fields_set:
+        tool.drawer = req.drawer
+    if req.tags is not None:
+        tool.tags = req.tags
+    if req.project_ids is not None:
+        tool.project_ids = req.project_ids
+    if "review_status" in req.model_fields_set:
+        tool.review_status = req.review_status
+    if req.needs_cleanup is not None:
+        tool.needs_cleanup = req.needs_cleanup
     user_tools.set(tool_id, tool)
     return StatusResponse(status="ok")
 
@@ -985,6 +1101,289 @@ async def save_tools_from_session(request: Request, session_id: str, body: SaveT
     return SaveToolsResponse(tool_ids=tool_ids)
 
 
+# --- bin projects ---
+
+@router.get("/bin-projects", response_model=BinProjectListResponse)
+async def list_bin_projects(request: Request, user_id: str = Depends(get_user_id)):
+    project_store = get_project_store(user_id)
+    _, _, user_bins = get_stores(user_id)
+    summaries = [
+        make_project_summary(project, user_bins)
+        for project in project_store.all().values()
+    ]
+    summaries.sort(key=lambda p: p.updated_at or p.created_at or "", reverse=True)
+    return BinProjectListResponse(projects=summaries)
+
+
+@router.post("/bin-projects", response_model=BinProject)
+async def create_bin_project(request: Request, req: BinProjectCreateRequest, user_id: str = Depends(get_user_id)):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="project name is required")
+
+    project_store = get_project_store(user_id)
+    _, user_tools, _ = get_stores(user_id)
+    for tool_id in req.tool_ids:
+        if not user_tools.get(tool_id):
+            raise HTTPException(status_code=404, detail=f"tool {tool_id} not found")
+
+    project_id = str(uuid.uuid4())
+    now = _now_iso()
+    project = BinProject(
+        id=project_id,
+        name=name,
+        description=req.description,
+        status=req.status,
+        tool_ids=list(dict.fromkeys(req.tool_ids)),
+        target_grid_x=req.target_grid_x,
+        target_grid_y=req.target_grid_y,
+        default_bin_config=req.default_bin_config,
+        notes=req.notes,
+        created_at=now,
+        updated_at=now,
+    )
+    project_store.set(project_id, project)
+    add_project_to_tools(project_id, project.tool_ids, user_tools)
+    return project
+
+
+@router.get("/bin-projects/{project_id}", response_model=BinProjectDetail)
+async def get_bin_project(request: Request, project_id: str, user_id: str = Depends(get_user_id)):
+    project = get_project_store(user_id).get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+    _, _, user_bins = get_stores(user_id)
+    return make_project_detail(project, user_bins)
+
+
+@router.patch("/bin-projects/{project_id}", response_model=BinProjectDetail)
+async def update_bin_project(
+    request: Request,
+    project_id: str,
+    req: BinProjectUpdateRequest,
+    user_id: str = Depends(get_user_id),
+):
+    project_store = get_project_store(user_id)
+    project = project_store.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+
+    if req.name is not None:
+        name = req.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="project name is required")
+        project.name = name
+    if "description" in req.model_fields_set:
+        project.description = req.description
+    if "status" in req.model_fields_set and req.status is not None:
+        project.status = req.status
+    if "target_grid_x" in req.model_fields_set:
+        project.target_grid_x = req.target_grid_x
+    if "target_grid_y" in req.model_fields_set:
+        project.target_grid_y = req.target_grid_y
+    if "default_bin_config" in req.model_fields_set:
+        project.default_bin_config = req.default_bin_config
+    if "notes" in req.model_fields_set:
+        project.notes = req.notes
+
+    project.updated_at = _now_iso()
+    project_store.set(project_id, project)
+    _, _, user_bins = get_stores(user_id)
+    return make_project_detail(project, user_bins)
+
+
+@router.delete("/bin-projects/{project_id}", response_model=StatusResponse)
+async def delete_bin_project(request: Request, project_id: str, user_id: str = Depends(get_user_id)):
+    project_store = get_project_store(user_id)
+    _, user_tools, user_bins = get_stores(user_id)
+    project = project_store.delete(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+
+    remove_project_from_tools(project_id, project.tool_ids, user_tools)
+    for bid, bin_data in user_bins.all().items():
+        if bin_data.project_id == project_id or bid in project.bin_ids:
+            bin_data.project_id = None
+            user_bins.set(bid, bin_data)
+
+    return StatusResponse(status="deleted")
+
+
+@router.post("/bin-projects/{project_id}/tools", response_model=BinProjectDetail)
+async def add_tools_to_bin_project(
+    request: Request,
+    project_id: str,
+    req: BinProjectToolsRequest,
+    user_id: str = Depends(get_user_id),
+):
+    project_store = get_project_store(user_id)
+    project = project_store.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+
+    _, user_tools, user_bins = get_stores(user_id)
+    for tool_id in req.tool_ids:
+        if not user_tools.get(tool_id):
+            raise HTTPException(status_code=404, detail=f"tool {tool_id} not found")
+
+    existing = set(project.tool_ids)
+    for tool_id in req.tool_ids:
+        if tool_id not in existing:
+            project.tool_ids.append(tool_id)
+            existing.add(tool_id)
+    project.updated_at = _now_iso()
+    project_store.set(project_id, project)
+    add_project_to_tools(project_id, req.tool_ids, user_tools)
+    return make_project_detail(project, user_bins)
+
+
+@router.delete("/bin-projects/{project_id}/tools/{tool_id}", response_model=BinProjectDetail)
+async def remove_tool_from_bin_project(
+    request: Request,
+    project_id: str,
+    tool_id: str,
+    user_id: str = Depends(get_user_id),
+):
+    project_store = get_project_store(user_id)
+    project = project_store.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+
+    if tool_id in project.tool_ids:
+        project.tool_ids = [tid for tid in project.tool_ids if tid != tool_id]
+        project.updated_at = _now_iso()
+        project_store.set(project_id, project)
+
+    _, user_tools, user_bins = get_stores(user_id)
+    remove_project_from_tools(project_id, [tool_id], user_tools)
+    return make_project_detail(project, user_bins)
+
+
+@router.get("/bin-projects/{project_id}/health", response_model=ProjectHealthResponse)
+async def get_bin_project_health(request: Request, project_id: str, user_id: str = Depends(get_user_id)):
+    project = get_project_store(user_id).get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+    _, user_tools, user_bins = get_stores(user_id)
+    return health_response(project_health(project, user_tools, user_bins))
+
+
+@router.post("/bin-projects/{project_id}/repair", response_model=ProjectHealthResponse)
+async def repair_bin_project(request: Request, project_id: str, user_id: str = Depends(get_user_id)):
+    project_store = get_project_store(user_id)
+    project = project_store.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+    _, user_tools, user_bins = get_stores(user_id)
+    repaired = repair_project_links(project_store, project, user_tools, user_bins)
+    return health_response(project_health(repaired, user_tools, user_bins))
+
+
+@router.post("/bin-projects/{project_id}/bins", response_model=BinProjectDetail)
+async def add_bins_to_bin_project(
+    request: Request,
+    project_id: str,
+    req: BinProjectBinsRequest,
+    user_id: str = Depends(get_user_id),
+):
+    project_store = get_project_store(user_id)
+    project = project_store.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+
+    _, user_tools, user_bins = get_stores(user_id)
+    bin_ids = list(dict.fromkeys(req.bin_ids))
+    for bin_id in bin_ids:
+        bin_data = user_bins.get(bin_id)
+        if not bin_data:
+            raise HTTPException(status_code=404, detail=f"bin {bin_id} not found")
+        if bin_data.project_id and bin_data.project_id != project_id and not req.allow_reassign:
+            raise HTTPException(status_code=400, detail=f"bin {bin_id} already belongs to another project")
+
+    existing_tools = set(project.tool_ids)
+    for bin_id in bin_ids:
+        bin_data = user_bins.get(bin_id)
+        if bin_data.project_id and bin_data.project_id != project_id:
+            remove_bin_from_project(project_store, bin_data.project_id, bin_id)
+        bin_data.project_id = project_id
+        user_bins.set(bin_id, bin_data)
+        if bin_id not in project.bin_ids:
+            project.bin_ids.append(bin_id)
+
+        if req.import_tools:
+            importable_tool_ids: list[str] = []
+            for placed in bin_data.placed_tools:
+                if placed.tool_id and placed.tool_id not in existing_tools:
+                    if not user_tools.get(placed.tool_id):
+                        continue
+                    project.tool_ids.append(placed.tool_id)
+                    existing_tools.add(placed.tool_id)
+                if placed.tool_id and user_tools.get(placed.tool_id):
+                    importable_tool_ids.append(placed.tool_id)
+            add_project_to_tools(project_id, importable_tool_ids, user_tools)
+
+    project.updated_at = _now_iso()
+    project_store.set(project_id, project)
+    return make_project_detail(project, user_bins)
+
+
+@router.delete("/bin-projects/{project_id}/bins/{bin_id}", response_model=BinProjectDetail)
+async def detach_bin_from_bin_project(
+    request: Request,
+    project_id: str,
+    bin_id: str,
+    user_id: str = Depends(get_user_id),
+):
+    project_store = get_project_store(user_id)
+    project = project_store.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+
+    _, _, user_bins = get_stores(user_id)
+    bin_data = user_bins.get(bin_id)
+    if bin_id in project.bin_ids:
+        project.bin_ids = [bid for bid in project.bin_ids if bid != bin_id]
+    if bin_data and bin_data.project_id == project_id:
+        bin_data.project_id = None
+        user_bins.set(bin_id, bin_data)
+
+    project.updated_at = _now_iso()
+    project_store.set(project_id, project)
+    return make_project_detail(project, user_bins)
+
+
+@router.post("/bin-projects/{project_id}/create-bin", response_model=BinModel)
+async def create_bin_from_project(
+    request: Request,
+    project_id: str,
+    req: BinProjectCreateBinRequest = BinProjectCreateBinRequest(),
+    user_id: str = Depends(get_user_id),
+):
+    project_store = get_project_store(user_id)
+    project = project_store.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+
+    _, user_tools, user_bins = get_stores(user_id)
+    tool_ids = project.tool_ids if req.tool_ids is None else req.tool_ids
+    outside_project = [tid for tid in tool_ids if tid not in project.tool_ids]
+    if outside_project:
+        raise HTTPException(status_code=400, detail="all tools must belong to project")
+
+    bin_id = str(uuid.uuid4())
+    bin_data = _build_bin_from_tools(
+        bin_id=bin_id,
+        name=req.name or project.name,
+        project_id=project_id,
+        tool_ids=tool_ids,
+        user_tools=user_tools,
+        default_config=project.default_bin_config,
+    )
+    user_bins.set(bin_id, bin_data)
+    add_bin_to_project(project_store, project_id, bin_id)
+    return bin_data
+
+
 # --- bins ---
 
 @router.get("/bins", response_model=BinListResponse)
@@ -996,7 +1395,9 @@ async def list_bins(request: Request, user_id: str = Depends(get_user_id)):
         summaries.append(BinSummary(
             id=bid,
             name=bin_data.name,
+            project_id=bin_data.project_id,
             created_at=bin_data.created_at,
+            tool_ids=[pt.tool_id for pt in bin_data.placed_tools],
             tool_count=len(bin_data.placed_tools),
             has_stl=bin_data.stl_path is not None,
             grid_x=bin_data.bin_config.grid_x,
@@ -1023,73 +1424,37 @@ async def get_bin(request: Request, bin_id: str, user_id: str = Depends(get_user
 @router.post("/bins", response_model=BinModel)
 async def create_bin(request: Request, req: CreateBinRequest, user_id: str = Depends(get_user_id)):
     _, user_tools, user_bins = get_stores(user_id)
+    project_store = get_project_store(user_id)
+    if req.project_id and not project_store.get(req.project_id):
+        raise HTTPException(status_code=404, detail=f"project {req.project_id} not found")
     bin_id = str(uuid.uuid4())
-
-    placed: list[PlacedTool] = []
-    all_points_mm: list[tuple[float, float]] = []
-
-    for tool_id in req.tool_ids:
-        tool = user_tools.get(tool_id)
-        if not tool:
-            raise HTTPException(status_code=404, detail=f"tool {tool_id} not found")
-
-        all_points_mm.extend([(p.x, p.y) for p in tool.points])
-
-        placed.append(PlacedTool(
-            id=str(uuid.uuid4()),
-            tool_id=tool_id,
-            name=tool.name,
-            points=list(tool.points),
-            finger_holes=list(tool.finger_holes),
-            interior_rings=list(tool.interior_rings),
-        ))
-
-    bc = BinConfig()
-    if all_points_mm:
-        all_xs = [p[0] for p in all_points_mm]
-        all_ys = [p[1] for p in all_points_mm]
-        tool_width = max(all_xs) - min(all_xs)
-        tool_height = max(all_ys) - min(all_ys)
-
-        clearance = bc.cutout_clearance
-        wall = bc.wall_thickness
-        needed_w = tool_width + 2 * clearance + 2 * wall + 0.5
-        needed_h = tool_height + 2 * clearance + 2 * wall + 0.5
-
-        grid_x = max(1, int((needed_w + GF_GRID - 1) // GF_GRID))
-        grid_y = max(1, int((needed_h + GF_GRID - 1) // GF_GRID))
-        bc.grid_x = min(grid_x, 10)
-        bc.grid_y = min(grid_y, 10)
-
-        bin_w = bc.grid_x * GF_GRID
-        bin_h = bc.grid_y * GF_GRID
-        offset_x = bin_w / 2
-        offset_y = bin_h / 2
-        for pt in placed:
-            pt.points = _translate_points(pt.points, offset_x, offset_y)
-            pt.finger_holes = _translate_finger_holes(pt.finger_holes, offset_x, offset_y)
-            pt.interior_rings = [_translate_points(ring, offset_x, offset_y) for ring in pt.interior_rings]
-
-    bin_data = BinModel(
-        id=bin_id,
+    bin_data = _build_bin_from_tools(
+        bin_id=bin_id,
         name=req.name,
-        bin_config=bc,
-        placed_tools=placed,
-        created_at=datetime.utcnow().isoformat(),
+        project_id=req.project_id,
+        tool_ids=req.tool_ids,
+        user_tools=user_tools,
     )
     user_bins.set(bin_id, bin_data)
+    add_bin_to_project(project_store, req.project_id, bin_id)
     return bin_data
 
 
 @router.put("/bins/{bin_id}", response_model=StatusResponse)
 async def update_bin(request: Request, bin_id: str, req: BinUpdateRequest, user_id: str = Depends(get_user_id)):
     _, _, user_bins = get_stores(user_id)
+    project_store = get_project_store(user_id)
     bin_data = user_bins.get(bin_id)
     if not bin_data:
         raise HTTPException(status_code=404, detail="bin not found")
 
+    old_project_id = bin_data.project_id
     if req.name is not None:
         bin_data.name = req.name
+    if "project_id" in req.model_fields_set:
+        if req.project_id and not project_store.get(req.project_id):
+            raise HTTPException(status_code=404, detail=f"project {req.project_id} not found")
+        bin_data.project_id = req.project_id
     if req.bin_config is not None:
         bin_data.bin_config = req.bin_config
     if req.placed_tools is not None:
@@ -1097,16 +1462,22 @@ async def update_bin(request: Request, bin_id: str, req: BinUpdateRequest, user_
     if req.text_labels is not None:
         bin_data.text_labels = req.text_labels
     user_bins.set(bin_id, bin_data)
+    if old_project_id != bin_data.project_id:
+        remove_bin_from_project(project_store, old_project_id, bin_id)
+        add_bin_to_project(project_store, bin_data.project_id, bin_id)
     return StatusResponse(status="ok")
 
 
 @router.delete("/bins/{bin_id}", response_model=StatusResponse)
 async def delete_bin(request: Request, bin_id: str, user_id: str = Depends(get_user_id)):
     _, _, user_bins = get_stores(user_id)
+    project_store = get_project_store(user_id)
     up = _user_path(user_id)
     bin_data = user_bins.delete(bin_id)
     if not bin_data:
         raise HTTPException(status_code=404, detail="bin not found")
+    remove_bin_from_project(project_store, bin_data.project_id, bin_id)
+    remove_bin_from_all_projects(project_store, bin_id)
 
     if bin_data.stl_path:
         stl_abs = Path(_abs(bin_data.stl_path))

@@ -18,8 +18,9 @@
 3. Upload and adjust paper corners for scale calibration
 4. AI traces tool outlines automatically
 5. Save traced tools to your library
-6. Create bins, add tools from the library, arrange the layout
-7. Download STL/3MF for 3D printing
+6. Group tools into projects when planning a drawer or workspace
+7. Create bins from project tools, arrange the layout
+8. Download STL/3MF for 3D printing
 
 | Dashboard | Tool Editor | Bin Editor |
 |-|-|-|
@@ -127,6 +128,7 @@ No API key and prefer not to use the local model? Upload a mask manually:
 - **Manual mask upload** -- Use the Gemini web interface without an API key
 - **Selective saving** -- Choose which traced outlines to keep before saving to your library
 - **Tool library** -- Save traced tools and reuse them across multiple bins
+- **Bin projects** -- Plan a group of tools and bins together, track which tools still need bins, and create project-scoped bins
 - **Tool editor** -- Rotate tools, add/remove vertices, adjust outlines, snap to grid
 - **Smooth or accurate** -- Toggle Chaikin subdivision for smooth curves, or keep the raw trace; SVG and STL exports both respect this
 - **Finger holes** -- Circular, square, or rectangular cutouts for easy tool removal

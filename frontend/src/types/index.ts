@@ -125,6 +125,12 @@ export interface Tool {
   smooth_level: number
   source_session_id: string | null
   image_context: ToolImageContext | null
+  category: string | null
+  drawer: string | null
+  tags: string[]
+  project_ids: string[]
+  review_status: string | null
+  needs_cleanup: boolean
   created_at: string | null
 }
 
@@ -152,6 +158,73 @@ export interface ToolSummary {
   thumbnail_url: string | null
   image_transform: AffineMatrix | null
   image_context: ToolImageContext | null
+  category: string | null
+  drawer: string | null
+  tags: string[]
+  project_ids: string[]
+  review_status: string | null
+  needs_cleanup: boolean
+}
+
+// --- projects ---
+
+export type ProjectStatus = 'active' | 'ready_to_print' | 'printed' | 'archived'
+export type ProjectHealthSeverity = 'warning' | 'error'
+export type ProjectHealthCode =
+  | 'missing_tool'
+  | 'missing_bin'
+  | 'bin_missing_project_id'
+  | 'bin_project_mismatch'
+  | 'outside_tool'
+  | 'tool_missing_project_id'
+  | 'tool_extra_project_id'
+
+export interface BinProject {
+  id: string
+  name: string
+  description: string | null
+  status: ProjectStatus
+  tool_ids: string[]
+  bin_ids: string[]
+  placed_tool_ids: string[]
+  unplaced_tool_ids: string[]
+  target_grid_x: number | null
+  target_grid_y: number | null
+  default_bin_config: BinConfig | null
+  notes: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface BinProjectSummary {
+  id: string
+  name: string
+  description: string | null
+  status: ProjectStatus
+  tool_count: number
+  bin_count: number
+  placed_count: number
+  unplaced_count: number
+  target_grid_x: number | null
+  target_grid_y: number | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ProjectHealthIssue {
+  code: ProjectHealthCode
+  severity: ProjectHealthSeverity
+  message: string
+  tool_id: string | null
+  bin_id: string | null
+  other_project_id: string | null
+  repairable: boolean
+}
+
+export interface ProjectHealthResponse {
+  issues: ProjectHealthIssue[]
+  repairable_count: number
+  manual_count: number
 }
 
 // --- bins ---
@@ -170,6 +243,7 @@ export interface PlacedTool {
 export interface BinData {
   id: string
   name: string | null
+  project_id: string | null
   bin_config: BinConfig
   placed_tools: PlacedTool[]
   text_labels: TextLabel[]
@@ -185,7 +259,9 @@ export interface BinPreviewTool {
 export interface BinSummary {
   id: string
   name: string | null
+  project_id: string | null
   created_at: string | null
+  tool_ids: string[]
   tool_count: number
   has_stl: boolean
   grid_x: number

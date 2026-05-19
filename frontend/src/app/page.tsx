@@ -4,13 +4,16 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ImageUploader } from '@/components/ImageUploader'
 import { ConfirmModal } from '@/components/ConfirmModal'
-import { uploadImage, listTools, listBins, deleteTool, deleteBin, createBin, getImageUrl } from '@/lib/api'
-import type { ToolSummary, BinSummary, BinPreviewTool, Point, ToolImageContext, AffineMatrix } from '@/types'
+import { SectionHeader } from '@/components/SectionHeader'
+import { uploadImage, listTools, listBins, listProjects, deleteTool, deleteBin, deleteProject, createBin, createProject, getImageUrl } from '@/lib/api'
+import type { ToolSummary, BinSummary, BinPreviewTool, BinProjectSummary, Point, ToolImageContext, AffineMatrix, ProjectStatus } from '@/types'
 import { polygonPathData } from '@/lib/svg'
-import { Trash2, Package, Plus, Loader2, Grid3X3, Search, ArrowUpDown } from 'lucide-react'
+import { Trash2, Package, Plus, Loader2, Grid3X3, Folder } from 'lucide-react'
 import { Alert } from '@/components/Alert'
 import { PhotoIllustration, CornersIllustration, TraceIllustration, OrganiseIllustration } from '@/components/OnboardingIllustrations'
 import { GRID_UNIT } from '@/lib/constants'
+import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation'
+import { projectNameMap, projectStatusLabels, toolProjectLabel, toolProjectTitle } from '@/lib/projectSelectors'
 
 function thumbnailRotationStyle(transform: AffineMatrix | null): React.CSSProperties | undefined {
   if (!transform) return undefined
@@ -49,8 +52,8 @@ function ToolOutline({ points, interiorRings }: { points: Point[]; interiorRings
       <path
         d={pathData}
         fillRule="evenodd"
-        fill="#475569"
-        stroke="#8b95a5"
+        fill="var(--color-tool-fill)"
+        stroke="var(--color-tool-stroke)"
         strokeWidth={Math.max(vw, vh) * 0.015}
       />
     </svg>
@@ -112,33 +115,36 @@ function BinPreview({ gridX, gridY, tools }: { gridX: number; gridY: number; too
       className="w-full h-full"
       preserveAspectRatio="xMidYMid meet"
     >
-      <rect x={0} y={0} width={binW} height={binH} fill="rgb(30, 41, 59)" rx={2} />
+      <rect x={0} y={0} width={binW} height={binH} fill="var(--color-bin-preview-fill)" rx={2} />
       {Array.from({ length: gridX + 1 }).map((_, i) => (
         <line
           key={`v${i}`}
           x1={i * GRID_UNIT} y1={0} x2={i * GRID_UNIT} y2={binH}
-          stroke="rgba(255,255,255,0.08)" strokeWidth={0.5}
+          stroke="var(--color-bin-preview-grid)" strokeWidth={0.5}
         />
       ))}
       {Array.from({ length: gridY + 1 }).map((_, i) => (
         <line
           key={`h${i}`}
           x1={0} y1={i * GRID_UNIT} x2={binW} y2={i * GRID_UNIT}
-          stroke="rgba(255,255,255,0.08)" strokeWidth={0.5}
+          stroke="var(--color-bin-preview-grid)" strokeWidth={0.5}
         />
       ))}
       {tools.map((tool, ti) => {
         const d = polygonPathData(tool.points, tool.interior_rings)
         return (
-          <path key={ti} d={d} fillRule="evenodd" fill="#475569" stroke="#8b95a5" strokeWidth={0.8} />
+          <path key={ti} d={d} fillRule="evenodd" fill="var(--color-tool-fill)" stroke="var(--color-tool-stroke)" strokeWidth={0.8} />
         )
       })}
     </svg>
   )
 }
 
-function NameModal({ open, onConfirm, onCancel }: {
+function NameModal({ open, title = 'New bin', description = 'Give your bin a name.', placeholder = 'e.g. Screwdrivers tray', onConfirm, onCancel }: {
   open: boolean
+  title?: string
+  description?: string
+  placeholder?: string
   onConfirm: (name: string) => void
   onCancel: () => void
 }) {
@@ -165,17 +171,17 @@ function NameModal({ open, onConfirm, onCancel }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative glass rounded-[10px] shadow-xl max-w-sm w-full mx-4 p-6">
-        <h3 className="text-sm font-semibold text-text-primary">New bin</h3>
-        <p className="mt-1.5 text-xs text-text-secondary">Give your bin a name.</p>
+      <div className="relative glass rounded-[8px] shadow-xl max-w-sm w-full mx-4 p-6">
+        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+        <p className="mt-1.5 text-xs text-text-secondary">{description}</p>
         <input
           ref={inputRef}
           type="text"
           value={value}
           onChange={e => setValue(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') onConfirm(value.trim() || 'Untitled') }}
-          placeholder="e.g. Screwdrivers tray"
-          className="mt-3 w-full px-3 py-2 text-xs bg-elevated border border-border-subtle rounded-lg text-text-primary outline-none focus:border-accent"
+          placeholder={placeholder}
+          className="mt-3 w-full px-3 py-2 text-xs bg-elevated border border-border-subtle rounded-[7px] text-text-primary outline-none focus:border-accent"
         />
         <div className="mt-4 flex justify-end gap-2">
           <button
@@ -196,69 +202,26 @@ function NameModal({ open, onConfirm, onCancel }: {
   )
 }
 
-function SectionHeader({ title, count, search, onSearchChange, sortKey, onSortChange, children }: {
-  title: string
-  count?: number
-  search?: string
-  onSearchChange?: (v: string) => void
-  sortKey?: string
-  onSortChange?: (v: string) => void
-  children?: React.ReactNode
-}) {
-  const [searchOpen, setSearchOpen] = useState(false)
-  const searchRef = useRef<HTMLInputElement>(null)
+const SECTION_COLLAPSE_KEY = 'tracefinity.home.collapsedSections'
+type MainSectionId = 'projects' | 'tools' | 'bins' | 'howItWorks'
+type MainSectionCollapseState = Record<MainSectionId, boolean>
 
-  useEffect(() => {
-    if (searchOpen) searchRef.current?.focus()
-  }, [searchOpen])
+const defaultSectionCollapse: MainSectionCollapseState = {
+  projects: false,
+  tools: false,
+  bins: false,
+  howItWorks: false,
+}
 
-  return (
-    <div className="flex items-center justify-between mb-3 gap-2">
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px]">{title}</h3>
-        {count !== undefined && count > 0 && (
-          <span className="text-[10px] text-text-muted bg-elevated px-1.5 py-px rounded-full">{count}</span>
-        )}
-      </div>
-      <div className="flex items-center gap-1.5">
-        {onSearchChange && (
-          searchOpen ? (
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted" />
-              <input
-                ref={searchRef}
-                type="text"
-                value={search || ''}
-                onChange={e => onSearchChange(e.target.value)}
-                onBlur={() => { if (!search) setSearchOpen(false) }}
-                onKeyDown={e => { if (e.key === 'Escape') { onSearchChange(''); setSearchOpen(false) } }}
-                placeholder="Filter..."
-                className="w-36 pl-6 pr-2 py-1 text-[11px] bg-elevated border border-border-subtle rounded-[7px] text-text-primary outline-none focus:border-accent"
-              />
-            </div>
-          ) : (
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="glass-sm rounded-[7px] px-2.5 py-1 text-[11px] text-text-secondary flex items-center gap-1.5 hover:bg-glass-hover transition-colors cursor-pointer"
-            >
-              <Search className="w-3 h-3" />
-              Search
-            </button>
-          )
-        )}
-        {onSortChange && (
-          <button
-            onClick={() => onSortChange(sortKey === 'name' ? 'date' : 'name')}
-            className="glass-sm rounded-[7px] px-2.5 py-1 text-[11px] text-text-secondary flex items-center gap-1.5 hover:bg-glass-hover transition-colors cursor-pointer"
-          >
-            <ArrowUpDown className="w-3 h-3" />
-            {sortKey === 'name' ? 'A-Z' : 'Recent'}
-          </button>
-        )}
-        {children}
-      </div>
-    </div>
-  )
+function loadSectionCollapseState(): MainSectionCollapseState {
+  if (typeof window === 'undefined') return defaultSectionCollapse
+  try {
+    const raw = window.localStorage.getItem(SECTION_COLLAPSE_KEY)
+    if (!raw) return defaultSectionCollapse
+    return { ...defaultSectionCollapse, ...JSON.parse(raw) }
+  } catch {
+    return defaultSectionCollapse
+  }
 }
 
 export default function HomePage() {
@@ -267,14 +230,58 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null)
   const [toolsList, setToolsList] = useState<ToolSummary[]>([])
   const [binsList, setBinsList] = useState<BinSummary[]>([])
+  const [projectsList, setProjectsList] = useState<BinProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
-  const [deleteModal, setDeleteModal] = useState<{ type: 'tool' | 'bin'; id: string } | null>(null)
+  const { deleteTarget: deleteModal, requestDelete, clearDelete } = useDeleteConfirmation<{ type: 'tool' | 'bin' | 'project'; id: string }>()
   const [creatingBin, setCreatingBin] = useState<string | null>(null)
   const [nameModal, setNameModal] = useState<{ toolIds?: string[] } | null>(null)
+  const [projectModalOpen, setProjectModalOpen] = useState(false)
+  const [projectSearch, setProjectSearch] = useState('')
+  const [projectStatusFilter, setProjectStatusFilter] = useState<ProjectStatus | 'all'>('all')
   const [toolSearch, setToolSearch] = useState('')
   const [toolSort, setToolSort] = useState('date')
+  const [collapsedSections, setCollapsedSections] = useState<MainSectionCollapseState>(loadSectionCollapseState)
 
-  const hasData = toolsList.length > 0 || binsList.length > 0
+  const hasData = toolsList.length > 0 || binsList.length > 0 || projectsList.length > 0
+
+  const projectNameById = useMemo(() => projectNameMap(projectsList), [projectsList])
+
+  const projectStatusFilterOptions = useMemo(() => {
+    const counts = new Map<ProjectStatus, number>()
+    for (const project of projectsList) {
+      counts.set(project.status, (counts.get(project.status) || 0) + 1)
+    }
+    const statuses: ProjectStatus[] = ['active', 'ready_to_print', 'printed', 'archived']
+    return [
+      { value: 'all' as const, label: 'All', count: projectsList.length },
+      ...statuses.map(status => ({
+        value: status,
+        label: projectStatusLabels[status],
+        count: counts.get(status) || 0,
+      })),
+    ]
+  }, [projectsList])
+
+  const filteredProjects = useMemo(() => {
+    let list = projectsList
+    if (projectStatusFilter !== 'all') {
+      list = list.filter(project => project.status === projectStatusFilter)
+    }
+    if (projectSearch.trim()) {
+      const q = projectSearch.toLowerCase()
+      list = list.filter(project => project.name.toLowerCase().includes(q))
+    }
+    return list
+  }, [projectsList, projectSearch, projectStatusFilter])
+
+  const projectBinToolIds = useMemo(() => {
+    const placed = new Set<string>()
+    for (const bin of binsList) {
+      if (!bin.project_id) continue
+      for (const toolId of bin.tool_ids || []) placed.add(toolId)
+    }
+    return placed
+  }, [binsList])
 
   const filteredTools = useMemo(() => {
     let list = toolsList
@@ -288,15 +295,24 @@ export default function HomePage() {
     return list
   }, [toolsList, toolSearch, toolSort])
 
+  function setSectionCollapsed(section: MainSectionId, collapsed: boolean) {
+    setCollapsedSections(prev => {
+      const next = { ...prev, [section]: collapsed }
+      window.localStorage.setItem(SECTION_COLLAPSE_KEY, JSON.stringify(next))
+      return next
+    })
+  }
+
   useEffect(() => {
     loadData()
   }, [])
 
   async function loadData() {
     try {
-      const [t, b] = await Promise.all([listTools(), listBins()])
+      const [t, b, p] = await Promise.all([listTools(), listBins(), listProjects()])
       setToolsList(t)
       setBinsList(b)
+      setProjectsList(p)
     } catch {
       // ignore
     } finally {
@@ -322,7 +338,7 @@ export default function HomePage() {
       await deleteTool(id)
       setToolsList(prev => prev.filter(t => t.id !== id))
     } catch { /* ignore */ }
-    setDeleteModal(null)
+    clearDelete()
   }
 
   async function handleDeleteBin(id: string) {
@@ -330,7 +346,20 @@ export default function HomePage() {
       await deleteBin(id)
       setBinsList(prev => prev.filter(b => b.id !== id))
     } catch { /* ignore */ }
-    setDeleteModal(null)
+    clearDelete()
+  }
+
+  async function handleDeleteProject(id: string) {
+    try {
+      await deleteProject(id)
+      setProjectsList(prev => prev.filter(p => p.id !== id))
+      setToolsList(prev => prev.map(t => ({
+        ...t,
+        project_ids: t.project_ids.filter(pid => pid !== id),
+      })))
+      setBinsList(prev => prev.map(b => b.project_id === id ? { ...b, project_id: null } : b))
+    } catch { /* ignore */ }
+    clearDelete()
   }
 
   async function handleCreateBin(name: string, toolIds?: string[]) {
@@ -344,6 +373,16 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : 'failed to create bin')
     } finally {
       setCreatingBin(null)
+    }
+  }
+
+  async function handleCreateProject(name: string) {
+    setProjectModalOpen(false)
+    try {
+      const project = await createProject({ name })
+      router.push(`/projects/${project.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to create project')
     }
   }
 
@@ -376,6 +415,118 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* projects */}
+      {(projectsList.length > 0 || toolsList.length > 0) && (
+        <div>
+          <SectionHeader
+            title="Projects"
+            count={filteredProjects.length}
+            search={projectSearch}
+            onSearchChange={setProjectSearch}
+            collapsed={collapsedSections.projects}
+            onToggleCollapsed={() => setSectionCollapsed('projects', !collapsedSections.projects)}
+          >
+            <button
+              onClick={() => setProjectModalOpen(true)}
+              className="glass-sm rounded-[7px] px-2.5 py-1 text-[11px] text-text-secondary flex items-center gap-1.5 hover:bg-glass-hover transition-colors cursor-pointer"
+            >
+              <Plus className="w-3 h-3" />
+              New project
+            </button>
+          </SectionHeader>
+          {!collapsedSections.projects && (
+            <>
+              {projectsList.length > 0 && (
+                <div className="mb-3 flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5">
+                  {projectStatusFilterOptions.map(option => {
+                    const isActive = projectStatusFilter === option.value
+                    return (
+                      <button
+                        key={option.value}
+                        onClick={() => setProjectStatusFilter(option.value)}
+                        className={`flex-shrink-0 rounded-[7px] px-2.5 py-1 text-[11px] transition-colors cursor-pointer ${
+                          isActive
+                            ? 'bg-accent-muted text-accent'
+                            : 'glass-sm text-text-secondary hover:bg-glass-hover'
+                        }`}
+                      >
+                        {option.label}
+                        <span className="ml-1 text-[10px] text-text-muted">{option.count}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {projectsList.length > 0 ? (
+                filteredProjects.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    {filteredProjects.map(project => (
+                    <div
+                      key={project.id}
+                      onClick={() => router.push(`/projects/${project.id}`)}
+                      className="glass-card p-3 cursor-pointer group relative flex flex-col"
+                    >
+                      <div className="absolute right-2 top-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); requestDelete({ type: 'project', id: project.id }) }}
+                          className="btn-danger-icon"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="min-w-0 pr-8">
+                        <p className="text-[12px] font-medium text-text-primary truncate leading-tight" title={project.name}>{project.name}</p>
+                        <p className="text-[10px] text-text-muted mt-1">
+                          {project.tool_count} tool{project.tool_count !== 1 ? 's' : ''} assigned
+                        </p>
+                      </div>
+
+                      <div className="space-y-1">
+                        {(project.status !== 'active' || project.unplaced_count > 0) && (
+                          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap">
+                            {project.status !== 'active' && (
+                              <span className="min-w-0 text-[10px] text-text-secondary truncate">{projectStatusLabels[project.status]}</span>
+                            )}
+                            {project.status !== 'active' && project.unplaced_count > 0 && (
+                              <span className="text-[10px] text-text-muted flex-shrink-0">·</span>
+                            )}
+                            {project.unplaced_count > 0 && (
+                              <span className="text-[10px] text-amber-300 flex-shrink-0">{project.unplaced_count} need bin</span>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap">
+                          <span className="text-[10px] text-text-muted flex-shrink-0">{project.placed_count} placed</span>
+                          <span className="text-[10px] text-text-muted flex-shrink-0">·</span>
+                          <span className="text-[10px] text-text-muted flex-shrink-0">{project.bin_count} bin{project.bin_count !== 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                    </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="glass rounded-[8px] p-6 text-center">
+                    <p className="text-xs text-text-muted">No projects match this filter.</p>
+                  </div>
+                )
+              ) : (
+                <div className="glass rounded-[8px] p-6 text-center">
+                  <Folder className="w-6 h-6 text-text-muted/20 mx-auto mb-2" />
+                  <p className="text-xs text-text-muted mb-3">No projects yet</p>
+                  <button
+                    onClick={() => setProjectModalOpen(true)}
+                    className="btn-primary px-4 py-1.5 text-xs"
+                  >
+                    Create project
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* tools */}
       {toolsList.length > 0 && (
         <div>
@@ -383,78 +534,119 @@ export default function HomePage() {
             title="Tools" count={toolsList.length}
             search={toolSearch} onSearchChange={setToolSearch}
             sortKey={toolSort} onSortChange={setToolSort}
+            collapsed={collapsedSections.tools}
+            onToggleCollapsed={() => setSectionCollapsed('tools', !collapsedSections.tools)}
           />
+          {!collapsedSections.tools && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {filteredTools.map(tool => (
-              <div
-                key={tool.id}
-                onClick={() => router.push(`/tools/${tool.id}`)}
-                className="glass-card overflow-hidden cursor-pointer group"
-              >
-                <div className="aspect-square bg-inset relative overflow-hidden">
-                  {tool.image_context ? (
-                    <>
-                      <SourceImagePreview context={tool.image_context} points={tool.points} />
-                      <div className="absolute inset-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                        <ToolOutline points={tool.points} interiorRings={tool.interior_rings} />
-                      </div>
-                    </>
-                  ) : tool.thumbnail_url ? (
-                    <>
-                      <img
-                        src={getImageUrl(tool.thumbnail_url)}
-                        alt=""
-                        className="absolute inset-0 w-full h-full object-contain p-3 transition-opacity duration-150 group-hover:opacity-30"
-                        style={thumbnailRotationStyle(tool.image_transform)}
-                      />
-                      <div className="absolute inset-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                        <ToolOutline points={tool.points} interiorRings={tool.interior_rings} />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="w-full h-full p-4 flex items-center justify-center">
-                      <ToolOutline points={tool.points} interiorRings={tool.interior_rings} />
+            {filteredTools.map(tool => {
+                const projectLabel = toolProjectLabel(tool.project_ids, projectNameById)
+                const projectTitle = toolProjectTitle(tool.project_ids, projectNameById)
+                const primaryProjectId = tool.project_ids[0]
+                return (
+                  <div
+                    key={tool.id}
+                    onClick={() => router.push(`/tools/${tool.id}`)}
+                    className="glass-card overflow-hidden cursor-pointer group"
+                  >
+                    <div className="aspect-square bg-inset relative overflow-hidden">
+                      {tool.image_context ? (
+                        <>
+                          <SourceImagePreview context={tool.image_context} points={tool.points} />
+                          <div className="absolute inset-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                            <ToolOutline points={tool.points} interiorRings={tool.interior_rings} />
+                          </div>
+                        </>
+                      ) : tool.thumbnail_url ? (
+                        <>
+                          <img
+                            src={getImageUrl(tool.thumbnail_url)}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-contain p-3 transition-opacity duration-150 group-hover:opacity-30"
+                            style={thumbnailRotationStyle(tool.image_transform)}
+                          />
+                          <div className="absolute inset-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                            <ToolOutline points={tool.points} interiorRings={tool.interior_rings} />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-full h-full p-4 flex items-center justify-center">
+                          <ToolOutline points={tool.points} interiorRings={tool.interior_rings} />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="px-3 py-[10px]">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-[12px] font-medium text-text-primary truncate leading-tight">{tool.name}</p>
-                      <p className="text-[10px] text-text-muted mt-0.5">{formatDate(tool.created_at)}</p>
-                    </div>
-                    <div className="flex items-center gap-0.5 flex-shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setNameModal({ toolIds: [tool.id] }) }}
-                        disabled={creatingBin === tool.id}
-                        className="p-1 text-text-muted hover:text-accent hover:bg-accent-muted rounded transition-colors cursor-pointer"
-                        title="Create bin"
-                      >
-                        {creatingBin === tool.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Package className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteModal({ type: 'tool', id: tool.id }) }}
-                        className="p-1 text-text-muted hover:text-red-400 hover:bg-red-900/20 rounded transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="px-3 py-[10px]">
+                      <div className="relative">
+                        <div className="min-w-0 pr-12 md:pr-0">
+                          <p className="text-[12px] font-medium text-text-primary truncate leading-tight">{tool.name}</p>
+                          <div className="flex min-w-0 items-center gap-1.5 mt-0.5 overflow-hidden whitespace-nowrap">
+                            <span className="text-[10px] text-text-muted flex-shrink-0">{formatDate(tool.created_at)}</span>
+                            <span className="text-[10px] text-text-muted flex-shrink-0">·</span>
+                            {projectLabel ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (primaryProjectId) router.push(`/projects/${primaryProjectId}`)
+                                }}
+                                className="min-w-0 text-[10px] text-text-secondary hover:text-accent transition-colors truncate cursor-pointer"
+                                title={projectTitle}
+                              >
+                                {projectLabel}
+                              </button>
+                            ) : (
+                              <span className="min-w-0 text-[10px] text-text-muted truncate">Unassigned</span>
+                            )}
+                            {projectLabel && (
+                              <>
+                                <span className="text-[10px] text-text-muted flex-shrink-0">·</span>
+                                {projectBinToolIds.has(tool.id) ? (
+                                  <span className="text-[10px] text-text-muted flex-shrink-0">Placed</span>
+                                ) : (
+                                  <span className="text-[10px] text-amber-300 flex-shrink-0">Needs bin</span>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="absolute right-0 top-0 flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setNameModal({ toolIds: [tool.id] }) }}
+                            disabled={creatingBin === tool.id}
+                            className="p-1 text-text-muted hover:text-accent hover:bg-accent-muted rounded-[7px] transition-colors cursor-pointer"
+                            title="Create bin"
+                          >
+                            {creatingBin === tool.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Package className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); requestDelete({ type: 'tool', id: tool.id }) }}
+                            className="btn-danger-icon"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                )
+              })}
           </div>
+          )}
         </div>
       )}
 
       {/* bins */}
       {(binsList.length > 0 || toolsList.length > 0) && (
         <div>
-          <SectionHeader title="Bins" count={binsList.length}>
+          <SectionHeader
+            title="Bins"
+            count={binsList.length}
+            collapsed={collapsedSections.bins}
+            onToggleCollapsed={() => setSectionCollapsed('bins', !collapsedSections.bins)}
+          >
             <button
               onClick={() => setNameModal({})}
               className="glass-sm rounded-[7px] px-2.5 py-1 text-[11px] text-text-secondary flex items-center gap-1.5 hover:bg-glass-hover transition-colors cursor-pointer"
@@ -463,60 +655,77 @@ export default function HomePage() {
               New bin
             </button>
           </SectionHeader>
-          {binsList.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {binsList.map(bin => (
-                <div
-                  key={bin.id}
-                  onClick={() => router.push(`/bins/${bin.id}`)}
-                  className="glass-card overflow-hidden cursor-pointer group"
-                >
-                  <div className="aspect-[4/3] bg-inset flex items-center justify-center p-4 relative">
-                    {bin.preview_tools.length > 0 ? (
-                      <BinPreview gridX={bin.grid_x} gridY={bin.grid_y} tools={bin.preview_tools} />
-                    ) : (
-                      <Package className="w-6 h-6 text-text-muted/20" />
-                    )}
-                    <div className="absolute top-2 right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteModal({ type: 'bin', id: bin.id }) }}
-                        className="p-1 text-text-muted hover:text-red-400 hover:bg-red-900/20 rounded transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="px-3 py-[10px]">
-                    <p className="text-[12px] font-medium text-text-primary truncate leading-tight">
-                      {bin.name || `Bin ${bin.id.slice(0, 8)}`}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] text-text-muted">{formatDate(bin.created_at)}</span>
-                      <span className="text-[10px] text-text-muted flex items-center gap-0.5">
-                        <Grid3X3 className="w-2.5 h-2.5" />
-                        {bin.grid_x}x{bin.grid_y}
-                      </span>
-                      {bin.tool_count > 0 && (
-                        <span className="text-[10px] text-text-muted">
-                          {bin.tool_count} tool{bin.tool_count !== 1 ? 's' : ''}
-                        </span>
+          {!collapsedSections.bins && (
+            binsList.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                {binsList.map(bin => (
+                  <div
+                    key={bin.id}
+                    onClick={() => router.push(`/bins/${bin.id}`)}
+                    className="glass-card overflow-hidden cursor-pointer group"
+                  >
+                    <div className="aspect-[4/3] bg-inset flex items-center justify-center p-4 relative">
+                      {bin.preview_tools.length > 0 ? (
+                        <BinPreview gridX={bin.grid_x} gridY={bin.grid_y} tools={bin.preview_tools} />
+                      ) : (
+                        <Package className="w-6 h-6 text-text-muted/20" />
                       )}
+                      <div className="absolute top-2 right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); requestDelete({ type: 'bin', id: bin.id }) }}
+                          className="btn-danger-icon"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="px-3 py-[10px]">
+                      <p className="text-[12px] font-medium text-text-primary truncate leading-tight">
+                        {bin.name || `Bin ${bin.id.slice(0, 8)}`}
+                      </p>
+                      <div className="flex min-w-0 items-center gap-1.5 mt-0.5 overflow-hidden whitespace-nowrap">
+                        <span className="text-[10px] text-text-muted flex-shrink-0">{formatDate(bin.created_at)}</span>
+                        {bin.project_id && projectNameById.get(bin.project_id) && (
+                          <>
+                            <span className="text-[10px] text-text-muted flex-shrink-0">·</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (bin.project_id) router.push(`/projects/${bin.project_id}`)
+                              }}
+                              className="min-w-0 text-[10px] text-text-secondary hover:text-accent transition-colors truncate cursor-pointer"
+                              title={projectNameById.get(bin.project_id)}
+                            >
+                              {projectNameById.get(bin.project_id)}
+                            </button>
+                          </>
+                        )}
+                        <span className="text-[10px] text-text-muted flex items-center gap-0.5 flex-shrink-0">
+                          <Grid3X3 className="w-2.5 h-2.5" />
+                          {bin.grid_x}x{bin.grid_y}
+                        </span>
+                        {bin.tool_count > 0 && (
+                          <span className="text-[10px] text-text-muted flex-shrink-0">
+                            {bin.tool_count} tool{bin.tool_count !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="glass rounded-[10px] p-8 text-center">
-              <Package className="w-6 h-6 text-text-muted/20 mx-auto mb-2" />
-              <p className="text-xs text-text-muted mb-3">No bins yet</p>
-              <button
-                onClick={() => setNameModal({})}
-                className="btn-primary px-4 py-1.5 text-xs"
-              >
-                Create your first bin
-              </button>
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="glass rounded-[8px] p-8 text-center">
+                <Package className="w-6 h-6 text-text-muted/20 mx-auto mb-2" />
+                <p className="text-xs text-text-muted mb-3">No bins yet</p>
+                <button
+                  onClick={() => setNameModal({})}
+                  className="btn-primary px-4 py-1.5 text-xs"
+                >
+                  Create your first bin
+                </button>
+              </div>
+            )
           )}
         </div>
       )}
@@ -524,7 +733,12 @@ export default function HomePage() {
       {/* empty state onboarding */}
       {!loading && !hasData && (
         <div data-tour="how-it-works">
-          <SectionHeader title="How it works" />
+          <SectionHeader
+            title="How it works"
+            collapsed={collapsedSections.howItWorks}
+            onToggleCollapsed={() => setSectionCollapsed('howItWorks', !collapsedSections.howItWorks)}
+          />
+          {!collapsedSections.howItWorks && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               { Illustration: PhotoIllustration, label: '1. Photograph', caption: 'Place tools on A4 or Letter paper and photograph from above' },
@@ -532,7 +746,7 @@ export default function HomePage() {
               { Illustration: TraceIllustration, label: '3. Trace', caption: 'AI traces tool outlines into precise silhouettes' },
               { Illustration: OrganiseIllustration, label: '4. Organise', caption: 'Arrange tools in a bin and export the STL for printing' },
             ].map(({ Illustration, label, caption }) => (
-              <div key={label} className="glass rounded-[10px] overflow-hidden">
+              <div key={label} className="glass rounded-[8px] overflow-hidden">
                 <div className="p-3 pb-2">
                   <Illustration />
                 </div>
@@ -543,31 +757,49 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+          )}
         </div>
       )}
 
       <ConfirmModal
         open={deleteModal !== null}
-        title={deleteModal?.type === 'tool' ? 'Delete tool?' : 'Delete bin?'}
+        title={
+          deleteModal?.type === 'tool'
+            ? 'Delete tool?'
+            : deleteModal?.type === 'project'
+              ? 'Delete project?'
+              : 'Delete bin?'
+        }
         message={
           deleteModal?.type === 'tool'
             ? 'This will permanently delete the tool from your library.'
-            : 'This will permanently delete the bin and all associated files.'
+            : deleteModal?.type === 'project'
+              ? 'This will remove the project. Tools and bins will stay in your library.'
+              : 'This will permanently delete the bin and all associated files.'
         }
         confirmText="Delete"
         variant="danger"
         onConfirm={() => {
           if (!deleteModal) return
           if (deleteModal.type === 'tool') handleDeleteTool(deleteModal.id)
+          else if (deleteModal.type === 'project') handleDeleteProject(deleteModal.id)
           else handleDeleteBin(deleteModal.id)
         }}
-        onCancel={() => setDeleteModal(null)}
+        onCancel={() => clearDelete()}
       />
 
       <NameModal
         open={nameModal !== null}
         onConfirm={(name) => handleCreateBin(name, nameModal?.toolIds)}
         onCancel={() => setNameModal(null)}
+      />
+      <NameModal
+        open={projectModalOpen}
+        title="New project"
+        description="Name this drawer or multi-bin plan."
+        placeholder="e.g. Top drawer sockets"
+        onConfirm={handleCreateProject}
+        onCancel={() => setProjectModalOpen(false)}
       />
     </div>
   )

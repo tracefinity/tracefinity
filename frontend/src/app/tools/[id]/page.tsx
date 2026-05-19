@@ -2,20 +2,24 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { Loader2, Check, Download } from 'lucide-react'
 import Link from 'next/link'
-import { getTool, updateTool, getToolSvgUrl, getImageUrl } from '@/lib/api'
+import { Loader2, Check, Download, Folder } from 'lucide-react'
+import { getTool, updateTool, getToolSvgUrl, getImageUrl, listProjects } from '@/lib/api'
 import { useDebouncedSave } from '@/hooks/useDebouncedSave'
+import { useProjectSource } from '@/hooks/useProjectSource'
+import { projectNameMap } from '@/lib/projectSelectors'
 import { ToolEditor } from '@/components/ToolEditor'
 import { Alert } from '@/components/Alert'
 import { Breadcrumb } from '@/components/Breadcrumb'
-import type { Tool, Point, FingerHole, AffineMatrix } from '@/types'
+import type { Tool, Point, FingerHole, AffineMatrix, BinProjectSummary } from '@/types'
 
 export default function ToolPage() {
   const params = useParams()
   const toolId = params.id as string
+  const projectSource = useProjectSource('Tools')
 
   const [tool, setTool] = useState<Tool | null>(null)
+  const [projects, setProjects] = useState<BinProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -43,8 +47,9 @@ export default function ToolPage() {
   useEffect(() => {
     async function load() {
       try {
-        const t = await getTool(toolId)
+        const [t, p] = await Promise.all([getTool(toolId), listProjects().catch(() => [])])
         setTool(t)
+        setProjects(p)
         setName(t.name)
       } catch {
         setError('Tool not found')
@@ -93,6 +98,21 @@ export default function ToolPage() {
     setTool(prev => prev ? { ...prev, interior_rings } : null)
   }, [])
 
+  const projectNameById = useMemo(() => projectNameMap(projects), [projects])
+  const toolProjects = useMemo(() => {
+    if (!tool) return []
+    const projectById = new Map(projects.map(project => [project.id, project]))
+    return tool.project_ids.map(projectId => {
+      const project = projectById.get(projectId)
+      return {
+        id: projectId,
+        name: project?.name || projectNameById.get(projectId) || 'Project',
+        toolCount: project?.tool_count,
+        binCount: project?.bin_count,
+      }
+    })
+  }, [tool, projects, projectNameById])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12 gap-2 text-text-muted">
@@ -115,7 +135,7 @@ export default function ToolPage() {
       {/* floating breadcrumb panel */}
       <div className="absolute top-3.5 left-3.5 z-20 glass-toolbar px-3 py-1.5 flex items-center gap-3">
         <Breadcrumb segments={[
-          { label: 'Tools', href: '/' },
+          { label: projectSource.rootLabel, href: projectSource.rootHref },
           { label: name || 'Untitled', editable: true, onEdit: (v) => setName(v) },
         ]} />
         <div className="flex items-center gap-1 text-[11px] text-text-muted">
@@ -131,6 +151,34 @@ export default function ToolPage() {
           <Download className="w-3 h-3" />
           Export SVG
         </a>
+      </div>
+
+      <div className="absolute top-14 left-3.5 z-20 glass-toolbar px-3 py-2 min-w-[220px] max-w-[280px]">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px]">
+          <Folder className="w-3 h-3" />
+          Projects
+        </div>
+        <div className="mt-1.5 space-y-1">
+          {toolProjects.length > 0 ? (
+            toolProjects.map(project => (
+              <Link
+                key={project.id}
+                href={`/projects/${project.id}`}
+                className="block rounded-[7px] px-2 py-1 text-[11px] text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors truncate"
+                title={project.name}
+              >
+                <span className="block truncate">{project.name}</span>
+                {project.toolCount !== undefined && project.binCount !== undefined && (
+                  <span className="block text-[10px] text-text-muted">
+                    {project.toolCount} tool{project.toolCount !== 1 ? 's' : ''} · {project.binCount} bin{project.binCount !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </Link>
+            ))
+          ) : (
+            <p className="px-2 py-1 text-[11px] text-text-muted">No projects assigned</p>
+          )}
+        </div>
       </div>
 
       {/* editor fills the entire area */}

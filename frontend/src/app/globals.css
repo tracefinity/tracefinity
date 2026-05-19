@@ -24,6 +24,10 @@
   --color-glass-hover: rgba(255, 255, 255, 0.055);
   --color-toolbar-solid-bg: #15181f;
   --color-toolbar-solid-border: rgba(255, 255, 255, 0.12);
+  --color-tool-fill: #475569;
+  --color-tool-stroke: #8b95a5;
+  --color-bin-preview-fill: #1e293b;
+  --color-bin-preview-grid: rgba(255, 255, 255, 0.08);
   color-scheme: dark;
 }
 
@@ -45,6 +49,10 @@
   --color-glass-hover: rgba(255, 255, 255, 0.8);
   --color-toolbar-solid-bg: #ffffff;
   --color-toolbar-solid-border: rgba(0, 0, 0, 0.08);
+  --color-tool-fill: #64748b;
+  --color-tool-stroke: #334155;
+  --color-bin-preview-fill: #e2e8f0;
+  --color-bin-preview-grid: rgba(15, 23, 42, 0.12);
   color-scheme: light;
 }
 
@@ -72,7 +80,7 @@ body {
 /* buttons */
 @layer components {
   .btn-primary {
-    @apply relative overflow-hidden font-medium rounded-[10px] transition-all duration-150 disabled:opacity-50 cursor-pointer;
+    @apply relative overflow-hidden font-medium rounded-[7px] transition-all duration-150 disabled:opacity-50 cursor-pointer;
     background: var(--color-accent);
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -83,7 +91,7 @@ body {
   .btn-primary:hover:not(:disabled) { background: var(--color-accent-hover); }
 
   .btn-secondary {
-    @apply relative overflow-hidden font-medium rounded-[10px] transition-all duration-150 cursor-pointer;
+    @apply relative overflow-hidden font-medium rounded-[7px] transition-all duration-150 cursor-pointer;
     background: var(--color-glass-bg);
     color: var(--color-text-secondary);
     border: 1px solid var(--color-glass-border);
@@ -93,7 +101,7 @@ body {
   .btn-secondary:hover { background: var(--color-glass-hover); color: var(--color-text-primary); }
 
   .btn-icon {
-    @apply flex items-center justify-center rounded-lg transition-all duration-150 cursor-pointer;
+    @apply flex items-center justify-center rounded-[7px] transition-all duration-150 cursor-pointer;
     width: 32px;
     height: 32px;
     background: transparent;
@@ -101,6 +109,14 @@ body {
   }
   .btn-icon:hover { background: var(--color-glass-hover); color: var(--color-text-primary); }
   .btn-icon.active { background: var(--color-accent-muted); color: var(--color-accent); }
+
+  .btn-danger-icon {
+    @apply p-1 rounded-[7px] text-text-muted transition-colors cursor-pointer;
+  }
+  .btn-danger-icon:hover {
+    color: #f87171;
+    background: rgba(127, 29, 29, 0.2);
+  }
 }
 
 /* glass panels */
@@ -122,7 +138,7 @@ body {
     border: 1px solid var(--color-glass-border);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-radius: 10px;
+    border-radius: 8px;
   }
   .editor-photo-active .glass-toolbar {
     background: var(--color-toolbar-solid-bg);
@@ -135,7 +151,7 @@ body {
     border: 1px solid var(--color-glass-border);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    border-radius: 10px;
+    border-radius: 8px;
     transition: all 150ms ease;
   }
   .glass-card:hover {
