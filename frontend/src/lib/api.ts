@@ -188,7 +188,21 @@ export async function getTool(toolId: string): Promise<Tool> {
 
 export async function updateTool(
   toolId: string,
-  updates: { name?: string; points?: Point[]; finger_holes?: import('@/types').FingerHole[]; interior_rings?: Point[][]; smoothed?: boolean; smooth_level?: number; source_image_transform?: import('@/types').AffineMatrix }
+  updates: {
+    name?: string
+    points?: Point[]
+    finger_holes?: import('@/types').FingerHole[]
+    interior_rings?: Point[][]
+    smoothed?: boolean
+    smooth_level?: number
+    source_image_transform?: import('@/types').AffineMatrix
+    category?: string | null
+    drawer?: string | null
+    tags?: string[]
+    project_ids?: string[]
+    review_status?: string | null
+    needs_cleanup?: boolean
+  }
 ): Promise<void> {
   await fetchApi(`/api/tools/${toolId}`, {
     method: 'PUT',
@@ -223,7 +237,7 @@ export async function getBin(binId: string): Promise<BinData> {
   return fetchApi(`/api/bins/${binId}`)
 }
 
-export async function createBin(opts: { name?: string; tool_ids?: string[] } = {}): Promise<BinData> {
+export async function createBin(opts: { name?: string; project_id?: string | null; tool_ids?: string[] } = {}): Promise<BinData> {
   return fetchApi('/api/bins', {
     method: 'POST',
     body: JSON.stringify(opts),
@@ -234,6 +248,7 @@ export async function updateBin(
   binId: string,
   updates: {
     name?: string
+    project_id?: string | null
     bin_config?: BinConfig
     placed_tools?: PlacedTool[]
     text_labels?: TextLabel[]

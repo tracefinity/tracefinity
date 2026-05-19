@@ -125,6 +125,12 @@ export interface Tool {
   smooth_level: number
   source_session_id: string | null
   image_context: ToolImageContext | null
+  category: string | null
+  drawer: string | null
+  tags: string[]
+  project_ids: string[]
+  review_status: string | null
+  needs_cleanup: boolean
   created_at: string | null
 }
 
@@ -152,6 +158,12 @@ export interface ToolSummary {
   thumbnail_url: string | null
   image_transform: AffineMatrix | null
   image_context: ToolImageContext | null
+  category: string | null
+  drawer: string | null
+  tags: string[]
+  project_ids: string[]
+  review_status: string | null
+  needs_cleanup: boolean
 }
 
 // --- bins ---
@@ -170,6 +182,7 @@ export interface PlacedTool {
 export interface BinData {
   id: string
   name: string | null
+  project_id: string | null
   bin_config: BinConfig
   placed_tools: PlacedTool[]
   text_labels: TextLabel[]
@@ -185,6 +198,7 @@ export interface BinPreviewTool {
 export interface BinSummary {
   id: string
   name: string | null
+  project_id: string | null
   created_at: string | null
   tool_count: number
   has_stl: boolean
