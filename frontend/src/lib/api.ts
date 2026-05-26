@@ -214,6 +214,10 @@ export async function updateTool(
   })
 }
 
+export async function autoRotateTool(toolId: string): Promise<{ angle: number }> {
+  return fetchApi(`/api/tools/${toolId}/auto-rotate`, { method: 'POST' })
+}
+
 export async function deleteTool(toolId: string): Promise<void> {
   await fetchApi(`/api/tools/${toolId}`, { method: 'DELETE' })
 }

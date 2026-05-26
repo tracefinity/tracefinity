@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, Check, Download, Folder } from 'lucide-react'
-import { getTool, updateTool, getToolSvgUrl, getImageUrl, listProjects } from '@/lib/api'
+import { getTool, updateTool, autoRotateTool, getToolSvgUrl, getImageUrl, listProjects } from '@/lib/api'
 import { useDebouncedSave } from '@/hooks/useDebouncedSave'
 import { useProjectSource } from '@/hooks/useProjectSource'
 import { projectNameMap } from '@/lib/projectSelectors'
@@ -23,6 +23,7 @@ export default function ToolPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState('')
+  const [autoRotating, setAutoRotating] = useState(false)
   const [showSourceImage, setShowSourceImage] = useState(false)
   const [sourceImageOpacity, setSourceImageOpacity] = useState(0.45)
 
@@ -97,6 +98,41 @@ export default function ToolPage() {
   const handleInteriorRingsChange = useCallback((interior_rings: Point[][]) => {
     setTool(prev => prev ? { ...prev, interior_rings } : null)
   }, [])
+
+  const handleAutoRotate = useCallback(async () => {
+    if (!tool || autoRotating) return
+    setAutoRotating(true)
+    try {
+      const { angle } = await autoRotateTool(toolId)
+      if (Math.abs(angle) < 0.01) return
+      setTool(prev => {
+        if (!prev) return prev
+        const pts = prev.points
+        const n = pts.length
+        if (n === 0) return prev
+        const cx = pts.reduce((s, p) => s + p.x, 0) / n
+        const cy = pts.reduce((s, p) => s + p.y, 0) / n
+        const rad = angle * Math.PI / 180
+        const cos = Math.cos(rad)
+        const sin = Math.sin(rad)
+        const rotPt = (p: Point) => {
+          const dx = p.x - cx, dy = p.y - cy
+          return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos }
+        }
+        return {
+          ...prev,
+          points: pts.map(rotPt),
+          finger_holes: prev.finger_holes.map(fh => {
+            const dx = fh.x - cx, dy = fh.y - cy
+            return { ...fh, x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos, rotation: ((fh.rotation || 0) + angle) % 360 }
+          }),
+          interior_rings: prev.interior_rings.map(ring => ring.map(rotPt)),
+        }
+      })
+    } finally {
+      setAutoRotating(false)
+    }
+  }, [tool, toolId, autoRotating])
 
   const projectNameById = useMemo(() => projectNameMap(projects), [projects])
   const toolProjects = useMemo(() => {
@@ -199,6 +235,8 @@ export default function ToolPage() {
         onSmoothedChange={handleSmoothedChange}
         onSmoothLevelChange={handleSmoothLevelChange}
         onInteriorRingsChange={handleInteriorRingsChange}
+        onAutoRotate={handleAutoRotate}
+        autoRotating={autoRotating}
       />
     </div>
   )

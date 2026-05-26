@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
-import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Disc, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, FlipHorizontal2, FlipVertical2, ChevronDown, PaintBucket } from 'lucide-react'
+import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Disc, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, FlipHorizontal2, FlipVertical2, ChevronDown, PaintBucket, Locate } from 'lucide-react'
 import type { FingerHole } from '@/types'
 import { SNAP_GRID } from '@/lib/constants'
 
@@ -36,6 +36,8 @@ interface Props {
   displayPointsCount: number
   rotateAll: (angleDeg: number) => void
   flipAll: (axis: 'horizontal' | 'vertical') => void
+  onAutoRotate?: () => void
+  autoRotating?: boolean
   hasInteriorRings: boolean
 }
 
@@ -47,7 +49,7 @@ export function ToolEditorToolbar({
   cutoutOpen, setCutoutOpen,
   isCutoutMode, cutoutModeIcon, cutoutModeLabel,
   selection, selectedHole, handleDeleteHole,
-  displayPointsCount, rotateAll, flipAll, hasInteriorRings,
+  displayPointsCount, rotateAll, flipAll, onAutoRotate, autoRotating, hasInteriorRings,
 }: Props) {
   return (
     <>
@@ -170,6 +172,17 @@ export function ToolEditorToolbar({
           >
             <FlipVertical2 className="w-3.5 h-3.5" />
           </button>
+          {onAutoRotate && (
+            <button
+              onClick={onAutoRotate}
+              disabled={autoRotating}
+              className="px-2 py-1 rounded-[7px] text-[11px] flex items-center gap-1 transition-colors hover:bg-border/50 text-text-secondary disabled:opacity-40 disabled:cursor-wait"
+              title="Auto-rotate to minimise bounding box"
+            >
+              <Locate className="w-3.5 h-3.5" />
+              Auto
+            </button>
+          )}
         </div>
 
         <div className="h-4 w-px bg-border-subtle mx-0.5" />

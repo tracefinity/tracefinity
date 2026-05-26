@@ -16,6 +16,7 @@
 - `GET /api/tools` - list tools
 - `GET /api/tools/{id}` - get tool
 - `PUT /api/tools/{id}` - update tool (name, points, finger_holes)
+- `POST /api/tools/{id}/auto-rotate` - compute optimal rotation angle (degrees) to minimise bounding box
 - `DELETE /api/tools/{id}` - delete tool
 
 ## Bins

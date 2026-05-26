@@ -28,6 +28,8 @@ interface Props {
   onSmoothedChange: (smoothed: boolean) => void
   onSmoothLevelChange: (level: number) => void
   onInteriorRingsChange?: (rings: Point[][]) => void
+  onAutoRotate?: () => void
+  autoRotating?: boolean
 }
 
 const PADDING_MM = 20
@@ -47,7 +49,7 @@ interface HistoryEntry {
   interiorRings: Point[][]
 }
 
-export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoothLevel, sourceImageContext, showSourceImage = false, onShowSourceImageChange, sourceImageOpacity = 0.45, onSourceImageOpacityChange, onImageTransformChange, onPointsChange, onFingerHolesChange, onSmoothedChange, onSmoothLevelChange, onInteriorRingsChange }: Props) {
+export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoothLevel, sourceImageContext, showSourceImage = false, onShowSourceImageChange, sourceImageOpacity = 0.45, onSourceImageOpacityChange, onImageTransformChange, onPointsChange, onFingerHolesChange, onSmoothedChange, onSmoothLevelChange, onInteriorRingsChange, onAutoRotate, autoRotating }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [selection, setSelection] = useState<Selection>(null)
   const [editMode, setEditMode] = useState<EditMode>('select')
@@ -666,6 +668,8 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
           displayPointsCount={displayPoints.length}
           rotateAll={rotateAll}
           flipAll={flipAll}
+          onAutoRotate={onAutoRotate}
+          autoRotating={autoRotating}
           hasInteriorRings={currentRings.length > 0}
         />
       </div>
