@@ -53,7 +53,8 @@ def test_complex_polygon_reduces_bounding_box():
 def test_degenerate_two_points():
     pts = [(0, 0), (10, 5)]
     angle = optimal_rotation_angle(pts)
-    assert isinstance(angle, float)
+    # line from (0,0) to (10,5) is ~26.57deg from horizontal; rotation should align it
+    assert angle == pytest.approx(-26.57, abs=1)
 
 
 def test_single_point_returns_zero():

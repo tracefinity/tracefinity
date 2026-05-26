@@ -5,6 +5,7 @@ import { Plus, Circle, Disc, Square, RectangleHorizontal, Fingerprint, ImageIcon
 import type { Point, FingerHole, ToolImageContext, AffineMatrix } from '@/types'
 import { simplifyPolygon, smoothEpsilon, snapToGrid as snapToGridUtil } from '@/lib/svg'
 import { rotateAround, flipAround } from '@/lib/affine'
+import { rotateGeometry, centroidOf } from '@/lib/geometry'
 import { DISPLAY_SCALE, SNAP_GRID, ZOOM_FACTOR } from '@/lib/constants'
 import { useHistory } from '@/hooks/useHistory'
 import { ToolEditorToolbar } from '@/components/ToolEditorToolbar'
@@ -28,7 +29,7 @@ interface Props {
   onSmoothedChange: (smoothed: boolean) => void
   onSmoothLevelChange: (level: number) => void
   onInteriorRingsChange?: (rings: Point[][]) => void
-  onAutoRotate?: () => void
+  onAutoRotate?: () => Promise<number | null>
   autoRotating?: boolean
 }
 
@@ -248,33 +249,40 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   })()
 
   const rotateAll = useCallback((angleDeg: number) => {
-    const n = pointsRef.current.length
-    if (n === 0) return
     const pts = pointsRef.current
-    const holes = holesRef.current
-    const cx = pts.reduce((s, p) => s + p.x, 0) / n
-    const cy = pts.reduce((s, p) => s + p.y, 0) / n
-    const rad = angleDeg * Math.PI / 180
-    const cos = Math.cos(rad)
-    const sin = Math.sin(rad)
-    const newPts = pts.map(p => {
-      const dx = p.x - cx, dy = p.y - cy
-      return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos }
-    })
-    const newHoles = holes.map(fh => {
-      const dx = fh.x - cx, dy = fh.y - cy
-      return { ...fh, x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos, rotation: ((fh.rotation || 0) + angleDeg) % 360 }
-    })
-    pushHistory({ points: newPts, fingerHoles: newHoles, interiorRings: currentRings })
-    onPointsRef.current(newPts)
-    onHolesRef.current(newHoles)
+    if (pts.length === 0) return
+    const { x: cx, y: cy } = centroidOf(pts)
+    const rotated = rotateGeometry(pts, holesRef.current, currentRings, angleDeg)
+    pushHistory({ points: rotated.points, fingerHoles: rotated.fingerHoles, interiorRings: currentRings })
+    onPointsRef.current(rotated.points)
+    onHolesRef.current(rotated.fingerHoles)
     const m = imageTransformRef.current
     if (m && onImageTransformRef.current) {
+      const rad = angleDeg * Math.PI / 180
       const next = rotateAround(m, rad, cx, cy)
       imageTransformRef.current = next
       onImageTransformRef.current(next)
     }
   }, [pushHistory, currentRings])
+
+  // wraps the parent's auto-rotate to add undo history and image transform rotation
+  const handleAutoRotateWrapped = useCallback(async () => {
+    if (!onAutoRotate) return
+    const pts = pointsRef.current
+    if (pts.length === 0) return
+    pushHistory({ points: pts, fingerHoles: holesRef.current, interiorRings: currentRingsRef.current })
+    const angle = await onAutoRotate()
+    if (angle != null && Math.abs(angle) >= 0.01) {
+      const { x: cx, y: cy } = centroidOf(pts)
+      const m = imageTransformRef.current
+      if (m && onImageTransformRef.current) {
+        const rad = angle * Math.PI / 180
+        const next = rotateAround(m, rad, cx, cy)
+        imageTransformRef.current = next
+        onImageTransformRef.current(next)
+      }
+    }
+  }, [onAutoRotate, pushHistory])
 
   const flipAll = useCallback((axis: 'horizontal' | 'vertical') => {
     const pts = pointsRef.current
@@ -668,7 +676,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
           displayPointsCount={displayPoints.length}
           rotateAll={rotateAll}
           flipAll={flipAll}
-          onAutoRotate={onAutoRotate}
+          onAutoRotate={handleAutoRotateWrapped}
           autoRotating={autoRotating}
           hasInteriorRings={currentRings.length > 0}
         />

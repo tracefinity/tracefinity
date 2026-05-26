@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, Check, Download, Folder } from 'lucide-react'
 import { getTool, updateTool, autoRotateTool, getToolSvgUrl, getImageUrl, listProjects } from '@/lib/api'
+import { rotateGeometry } from '@/lib/geometry'
 import { useDebouncedSave } from '@/hooks/useDebouncedSave'
 import { useProjectSource } from '@/hooks/useProjectSource'
 import { projectNameMap } from '@/lib/projectSelectors'
@@ -99,36 +100,24 @@ export default function ToolPage() {
     setTool(prev => prev ? { ...prev, interior_rings } : null)
   }, [])
 
-  const handleAutoRotate = useCallback(async () => {
-    if (!tool || autoRotating) return
+  const handleAutoRotate = useCallback(async (): Promise<number | null> => {
+    if (!tool || autoRotating) return null
     setAutoRotating(true)
     try {
       const { angle } = await autoRotateTool(toolId)
-      if (Math.abs(angle) < 0.01) return
-      setTool(prev => {
-        if (!prev) return prev
-        const pts = prev.points
-        const n = pts.length
-        if (n === 0) return prev
-        const cx = pts.reduce((s, p) => s + p.x, 0) / n
-        const cy = pts.reduce((s, p) => s + p.y, 0) / n
-        const rad = angle * Math.PI / 180
-        const cos = Math.cos(rad)
-        const sin = Math.sin(rad)
-        const rotPt = (p: Point) => {
-          const dx = p.x - cx, dy = p.y - cy
-          return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos }
-        }
-        return {
-          ...prev,
-          points: pts.map(rotPt),
-          finger_holes: prev.finger_holes.map(fh => {
-            const dx = fh.x - cx, dy = fh.y - cy
-            return { ...fh, x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos, rotation: ((fh.rotation || 0) + angle) % 360 }
-          }),
-          interior_rings: prev.interior_rings.map(ring => ring.map(rotPt)),
-        }
-      })
+      if (Math.abs(angle) < 0.01) return null
+      const rotated = rotateGeometry(tool.points, tool.finger_holes, tool.interior_rings, angle)
+      setTool(prev => prev ? {
+        ...prev,
+        points: rotated.points,
+        finger_holes: rotated.fingerHoles,
+        interior_rings: rotated.interiorRings,
+      } : prev)
+      return angle
+    } catch (err) {
+      console.error('auto-rotate failed:', err)
+      setError(err instanceof Error ? err.message : 'Auto-rotate failed')
+      return null
     } finally {
       setAutoRotating(false)
     }
