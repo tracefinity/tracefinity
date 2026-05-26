@@ -389,8 +389,10 @@ def _build_bin_from_tools(
 
         bin_w = bc.grid_x * GF_GRID
         bin_h = bc.grid_y * GF_GRID
-        offset_x = bin_w / 2
-        offset_y = bin_h / 2
+        bbox_cx = (min(all_xs) + max(all_xs)) / 2
+        bbox_cy = (min(all_ys) + max(all_ys)) / 2
+        offset_x = bin_w / 2 - bbox_cx
+        offset_y = bin_h / 2 - bbox_cy
         for pt in placed:
             pt.points = _translate_points(pt.points, offset_x, offset_y)
             pt.finger_holes = _translate_finger_holes(pt.finger_holes, offset_x, offset_y)
