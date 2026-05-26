@@ -95,15 +95,17 @@ test.describe.serial('happy path', () => {
   })
 
   test('toggle smooth', async () => {
+    // tools now default to smoothed, so toggle to accurate first
     const statusText = page.getByText(/\d+ vertices/)
-    const initialText = await statusText.textContent()
-
-    await page.getByRole('button', { name: 'Smooth' }).click()
-
-    // vertex count text should change when smoothed
-    await expect(statusText).not.toHaveText(initialText!, { timeout: 5_000 })
+    const smoothedText = await statusText.textContent()
 
     await page.getByRole('button', { name: 'Accurate' }).click()
+    await expect(statusText).not.toHaveText(smoothedText!, { timeout: 5_000 })
+
+    const accurateText = await statusText.textContent()
+
+    await page.getByRole('button', { name: 'Smooth' }).click()
+    await expect(statusText).not.toHaveText(accurateText!, { timeout: 5_000 })
   })
 
   test('navigate home', async () => {
