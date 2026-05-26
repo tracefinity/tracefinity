@@ -210,8 +210,8 @@ class Tool(BaseModel):
     points: list[Point]  # mm, centered at (0,0)
     finger_holes: list[FingerHole] = []  # mm, relative to tool origin
     interior_rings: list[list[Point]] = []  # mm, centered at (0,0)
-    smoothed: bool = False
-    smooth_level: float = 0.0
+    smoothed: bool = True
+    smooth_level: float = 0.5
     source_session_id: str | None = None
     source_polygon_id: str | None = None
     source_image_path: str | None = None
