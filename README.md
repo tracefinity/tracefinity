@@ -70,6 +70,18 @@ make dev
 
 Open http://localhost:4001
 
+On Windows without `make`, run both dev servers from PowerShell:
+
+```powershell
+.\dev.ps1
+
+# optional port overrides
+.\dev.ps1 -BackendPort 8010 -FrontendPort 4011
+```
+
+The script creates `backend\venv`, installs backend requirements, and runs
+`npm install` when needed, so it can be used directly from a fresh worktree.
+
 ## Tracing Modes
 
 Tracefinity supports three ways to trace tool outlines from photos. All three produce the same output -- black and white mask images that get converted to editable polygons via OpenCV contour extraction.
