@@ -137,10 +137,13 @@ class BinParams(BaseModel):
         return v
 
 
-class GenerateRequest(BinParams):
+class BinDefaults(BinParams):
+    bed_size: float = 256.0  # mm, 0 = no splitting
+
+
+class GenerateRequest(BinDefaults):
     polygons: list[Polygon] | None = None  # optional: use these instead of session polygons
     text_labels: list[TextLabel] = []
-    bed_size: float = 256.0  # mm, 0 = no splitting
 
 
 class GenerateResponse(BaseModel):
@@ -303,7 +306,7 @@ class BinProject(BaseModel):
     bin_ids: list[str] = []
     target_grid_x: int | None = None
     target_grid_y: int | None = None
-    default_bin_config: BinParams | None = None
+    default_bin_config: BinDefaults | None = None
     notes: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
@@ -338,7 +341,7 @@ class BinProjectCreateRequest(BaseModel):
     status: ProjectStatus = "active"
     target_grid_x: int | None = None
     target_grid_y: int | None = None
-    default_bin_config: BinParams | None = None
+    default_bin_config: BinDefaults | None = None
     notes: str | None = None
     tool_ids: list[str] = []
 
@@ -349,7 +352,7 @@ class BinProjectUpdateRequest(BaseModel):
     status: ProjectStatus | None = None
     target_grid_x: int | None = None
     target_grid_y: int | None = None
-    default_bin_config: BinParams | None = None
+    default_bin_config: BinDefaults | None = None
     notes: str | None = None
 
 
@@ -360,6 +363,7 @@ class BinProjectToolsRequest(BaseModel):
 class BinProjectCreateBinRequest(BaseModel):
     name: str | None = None
     tool_ids: list[str] | None = None
+    bin_config: BinDefaults | None = None
 
 
 class BinProjectBinsRequest(BaseModel):
@@ -397,9 +401,8 @@ class PlacedTool(BaseModel):
     depth_override: float | None = None  # mm; None = use bin_config.cutout_depth
 
 
-class BinConfig(BinParams):
+class BinConfig(BinDefaults):
     text_labels: list[TextLabel] = []
-    bed_size: float = 256.0
 
 
 class BinModel(BaseModel):
@@ -446,3 +449,4 @@ class CreateBinRequest(BaseModel):
     name: str | None = None
     project_id: str | None = None
     tool_ids: list[str] = []  # pre-place these tools
+    bin_config: BinDefaults | None = None

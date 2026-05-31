@@ -22,7 +22,7 @@
 ## Bins
 - `GET /api/bins` - list bins
 - `GET /api/bins/{id}` - get bin (syncs placed tools with library versions)
-- `POST /api/bins` - create bin (optionally with tool_ids for auto-sizing)
+- `POST /api/bins` - create bin (optionally with tool_ids for auto-sizing and bin_config defaults)
 - `PUT /api/bins/{id}` - update bin
 - `DELETE /api/bins/{id}` - delete bin + output files
 - `POST /api/bins/{id}/generate` - generate STL/3MF from bin
@@ -37,7 +37,7 @@
 - `DELETE /api/bin-projects/{id}/tools/{tool_id}` - remove a tool from a project
 - `POST /api/bin-projects/{id}/bins` - link existing bins to a project
 - `DELETE /api/bin-projects/{id}/bins/{bin_id}` - detach a bin from a project
-- `POST /api/bin-projects/{id}/create-bin` - create a new bin from selected project tools
+- `POST /api/bin-projects/{id}/create-bin` - create a new bin from selected project tools, using project or request bin defaults
 - `GET /api/bin-projects/{id}/health` - report project/tool/bin link mismatches
 - `POST /api/bin-projects/{id}/repair` - repair safe project/tool/bin link mismatches
 

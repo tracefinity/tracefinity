@@ -94,7 +94,7 @@ export interface GenerateResponse {
   warning?: string | null
 }
 
-export interface BinConfig {
+export interface BinDefaults {
   grid_x: number
   grid_y: number
   height_units: number
@@ -109,8 +109,11 @@ export interface BinConfig {
   cutout_chamfer: number
   insert_enabled: boolean
   insert_height: number
-  text_labels: TextLabel[]
   bed_size: number
+}
+
+export interface BinConfig extends BinDefaults {
+  text_labels: TextLabel[]
 }
 
 // --- tool library ---
@@ -190,7 +193,7 @@ export interface BinProject {
   unplaced_tool_ids: string[]
   target_grid_x: number | null
   target_grid_y: number | null
-  default_bin_config: BinConfig | null
+  default_bin_config: BinDefaults | null
   notes: string | null
   created_at: string | null
   updated_at: string | null
