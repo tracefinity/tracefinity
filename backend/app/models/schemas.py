@@ -17,7 +17,7 @@ class FingerHole(BaseModel):
     width: float | None = None  # for rectangles
     height: float | None = None  # for rectangles
     rotation: float = 0.0  # degrees
-    shape: Literal["circle", "cylinder", "square", "rectangle"] = "circle"
+    shape: Literal["circle", "cylinder", "square", "rectangle", "filleted_rectangle"] = "circle"
     depth_override: float | None = None  # mm; None = use bin_config.cutout_depth
 
 

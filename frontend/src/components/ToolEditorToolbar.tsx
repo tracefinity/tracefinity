@@ -5,7 +5,7 @@ import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Disc, Square,
 import type { FingerHole } from '@/types'
 import { SNAP_GRID } from '@/lib/constants'
 
-export type EditMode = 'select' | 'add-vertex' | 'delete-vertex' | 'finger-hole' | 'circle' | 'cylinder' | 'square' | 'rectangle' | 'fill-ring'
+export type EditMode = 'select' | 'add-vertex' | 'delete-vertex' | 'finger-hole' | 'circle' | 'cylinder' | 'square' | 'rectangle' | 'filleted_rectangle' | 'fill-ring'
 
 export type Selection =
   | { type: 'vertex'; pointIdx: number }
@@ -102,24 +102,25 @@ export function ToolEditorToolbar({
             {cutoutOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setCutoutOpen(false)} />
-                <div className="absolute top-full left-0 mt-1 bg-elevated border border-border rounded-lg shadow-lg z-20 py-1 min-w-[160px]">
+                <div className="absolute top-full left-0 mt-1 bg-elevated border border-border rounded-lg shadow-lg z-20 py-1 min-w-[210px]">
                   {([
                     { mode: 'finger-hole' as EditMode, icon: <Fingerprint className="w-4 h-4" />, label: 'Finger hole', size: '15mm' },
                     { mode: 'circle' as EditMode, icon: <Circle className="w-4 h-4" />, label: 'Circle (sphere)', size: '10mm' },
                     { mode: 'cylinder' as EditMode, icon: <Disc className="w-4 h-4" />, label: 'Cylinder (flat)', size: '10mm' },
                     { mode: 'square' as EditMode, icon: <Square className="w-4 h-4" />, label: 'Square', size: '20mm' },
                     { mode: 'rectangle' as EditMode, icon: <RectangleHorizontal className="w-4 h-4" />, label: 'Rectangle', size: '30x20mm' },
+                    { mode: 'filleted_rectangle' as EditMode, icon: <RectangleHorizontal className="w-4 h-4" />, label: 'Filleted rectangle', size: '30x20mm' },
                   ]).map(item => (
                     <button
                       key={item.mode}
                       onClick={() => { setEditMode(item.mode); setCutoutOpen(false) }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-border ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-border ${
                         editMode === item.mode ? 'text-accent' : 'text-text-primary'
                       }`}
                     >
-                      {item.icon}
-                      <span>{item.label}</span>
-                      <span className="text-text-muted text-xs ml-auto">{item.size}</span>
+                      <span className="flex-shrink-0">{item.icon}</span>
+                      <span className="flex-1 text-left">{item.label}</span>
+                      <span className="text-text-muted text-xs flex-shrink-0">{item.size}</span>
                     </button>
                   ))}
                 </div>

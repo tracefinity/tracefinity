@@ -180,6 +180,82 @@ def _resolve_pocket_depth(override: float | None, config, max_depth: float) -> f
     return max(5, min(base, max_depth))
 
 
+def _filleted_rect_radius(width: float, pocket_depth: float) -> float:
+    """Bottom fillet radius for the filleted-rectangle cutter profile."""
+    return max(0.0, min(width / 3.0, pocket_depth / 2.0))
+
+
+def _rounded_bottom_rect_profile_pts(
+    width: float,
+    depth: float,
+    fillet_r: float,
+    segs: int = CIRCLE_SEGS,
+) -> np.ndarray:
+    """CCW x/z profile for a rectangle with only the bottom corners filleted."""
+    w = max(width, 0.01)
+    d = max(depth, 0.01)
+    hw = w / 2.0
+    r = min(max(fillet_r, 0.0), hw, d)
+    if r <= 1e-6:
+        return np.array([
+            (hw, 0.0),
+            (hw, d),
+            (-hw, d),
+            (-hw, 0.0),
+        ], dtype=np.float64)
+
+    n = max(4, segs // 8)
+    pts: list[tuple[float, float]] = []
+
+    # Start at the bottom-right floor point. Closing the polygon creates the
+    # flat floor segment back from the bottom-left point.
+    pts.append((hw - r, 0.0))
+
+    right_cx, right_cy = hw - r, r
+    for j in range(1, n + 1):
+        a = -math.pi / 2.0 + j * (math.pi / 2.0) / n
+        pts.append((right_cx + r * math.cos(a), right_cy + r * math.sin(a)))
+
+    pts.append((hw, d))
+    pts.append((-hw, d))
+
+    left_cx, left_cy = -hw + r, r
+    for j in range(0, n + 1):
+        a = math.pi + j * (math.pi / 2.0) / n
+        pts.append((left_cx + r * math.cos(a), left_cy + r * math.sin(a)))
+
+    return np.array(pts, dtype=np.float64)
+
+
+def _make_filleted_rectangle_cutter(
+    width: float,
+    height: float,
+    pocket_depth: float,
+    wall_top_z: float,
+    rotation: float,
+    x: float,
+    y: float,
+):
+    """Full-depth rectangle cutter with large bottom fillets along its length."""
+    import manifold3d as mf
+
+    w = max(width, 0.01)
+    h = max(height, 0.01)
+    z_margin = 0.005
+    profile_depth = pocket_depth + z_margin * 2.0
+    length = h + z_margin * 2.0
+    r = _filleted_rect_radius(w, pocket_depth)
+    profile = _rounded_bottom_rect_profile_pts(w, profile_depth, r)
+    cs = _cs(profile)
+    return (
+        mf.Manifold.extrude(cs, length)
+        .rotate((90.0, 0.0, 0.0))
+        .translate((0.0, length / 2.0, wall_top_z - pocket_depth - z_margin))
+        .rotate((0.0, 0.0, rotation))
+        .translate((x, y, 0.0))
+    )
+
+
 def _make_magnet_holes(config: GenerateRequest):
     """Batch union of all magnet hole cylinders (4 per grid cell, or corners only)."""
     import manifold3d as mf
@@ -465,6 +541,12 @@ def _make_finger_holes(
                         .rotate((0.0, 0.0, rotation))
                         .translate((fh_x, fh_y, cut_z))
                     )
+                elif shape == 'filleted_rectangle':
+                    w = fh.width_mm if fh.width_mm else fh.radius_mm * 2
+                    h = fh.height_mm if fh.height_mm else fh.radius_mm * 2
+                    cutter = _make_filleted_rectangle_cutter(
+                        w, h, pocket_depth, wall_top_z, rotation, fh_x, fh_y
+                    )
                 else:
                     continue
                 cutters.append(cutter)
@@ -514,7 +596,7 @@ def _make_finger_hole_chamfers(
                     if rotation:
                         cs = cs.rotate(rotation)
                     cs_outer = cs.offset(eff_chamfer, mf.JoinType.Round)
-                elif shape == 'rectangle':
+                elif shape == 'rectangle' or shape == 'filleted_rectangle':
                     w = fh.width_mm if fh.width_mm else fh.radius_mm * 2
                     h = fh.height_mm if fh.height_mm else fh.radius_mm * 2
                     cs = mf.CrossSection.square((w, h), center=True)

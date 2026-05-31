@@ -2,7 +2,7 @@
 
 ## How it works
 
-STL generation uses manifold3d (mesh booleans, 10-100x faster than OCCT B-rep). The gridfinity shell is constructed from first principles using `CrossSection` extrusions and `batch_boolean` operations. Polygon cutouts, finger holes, magnet holes and text labels are subtracted from the bin body in one pass.
+STL generation uses manifold3d (mesh booleans, 10-100x faster than OCCT B-rep). The gridfinity shell is constructed from first principles using `CrossSection` extrusions and `batch_boolean` operations. Polygon cutouts, finger holes, magnet holes and text labels are subtracted from the bin body in one pass. Filleted rectangle cutouts use a full-depth rounded-bottom cutter profile with a dynamic fillet radius clamped by both one-third of the rectangle width and half the pocket depth.
 
 ## Z-Axis Reference Heights
 

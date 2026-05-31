@@ -2,6 +2,7 @@
 from app.models.schemas import BinParams
 from app.services.polygon_scaler import ScaledFingerHole, ScaledPolygon
 from app.services.stl_generator_manifold import (
+    _filleted_rect_radius,
     _make_finger_hole_chamfers,
     _make_finger_holes,
 )
@@ -14,6 +15,24 @@ def _scaled_poly_with_hole(shape: str, radius=10.0):
         y_mm=0.0,
         radius_mm=radius,
         shape=shape,
+    )
+    return ScaledPolygon(
+        id="p1",
+        points_mm=[(-30, -30), (30, -30), (30, 30), (-30, 30)],
+        label="test",
+        finger_holes=[fh],
+    )
+
+
+def _scaled_poly_with_rectangle_hole(shape: str, width=40.0, height=18.0):
+    fh = ScaledFingerHole(
+        id="fh1",
+        x_mm=0.0,
+        y_mm=0.0,
+        radius_mm=max(width, height) / 2,
+        shape=shape,
+        width_mm=width,
+        height_mm=height,
     )
     return ScaledPolygon(
         id="p1",
@@ -85,3 +104,36 @@ class TestCylinderShape:
         assert abs(cyl_floor_z - (wall_top - depth)) < 0.05
         assert abs(circ_floor_z - (wall_top - radius)) < 0.05
         assert cyl_floor_z < circ_floor_z - 1.0
+
+
+class TestFilletedRectangleShape:
+    def test_filleted_rectangle_radius_clamps_to_width_or_depth(self):
+        assert abs(_filleted_rect_radius(width=10.0, pocket_depth=30.0) - (10.0 / 3.0)) < 1e-9
+        assert _filleted_rect_radius(width=80.0, pocket_depth=30.0) == 15.0
+
+    def test_filleted_rectangle_reaches_full_depth(self):
+        wall_top = 30.0
+        depth = 12.0
+        poly = _scaled_poly_with_rectangle_hole("filleted_rectangle")
+        config = BinParams(cutout_depth=depth)
+
+        result = _make_finger_holes(
+            [poly], config, wall_top_z=wall_top, max_depth=depth,
+            offset_x=0.0, offset_y=0.0,
+        )
+
+        assert result is not None
+        bb = result.bounding_box()
+        expected_floor = wall_top - depth
+        assert abs(bb[2] - expected_floor) < 0.05
+        assert 39.5 < bb[3] - bb[0] < 40.5
+        assert 17.5 < bb[4] - bb[1] < 18.5
+
+    def test_filleted_rectangle_chamfer_cutter_built(self):
+        poly = _scaled_poly_with_rectangle_hole("filleted_rectangle")
+        config = BinParams(cutout_depth=15.0, cutout_chamfer=1.0)
+        result = _make_finger_hole_chamfers(
+            [poly], config, wall_top_z=33.0, chamfer_size=1.0,
+            max_depth=15.0, offset_x=0.0, offset_y=0.0,
+        )
+        assert result is not None

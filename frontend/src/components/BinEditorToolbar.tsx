@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { MousePointer2, Trash2, Magnet, Type, Pencil, Maximize2 } from 'lucide-react'
 import type { FingerHole, PlacedTool, TextLabel } from '@/types'
 import { SNAP_GRID } from '@/lib/constants'
+import { cutoutShapeLabel, isRectangularCutout } from '@/lib/cutouts'
 
 interface DepthInputProps {
   value: number | null | undefined
@@ -277,8 +278,8 @@ export function BinEditorToolbar({
         <>
           <div className="w-px h-4 bg-glass-border mx-1 flex-shrink-0" />
           <span className="text-[10px] text-text-muted">
-            {selectedHole.shape || 'circle'}
-            {selectedHole.shape === 'rectangle' && selectedHole.width && selectedHole.height
+            {cutoutShapeLabel(selectedHole.shape)}
+            {isRectangularCutout(selectedHole.shape) && selectedHole.width && selectedHole.height
               ? ` ${selectedHole.width.toFixed(0)}×${selectedHole.height.toFixed(0)}mm`
               : selectedHole.shape === 'square'
               ? ` ${(selectedHole.radius * 2).toFixed(0)}mm`

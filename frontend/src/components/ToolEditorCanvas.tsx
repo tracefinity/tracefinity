@@ -4,6 +4,7 @@ import { RefObject, useState } from 'react'
 import type { Point, FingerHole, ToolImageContext } from '@/types'
 import { polygonPathData, smoothPathData } from '@/lib/svg'
 import { DISPLAY_SCALE } from '@/lib/constants'
+import { isRectangularCutout } from '@/lib/cutouts'
 import { CutoutOverlay } from '@/components/CutoutOverlay'
 import type { EditMode, Selection } from '@/components/ToolEditorToolbar'
 
@@ -208,7 +209,7 @@ export function ToolEditorCanvas({
               bMaxX = Math.max(bMaxX, p.x); bMaxY = Math.max(bMaxY, p.y)
             }
             for (const fh of displayHoles) {
-              const r = fh.shape === 'rectangle' ? Math.max(fh.width || 0, fh.height || 0) / 2 : fh.radius
+              const r = isRectangularCutout(fh.shape) ? Math.max(fh.width || 0, fh.height || 0) / 2 : fh.radius
               bMinX = Math.min(bMinX, fh.x - r); bMinY = Math.min(bMinY, fh.y - r)
               bMaxX = Math.max(bMaxX, fh.x + r); bMaxY = Math.max(bMaxY, fh.y + r)
             }
@@ -278,14 +279,15 @@ export function ToolEditorCanvas({
             const r = fh.radius * DISPLAY_SCALE
             const shape = fh.shape || 'circle'
             const rotation = fh.rotation || 0
-            const w = shape === 'rectangle' && fh.width ? fh.width * DISPLAY_SCALE : r * 2
-            const h = shape === 'rectangle' && fh.height ? fh.height * DISPLAY_SCALE : r * 2
+            const isRectangular = isRectangularCutout(shape)
+            const w = isRectangular && fh.width ? fh.width * DISPLAY_SCALE : r * 2
+            const h = isRectangular && fh.height ? fh.height * DISPLAY_SCALE : r * 2
             const s = zvbW / 800
             const handleR = 10 * s
             const topEdge = shape === 'circle' || shape === 'cylinder' ? r : h / 2
             const hr = 18 * s
 
-            if (shape === 'rectangle') {
+            if (isRectangular) {
               const hw = w / 2, hh = h / 2
               const corners = [
                 { x: -hw, y: -hh },
