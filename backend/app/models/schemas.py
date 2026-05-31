@@ -202,6 +202,13 @@ class StatusResponse(BaseModel):
     status: str
 
 
+class RestoreResponse(BaseModel):
+    status: str
+    auto_backup_filename: str
+    auto_backup_url: str
+    restored_files: int
+
+
 # --- tool library ---
 
 class Tool(BaseModel):
