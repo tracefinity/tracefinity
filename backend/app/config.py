@@ -49,7 +49,7 @@ settings = Settings()
 def ensure_user_dirs(user_path: Path):
     """create storage subdirs for a user"""
     user_path.mkdir(parents=True, exist_ok=True)
-    for sub in ("uploads", "processed", "outputs", "tools", "bins"):
+    for sub in ("uploads", "processed", "outputs", "tools", "bins", "backups"):
         (user_path / sub).mkdir(exist_ok=True)
 
 

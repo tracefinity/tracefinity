@@ -280,6 +280,13 @@ class SaveToolsResponse(BaseModel):
     tool_ids: list[str]
 
 
+class RestoreResponse(BaseModel):
+    status: str
+    auto_backup_filename: str
+    auto_backup_url: str
+    restored_files: int
+
+
 # --- bin projects ---
 
 ProjectStatus = Literal["active", "ready_to_print", "printed", "archived"]

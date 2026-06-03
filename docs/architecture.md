@@ -8,6 +8,7 @@
 - Session persistence (JSON files)
 - Tool library, bin, and bin project persistence (JSON files)
 - STL/3MF generation with manifold3d
+- Backup/restore packages persisted user data as ZIP archives
 
 ## Frontend (Next.js 16/React/TypeScript)
 - Dashboard with project, tool library, and bin management
@@ -40,7 +41,8 @@ tracefinity/
 │   │       ├── tool_store.py              # tool library persistence
 │   │       ├── bin_store.py               # bin persistence
 │   │       ├── project_store.py           # bin project persistence
-│   │       └── project_service.py         # project summaries, health, repair
+│   │       ├── project_service.py         # project summaries, health, repair
+│   │       └── backup_service.py          # user data ZIP export/restore
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -86,10 +88,13 @@ tracefinity/
 - **Bin**: bin config + placed tools + text labels. Used for STL generation (`bins.json`).
 - **BinProject**: a planning group of tool ids and linked bin ids. Placement status is derived from linked bins (`projects.json`).
 - **Session**: ephemeral, used only for upload/trace workflow. Output is tools saved to library via `save-tools`.
+- **Backup**: a ZIP package containing Tracefinity storage metadata plus user JSON records and assets under `storage/`. Saved restore safety backups live in `backups/` and are not nested into future exports.
 
 PlacedTools sync with their library source on bin load (`GET /bins/{id}`) via `bin_service.sync_placed_tools()`. Edits to a tool's points, finger holes, or name propagate to all bins that use it. The position offset is preserved.
 
 Projects do not own tools or bins. Tools keep `project_ids`, bins keep `project_id`, and project health/repair endpoints keep those links consistent when records are renamed, deleted, or manually edited.
+
+Current bin project records are persisted by `project_store.py` as `bin-projects.json`.
 
 ## Backend route helpers
 
