@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest'
-
-// test the clamping logic that NumericInput uses on commit
-function clampNumeric(raw: string, min: number, max: number, step: number, fallback: number): number {
-  const trimmed = raw.trim()
-  if (trimmed === '') return fallback
-  const parsed = step < 1 ? parseFloat(trimmed) : parseInt(trimmed, 10)
-  if (Number.isNaN(parsed)) return fallback
-  return Math.max(min, Math.min(max, parsed))
-}
+import { clampNumericValue as clampNumeric } from './NumericInput'
 
 describe('NumericInput clamping', () => {
   it('clamps value above max to max', () => {

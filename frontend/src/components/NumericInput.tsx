@@ -12,8 +12,16 @@ interface Props {
   disabled?: boolean
 }
 
+export function clampNumericValue(raw: string, min: number, max: number, step: number, fallback: number): number {
+  const trimmed = raw.trim()
+  if (trimmed === '') return fallback
+  const parsed = step < 1 ? parseFloat(trimmed) : parseInt(trimmed, 10)
+  if (Number.isNaN(parsed)) return fallback
+  return Math.max(min, Math.min(max, parsed))
+}
+
 // defers min/max clamping to blur or Enter -- lets users type freely
-export function NumericInput({ value, min, max, step, onChange, className, disabled }: Props) {
+export function NumericInput({ value, min, max, step = 1, onChange, className, disabled }: Props) {
   const [text, setText] = useState(String(value))
   const committedRef = useRef(value)
 
@@ -29,21 +37,12 @@ export function NumericInput({ value, min, max, step, onChange, className, disab
   }, [value])
 
   const commit = useCallback((raw: string) => {
-    const trimmed = raw.trim()
-    if (trimmed === '') {
-      // empty: revert to current committed value
-      setText(String(committedRef.current))
-      return
+    const result = clampNumericValue(raw, min, max, step, committedRef.current)
+    setText(String(result))
+    if (raw.trim() !== '') {
+      committedRef.current = result
+      onChange(result)
     }
-    const parsed = step != null && step < 1 ? parseFloat(trimmed) : parseInt(trimmed, 10)
-    if (Number.isNaN(parsed)) {
-      setText(String(committedRef.current))
-      return
-    }
-    const clamped = Math.max(min, Math.min(max, parsed))
-    setText(String(clamped))
-    committedRef.current = clamped
-    onChange(clamped)
   }, [min, max, step, onChange])
 
   return (
