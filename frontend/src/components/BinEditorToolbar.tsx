@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import { MousePointer2, Trash2, Magnet, Type, Pencil, Maximize2 } from 'lucide-react'
 import type { FingerHole, PlacedTool, TextLabel } from '@/types'
-import { SNAP_GRID } from '@/lib/constants'
 import { NumericInput } from './NumericInput'
+import { SNAP_GRID } from '@/lib/constants'
 
 interface DepthInputProps {
   value: number | null | undefined
