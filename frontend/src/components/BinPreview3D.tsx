@@ -256,7 +256,7 @@ export function BinPreview3D({ stlUrl, splitUrls, insertUrl }: Props) {
     <div className="w-full h-full min-h-[400px] relative">
       <Canvas
         camera={{ position: [0, 250, 250], fov: 50 }}
-        style={{ background: '#0d0d0f' }}
+        style={{ background: 'var(--color-bin-preview-bg)' }}
       >
         <hemisphereLight args={['#e8f8ff', '#8899aa', 1.4]} />
         <directionalLight position={[5, 10, 5]} intensity={0.7} />

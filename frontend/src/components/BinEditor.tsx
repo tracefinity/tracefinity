@@ -164,6 +164,13 @@ export function BinEditor({
     })
   }
 
+  const handleToolDoubleClick = (toolId: string) => (e: React.MouseEvent) => {
+    if (activeTool === 'text') return
+    e.stopPropagation()
+    const tool = placedTools.find(t => t.id === toolId)
+    if (tool) onEditTool?.(tool.tool_id)
+  }
+
   const stopClick = (e: React.MouseEvent) => e.stopPropagation()
   const stopClickUnlessText = (e: React.MouseEvent) => { if (activeTool !== 'text') e.stopPropagation() }
 
@@ -556,6 +563,7 @@ export function BinEditor({
         pendingInputRef={pendingInputRef}
         editInputRef={editInputRef}
         handleToolMouseDown={handleToolMouseDown}
+        handleToolDoubleClick={handleToolDoubleClick}
         handleRotateMouseDown={handleRotateMouseDown}
         handleLabelMouseDown={handleLabelMouseDown}
         handleLabelRotateMouseDown={handleLabelRotateMouseDown}

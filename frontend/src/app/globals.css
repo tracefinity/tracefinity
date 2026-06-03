@@ -22,10 +22,13 @@
   --color-glass-bg: rgba(255, 255, 255, 0.035);
   --color-glass-border: rgba(255, 255, 255, 0.07);
   --color-glass-hover: rgba(255, 255, 255, 0.055);
+  --color-popover-bg: #161a22;
+  --color-popover-border: rgba(255, 255, 255, 0.12);
   --color-toolbar-solid-bg: #15181f;
   --color-toolbar-solid-border: rgba(255, 255, 255, 0.12);
   --color-tool-fill: #475569;
   --color-tool-stroke: #8b95a5;
+  --color-bin-preview-bg: #0d0d0f;
   --color-bin-preview-fill: #1e293b;
   --color-bin-preview-grid: rgba(255, 255, 255, 0.08);
   color-scheme: dark;
@@ -47,10 +50,13 @@
   --color-glass-bg: rgba(255, 255, 255, 0.65);
   --color-glass-border: rgba(0, 0, 0, 0.06);
   --color-glass-hover: rgba(255, 255, 255, 0.8);
+  --color-popover-bg: #ffffff;
+  --color-popover-border: rgba(0, 0, 0, 0.1);
   --color-toolbar-solid-bg: #ffffff;
   --color-toolbar-solid-border: rgba(0, 0, 0, 0.08);
   --color-tool-fill: #64748b;
   --color-tool-stroke: #334155;
+  --color-bin-preview-bg: #ffffff;
   --color-bin-preview-fill: #e2e8f0;
   --color-bin-preview-grid: rgba(15, 23, 42, 0.12);
   color-scheme: light;
@@ -158,6 +164,10 @@ body {
     background: var(--color-glass-hover);
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+  .popover-surface {
+    background: var(--color-popover-bg);
+    border: 1px solid var(--color-popover-border);
   }
   [data-theme="light"] .glass-card:hover {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);

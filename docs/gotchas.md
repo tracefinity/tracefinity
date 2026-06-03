@@ -46,6 +46,12 @@ The brightness detection tries multiple thresholds (200, 190, 180), picks the la
 
 Difficult cases: hands in the frame, sticks/rods crossing the paper, very heavy tool overflow with minimal visible paper. These may need manual corner adjustment.
 
+## Photo stations
+
+Station preview images are station-owned. Confirming corners without saving a station should not copy the original upload into `station-photos/`; saving a station copies the original upload once, and deleting the station deletes that copy. Sessions may still contain legacy `station_image_path` values, but new station previews should live on `PhotoStation.image_path`.
+
+Direct camera capture depends on browser `getUserMedia` support. Chrome and Edge require `localhost` or HTTPS for camera access; plain HTTP from a LAN hostname should fall back to Upload file.
+
 ## Gemini mask quirks
 
 - Masks come back at different dimensions AND aspect ratio than requested. `_trace_mask()` resizes with `INTER_NEAREST`, then `_align_mask()` uses template matching to correct the positional offset.

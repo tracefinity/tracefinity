@@ -42,6 +42,7 @@ interface Props {
   editInputRef: RefObject<HTMLInputElement | null>
   // event handlers
   handleToolMouseDown: (toolId: string) => (e: React.MouseEvent) => void
+  handleToolDoubleClick: (toolId: string) => (e: React.MouseEvent) => void
   handleRotateMouseDown: (toolId: string) => (e: React.MouseEvent) => void
   handleLabelMouseDown: (labelId: string) => (e: React.MouseEvent) => void
   handleLabelRotateMouseDown: (labelId: string) => (e: React.MouseEvent) => void
@@ -83,6 +84,7 @@ export function BinEditorCanvas({
   pendingInputRef,
   editInputRef,
   handleToolMouseDown,
+  handleToolDoubleClick,
   handleRotateMouseDown,
   handleLabelMouseDown,
   handleLabelRotateMouseDown,
@@ -164,6 +166,7 @@ export function BinEditorCanvas({
                   strokeWidth={handleStroke}
                   className={activeTool === 'text' ? 'cursor-crosshair' : 'cursor-move'}
                   onMouseDown={handleToolMouseDown(tool.id)}
+                  onDoubleClick={handleToolDoubleClick(tool.id)}
                   onClick={stopClickUnlessText}
                 />
 

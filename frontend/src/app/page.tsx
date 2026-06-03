@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import { ImageUploader } from '@/components/ImageUploader'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { SectionHeader } from '@/components/SectionHeader'
-import { uploadImage, listTools, listBins, listProjects, deleteTool, deleteBin, deleteProject, createBin, createProject, getImageUrl } from '@/lib/api'
-import type { ToolSummary, BinSummary, BinPreviewTool, BinProjectSummary, Point, ToolImageContext, AffineMatrix, ProjectStatus } from '@/types'
+import { uploadImage, listTools, listBins, listProjects, listPhotoStations, deleteTool, deleteBin, deleteProject, deletePhotoStation, updatePhotoStation, createBin, createProject, getImageUrl } from '@/lib/api'
+import type { ToolSummary, BinSummary, BinPreviewTool, BinProjectSummary, PhotoStation, Point, ToolImageContext, AffineMatrix, ProjectStatus } from '@/types'
 import { polygonPathData } from '@/lib/svg'
-import { Trash2, Package, Plus, Loader2, Grid3X3, Folder } from 'lucide-react'
+import { Check, Pencil, Trash2, Package, Plus, Loader2, Grid3X3, Folder, X } from 'lucide-react'
 import { Alert } from '@/components/Alert'
 import { PhotoIllustration, CornersIllustration, TraceIllustration, OrganiseIllustration } from '@/components/OnboardingIllustrations'
 import { GRID_UNIT } from '@/lib/constants'
@@ -140,6 +140,70 @@ function BinPreview({ gridX, gridY, tools }: { gridX: number; gridY: number; too
   )
 }
 
+function StationPaperPreview({
+  station,
+  corners,
+}: {
+  station: PhotoStation
+  corners: Point[]
+}) {
+  const displayCorners = corners.length === 4 ? corners : station.corners
+  const imageWidth = Math.max(1, station.image_width)
+  const imageHeight = Math.max(1, station.image_height)
+  const imagePath = station.image_path
+  const imageUrl = imagePath ? getImageUrl(`/storage/${imagePath}`) : null
+  const handleRadius = Math.max(imageWidth, imageHeight) * 0.012
+
+  return (
+    <svg
+      viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+      className="w-full h-full"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <defs>
+        <pattern id={`station-grid-${station.id}`} width={imageWidth / 12} height={imageHeight / 12} patternUnits="userSpaceOnUse">
+          <path d={`M ${imageWidth / 12} 0 L 0 0 0 ${imageHeight / 12}`} fill="none" stroke="var(--color-border-subtle)" strokeWidth={Math.max(imageWidth, imageHeight) * 0.001} opacity="0.35" />
+        </pattern>
+      </defs>
+      <rect x={0} y={0} width={imageWidth} height={imageHeight} fill="var(--color-surface)" />
+      {imageUrl ? (
+        <image
+          href={imageUrl}
+          x={0}
+          y={0}
+          width={imageWidth}
+          height={imageHeight}
+          preserveAspectRatio="none"
+        />
+      ) : (
+        <rect x={0} y={0} width={imageWidth} height={imageHeight} fill={`url(#station-grid-${station.id})`} />
+      )}
+      <rect x={0} y={0} width={imageWidth} height={imageHeight} fill="rgba(0,0,0,0.1)" />
+      {displayCorners.length === 4 && (
+        <polygon
+          points={displayCorners.map(p => `${p.x},${p.y}`).join(' ')}
+          fill="rgba(255,255,255,0.08)"
+          stroke="rgb(90, 180, 222)"
+          strokeWidth={Math.max(imageWidth, imageHeight) * 0.004}
+        />
+      )}
+      {displayCorners.map((corner, index) => (
+        <g key={index}>
+          <circle
+            cx={corner.x}
+            cy={corner.y}
+            r={handleRadius * 0.7}
+            fill="rgb(90, 180, 222)"
+            stroke="rgb(90, 180, 222)"
+            strokeWidth={Math.max(imageWidth, imageHeight) * 0.003}
+            className="pointer-events-none"
+          />
+        </g>
+      ))}
+    </svg>
+  )
+}
+
 function NameModal({ open, title = 'New bin', description = 'Give your bin a name.', placeholder = 'e.g. Screwdrivers tray', onConfirm, onCancel }: {
   open: boolean
   title?: string
@@ -171,7 +235,7 @@ function NameModal({ open, title = 'New bin', description = 'Give your bin a nam
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative glass rounded-[8px] shadow-xl max-w-sm w-full mx-4 p-6">
+      <div className="relative popover-surface rounded-[8px] shadow-xl max-w-sm w-full mx-4 p-6">
         <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
         <p className="mt-1.5 text-xs text-text-secondary">{description}</p>
         <input
@@ -203,13 +267,14 @@ function NameModal({ open, title = 'New bin', description = 'Give your bin a nam
 }
 
 const SECTION_COLLAPSE_KEY = 'tracefinity.home.collapsedSections'
-type MainSectionId = 'projects' | 'tools' | 'bins' | 'howItWorks'
+type MainSectionId = 'projects' | 'tools' | 'bins' | 'stations' | 'howItWorks'
 type MainSectionCollapseState = Record<MainSectionId, boolean>
 
 const defaultSectionCollapse: MainSectionCollapseState = {
   projects: false,
   tools: false,
   bins: false,
+  stations: false,
   howItWorks: false,
 }
 
@@ -231,18 +296,21 @@ export default function HomePage() {
   const [toolsList, setToolsList] = useState<ToolSummary[]>([])
   const [binsList, setBinsList] = useState<BinSummary[]>([])
   const [projectsList, setProjectsList] = useState<BinProjectSummary[]>([])
+  const [stationsList, setStationsList] = useState<PhotoStation[]>([])
   const [loading, setLoading] = useState(true)
-  const { deleteTarget: deleteModal, requestDelete, clearDelete } = useDeleteConfirmation<{ type: 'tool' | 'bin' | 'project'; id: string }>()
+  const { deleteTarget: deleteModal, requestDelete, clearDelete } = useDeleteConfirmation<{ type: 'tool' | 'bin' | 'project' | 'station'; id: string }>()
   const [creatingBin, setCreatingBin] = useState<string | null>(null)
   const [nameModal, setNameModal] = useState<{ toolIds?: string[] } | null>(null)
   const [projectModalOpen, setProjectModalOpen] = useState(false)
+  const [renamingStation, setRenamingStation] = useState<{ id: string; name: string } | null>(null)
+  const [savingStationNameId, setSavingStationNameId] = useState<string | null>(null)
   const [projectSearch, setProjectSearch] = useState('')
   const [projectStatusFilter, setProjectStatusFilter] = useState<ProjectStatus | 'all'>('all')
   const [toolSearch, setToolSearch] = useState('')
   const [toolSort, setToolSort] = useState('date')
   const [collapsedSections, setCollapsedSections] = useState<MainSectionCollapseState>(loadSectionCollapseState)
 
-  const hasData = toolsList.length > 0 || binsList.length > 0 || projectsList.length > 0
+  const hasData = toolsList.length > 0 || binsList.length > 0 || projectsList.length > 0 || stationsList.length > 0
 
   const projectNameById = useMemo(() => projectNameMap(projectsList), [projectsList])
 
@@ -309,10 +377,11 @@ export default function HomePage() {
 
   async function loadData() {
     try {
-      const [t, b, p] = await Promise.all([listTools(), listBins(), listProjects()])
+      const [t, b, p, stations] = await Promise.all([listTools(), listBins(), listProjects(), listPhotoStations()])
       setToolsList(t)
       setBinsList(b)
       setProjectsList(p)
+      setStationsList(stations)
     } catch {
       // ignore
     } finally {
@@ -325,7 +394,7 @@ export default function HomePage() {
     setError(null)
     try {
       const result = await uploadImage(file)
-      router.push(`/trace/${result.session_id}`)
+      router.push(`/trace/${result.session_id}?capture=1`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'upload failed')
     } finally {
@@ -360,6 +429,36 @@ export default function HomePage() {
       setBinsList(prev => prev.map(b => b.project_id === id ? { ...b, project_id: null } : b))
     } catch { /* ignore */ }
     clearDelete()
+  }
+
+  async function handleDeleteStation(id: string) {
+    try {
+      await deletePhotoStation(id)
+      setStationsList(prev => prev.filter(s => s.id !== id))
+      setRenamingStation(prev => prev?.id === id ? null : prev)
+    } catch { /* ignore */ }
+    clearDelete()
+  }
+
+  function startStationRename(station: PhotoStation) {
+    setRenamingStation({ id: station.id, name: station.name })
+  }
+
+  async function handleSaveStationName() {
+    if (!renamingStation) return
+    const name = renamingStation.name.trim()
+    if (!name) return
+
+    setSavingStationNameId(renamingStation.id)
+    try {
+      const updated = await updatePhotoStation(renamingStation.id, { name })
+      setStationsList(prev => prev.map(station => station.id === updated.id ? updated : station))
+      setRenamingStation(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to rename station')
+    } finally {
+      setSavingStationNameId(null)
+    }
   }
 
   async function handleCreateBin(name: string, toolIds?: string[]) {
@@ -399,7 +498,11 @@ export default function HomePage() {
     <div className="max-w-6xl mx-auto py-4 space-y-6">
       {/* upload */}
       <div data-tour="upload">
-        <ImageUploader onUpload={handleUpload} disabled={uploading} />
+        <ImageUploader
+          onUpload={handleUpload}
+          onCaptureRequest={() => router.push('/trace')}
+          disabled={uploading}
+        />
       </div>
 
       {uploading && (
@@ -730,6 +833,126 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* stations */}
+      {stationsList.length > 0 && (
+        <div>
+          <SectionHeader
+            title="Stations"
+            count={stationsList.length}
+            collapsed={collapsedSections.stations}
+            onToggleCollapsed={() => setSectionCollapsed('stations', !collapsedSections.stations)}
+          />
+          {!collapsedSections.stations && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {stationsList.map(station => {
+                return (
+                  <div key={station.id} className="glass-card overflow-hidden group">
+                    <div className="aspect-[4/3] bg-inset relative overflow-hidden">
+                      <StationPaperPreview
+                        station={station}
+                        corners={station.corners}
+                      />
+                      <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => router.push(`/stations/${station.id}/corners`)}
+                          className="p-1 text-text-muted hover:text-accent hover:bg-accent-muted rounded-[7px] transition-colors cursor-pointer"
+                          title="Edit corners"
+                          aria-label={`Edit corners for ${station.name}`}
+                        >
+                          <Grid3X3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => requestDelete({ type: 'station', id: station.id })}
+                          className="btn-danger-icon"
+                          title="Delete station"
+                          aria-label={`Delete ${station.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="px-3 py-[10px] space-y-2">
+                      <div className="relative">
+                        {renamingStation?.id === station.id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              aria-label="Station name"
+                              value={renamingStation.name}
+                              onChange={(e) => setRenamingStation({ id: station.id, name: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveStationName()
+                                if (e.key === 'Escape') setRenamingStation(null)
+                              }}
+                              className="min-w-0 flex-1 h-7 rounded border border-border-subtle bg-elevated px-2 text-[12px] text-text-primary focus:outline-none focus:border-accent"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={handleSaveStationName}
+                              disabled={savingStationNameId === station.id || !renamingStation.name.trim()}
+                              className="p-1 text-text-muted hover:text-green-400 hover:bg-glass-hover rounded-[7px] transition-colors cursor-pointer disabled:opacity-50"
+                              title="Save name"
+                              aria-label="Save station name"
+                            >
+                              {savingStationNameId === station.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRenamingStation(null)}
+                              className="p-1 text-text-muted hover:text-text-primary hover:bg-glass-hover rounded-[7px] transition-colors cursor-pointer"
+                              title="Cancel rename"
+                              aria-label="Cancel station rename"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <p className="min-w-0 text-[12px] font-medium text-text-primary truncate leading-tight" title={station.name}>{station.name}</p>
+                            <button
+                              type="button"
+                              onClick={() => startStationRename(station)}
+                              className="flex-shrink-0 p-1 text-text-muted hover:text-accent hover:bg-accent-muted rounded-[7px] transition-colors cursor-pointer"
+                              title="Rename station"
+                              aria-label={`Rename ${station.name}`}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                        <p className="text-[10px] text-text-muted mt-0.5">
+                          {station.image_width}x{station.image_height} · {station.paper_size === 'a4' ? 'A4' : 'Letter'}
+                        </p>
+                      </div>
+                      <div className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap">
+                        <span className="text-[10px] text-text-muted flex-shrink-0">
+                          {station.last_used_at ? `Used ${formatDate(station.last_used_at)}` : `Saved ${formatDate(station.created_at)}`}
+                        </span>
+                        {station.updated_at && (
+                          <>
+                            <span className="text-[10px] text-text-muted flex-shrink-0">·</span>
+                            <span className="text-[10px] text-text-muted flex-shrink-0">Updated {formatDate(station.updated_at)}</span>
+                          </>
+                        )}
+                      </div>
+                      {!station.image_path && (
+                        <p className="text-[10px] text-amber-300 leading-snug">
+                          Photo unavailable. Edit uses a grid preview.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* empty state onboarding */}
       {!loading && !hasData && (
         <div data-tour="how-it-works">
@@ -768,14 +991,18 @@ export default function HomePage() {
             ? 'Delete tool?'
             : deleteModal?.type === 'project'
               ? 'Delete project?'
-              : 'Delete bin?'
+              : deleteModal?.type === 'station'
+                ? 'Delete station?'
+                : 'Delete bin?'
         }
         message={
           deleteModal?.type === 'tool'
             ? 'This will permanently delete the tool from your library.'
             : deleteModal?.type === 'project'
               ? 'This will remove the project. Tools and bins will stay in your library.'
-              : 'This will permanently delete the bin and all associated files.'
+              : deleteModal?.type === 'station'
+                ? 'This will remove the saved camera and paper alignment station.'
+                : 'This will permanently delete the bin and all associated files.'
         }
         confirmText="Delete"
         variant="danger"
@@ -783,6 +1010,7 @@ export default function HomePage() {
           if (!deleteModal) return
           if (deleteModal.type === 'tool') handleDeleteTool(deleteModal.id)
           else if (deleteModal.type === 'project') handleDeleteProject(deleteModal.id)
+          else if (deleteModal.type === 'station') handleDeleteStation(deleteModal.id)
           else handleDeleteBin(deleteModal.id)
         }}
         onCancel={() => clearDelete()}

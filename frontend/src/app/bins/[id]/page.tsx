@@ -97,26 +97,7 @@ export default function BinPage() {
       try {
         const [data, tools] = await Promise.all([getBin(binId), listTools()])
         setBinData(data)
-
-        const toolMap = new Map(tools.map(t => [t.id, t]))
-        const synced = data.placed_tools.map(pt => {
-          const lib = toolMap.get(pt.tool_id)
-          if (!lib) return pt
-          const rad = (pt.rotation || 0) * Math.PI / 180
-          const cos = Math.cos(rad)
-          const sin = Math.sin(rad)
-          const n = pt.points.length || 1
-          const cx = pt.points.reduce((s, p) => s + p.x, 0) / n
-          const cy = pt.points.reduce((s, p) => s + p.y, 0) / n
-          const newRings = (lib.interior_rings ?? []).map(ring =>
-            ring.map(p => ({
-              x: p.x * cos - p.y * sin + cx,
-              y: p.x * sin + p.y * cos + cy,
-            }))
-          )
-          return { ...pt, interior_rings: newRings }
-        })
-        setPlacedTools(synced)
+        setPlacedTools(data.placed_tools)
         setTextLabels(data.text_labels)
         setName(data.name || '')
         setConfig(data.bin_config)
@@ -359,7 +340,7 @@ export default function BinPage() {
   return (
     <div className="h-[calc(100vh-44px)] flex">
       {/* config sidebar - always open */}
-      <div className="w-[200px] flex-shrink-0 bg-surface border-r border-border flex flex-col">
+      <div className="w-[300px] flex-shrink-0 bg-surface border-r border-border flex flex-col">
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 space-y-3">
           <div className="glass rounded-[10px] px-3 py-3">
             <div className="flex items-center gap-2 mb-3">

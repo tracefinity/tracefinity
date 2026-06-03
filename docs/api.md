@@ -1,8 +1,11 @@
 # API Endpoints
 
 ## Sessions (trace workflow)
-- `POST /api/upload` - upload image, auto-detect corners
-- `POST /api/sessions/{id}/corners` - set corners, apply perspective correction
+- `POST /api/upload` - upload image and detect corners; optional `station_id` reuses saved station corners, and optional `capture_crop` crops the image before detection/tracing
+- `POST /api/sessions/{id}/corners` - set corners, apply perspective correction; optional `save_station_name` saves the confirmed station in the same step
+- `POST /api/sessions/{id}/redetect-corners` - rerun default paper corner detection on the original upload
+- `GET /api/sessions/{id}/station-suggestions` - list saved photo stations that match the upload dimensions closely enough to reuse
+- `POST /api/sessions/{id}/reuse-corners` - prefill session corners from a saved photo station
 - `POST /api/sessions/{id}/trace` - AI trace tool outlines
 - `POST /api/sessions/{id}/trace-mask` - trace from uploaded mask
 - `PUT /api/sessions/{id}/polygons` - save polygon edits
@@ -11,6 +14,13 @@
 - `GET /api/sessions/{id}` - get session state
 - `PATCH /api/sessions/{id}` - update session metadata
 - `DELETE /api/sessions/{id}` - delete session
+
+## Photo stations
+- `GET /api/photo-stations` - list saved camera/paper stations
+- `GET /api/photo-stations/{id}` - get one saved station
+- `POST /api/photo-stations` - save confirmed session corners as a station
+- `PATCH /api/photo-stations/{id}` - rename a station or update saved paper corners
+- `DELETE /api/photo-stations/{id}` - delete a station
 
 ## Tools (library)
 - `GET /api/tools` - list tools

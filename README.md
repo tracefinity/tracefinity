@@ -14,17 +14,16 @@
 ## How It Works
 
 1. Place tools on A4/Letter paper (tools can overflow the edges)
-2. Take a photo from above
-3. Upload and adjust paper corners for scale calibration
+2. Capture or upload a photo from above
+3. Adjust paper corners for scale calibration, or reuse a saved photo station for repeat shots
 4. AI traces tool outlines automatically
 5. Save traced tools to your library
 6. Group tools into projects when planning a drawer or workspace
-7. Create bins from project tools, arrange the layout
-8. Download STL/3MF for 3D printing
+7. Download STL/3MF for 3D printing
 
-| Dashboard | Tool Editor | Bin Editor |
-|-|-|-|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Tool Editor](docs/screenshots/tool-editor.png) | ![Bin Editor](docs/screenshots/bin-editor.png) |
+| Dashboard | Projects | Tool Editor | Bin Editor |
+|-|-|-|-|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Projects](docs/screenshots/projects.png) | ![Tool Editor](docs/screenshots/tool-editor.png) | ![Bin Editor](docs/screenshots/bin-editor.png) |
 
 ## Quick Start
 
@@ -69,6 +68,16 @@ make dev
 ```
 
 Open http://localhost:4001
+
+Direct camera capture on `/trace` requires browser camera support. Chrome and
+Edge allow it on `localhost` or HTTPS; use Upload file when serving Tracefinity
+over plain HTTP from another hostname.
+
+Photo stations make repeated captures faster when your camera and paper stay in
+roughly the same position. After confirming the first photo's paper corners, save
+the setup as a station. Later captures can reuse the saved paper size, corners,
+and optional capture area, with drift warnings if the detected paper no longer
+matches the station.
 
 ## Tracing Modes
 
@@ -126,6 +135,8 @@ No API key and prefer not to use the local model? Upload a mask manually:
 
 - **AI-powered tracing** -- Local model or Gemini generates accurate tool silhouettes from photos
 - **Manual mask upload** -- Use the Gemini web interface without an API key
+- **Camera capture** -- Take photos directly in the browser on localhost or HTTPS
+- **Photo stations** -- Save a camera/paper/crop setup and reuse it for repeat captures
 - **Selective saving** -- Choose which traced outlines to keep before saving to your library
 - **Tool library** -- Save traced tools and reuse them across multiple bins
 - **Bin projects** -- Plan a group of tools and bins together, track which tools still need bins, and create project-scoped bins

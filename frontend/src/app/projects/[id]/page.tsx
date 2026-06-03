@@ -35,6 +35,9 @@ import {
 import { AlertTriangle, ArrowLeft, CheckSquare, ChevronDown, ChevronRight, Loader2, Package, Plus, Search, Square, Trash2, Unlink } from 'lucide-react'
 
 const PROJECT_SECTION_COLLAPSE_KEY = 'tracefinity.project.collapsedSections'
+const PROJECT_ADD_TOOLS_OPEN_KEY = 'tracefinity.project.addToolsOpen'
+const PROJECT_ADD_BINS_OPEN_KEY = 'tracefinity.project.addBinsOpen'
+const PROJECT_LINKED_BIN_DETAILS_OPEN_KEY = 'tracefinity.project.linkedBinDetailsOpen'
 type ProjectSectionId = 'projectTools' | 'linkedBins'
 type ProjectSectionCollapseState = Record<ProjectSectionId, boolean>
 
@@ -54,6 +57,16 @@ function loadProjectSectionCollapseState(): ProjectSectionCollapseState {
   }
 }
 
+function loadProjectBooleanPreference(key: string, fallback: boolean): boolean {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const raw = window.localStorage.getItem(key)
+    return raw === null ? fallback : raw === 'true'
+  } catch {
+    return fallback
+  }
+}
+
 export default function ProjectPage() {
   const params = useParams()
   const router = useRouter()
@@ -65,12 +78,12 @@ export default function ProjectPage() {
   const [bins, setBins] = useState<BinSummary[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [selectedBinToolIds, setSelectedBinToolIds] = useState<Set<string>>(new Set())
-  const [expandedBinIds, setExpandedBinIds] = useState<Set<string>>(new Set())
+  const [linkedBinDetailsOpen, setLinkedBinDetailsOpen] = useState(() => loadProjectBooleanPreference(PROJECT_LINKED_BIN_DETAILS_OPEN_KEY, false))
   const [search, setSearch] = useState('')
   const [projectSearch, setProjectSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<ProjectToolFilter>('all')
-  const [addToolsOpen, setAddToolsOpen] = useState(true)
-  const [addBinsOpen, setAddBinsOpen] = useState(false)
+  const [addToolsOpen, setAddToolsOpen] = useState(() => loadProjectBooleanPreference(PROJECT_ADD_TOOLS_OPEN_KEY, true))
+  const [addBinsOpen, setAddBinsOpen] = useState(() => loadProjectBooleanPreference(PROJECT_ADD_BINS_OPEN_KEY, false))
   const [selectedExistingBinIds, setSelectedExistingBinIds] = useState<Set<string>>(new Set())
   const [importExistingBinTools, setImportExistingBinTools] = useState(false)
   const [allowReassignBins, setAllowReassignBins] = useState(false)
@@ -97,13 +110,11 @@ export default function ProjectPage() {
         listProjects(),
         getProjectHealth(projectId).catch(() => null),
       ])
-      const savedAddToolsOpen = window.localStorage.getItem('tracefinity.project.addToolsOpen')
       setProject(p)
       setProjects(allProjects)
       setTools(t)
       setBins(b)
       setHealthIssues(h?.issues || [])
-      setAddToolsOpen(p.tool_ids.length === 0 ? true : savedAddToolsOpen !== null ? savedAddToolsOpen === 'true' : true)
       setSelectedBinToolIds(new Set())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'failed to load project')
@@ -149,18 +160,22 @@ export default function ProjectPage() {
     })
   }
 
-  function toggleExpandedBin(binId: string) {
-    setExpandedBinIds(prev => {
-      const next = new Set(prev)
-      if (next.has(binId)) next.delete(binId)
-      else next.add(binId)
+  function toggleLinkedBinDetails() {
+    setLinkedBinDetailsOpen(prev => {
+      const next = !prev
+      window.localStorage.setItem(PROJECT_LINKED_BIN_DETAILS_OPEN_KEY, String(next))
       return next
     })
   }
 
   function setAddToolsOpenPersisted(open: boolean) {
     setAddToolsOpen(open)
-    window.localStorage.setItem('tracefinity.project.addToolsOpen', String(open))
+    window.localStorage.setItem(PROJECT_ADD_TOOLS_OPEN_KEY, String(open))
+  }
+
+  function setAddBinsOpenPersisted(open: boolean) {
+    setAddBinsOpen(open)
+    window.localStorage.setItem(PROJECT_ADD_BINS_OPEN_KEY, String(open))
   }
 
   function setSectionCollapsed(section: ProjectSectionId, collapsed: boolean) {
@@ -313,7 +328,7 @@ export default function ProjectPage() {
       setTools(refreshedTools)
       setHealthIssues(health.issues)
       setSelectedExistingBinIds(new Set())
-      setAddBinsOpen(false)
+      setAddBinsOpenPersisted(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'failed to add existing bins')
     } finally {
@@ -590,9 +605,9 @@ export default function ProjectPage() {
               <button
                 onClick={handleAddSelected}
                 disabled={saving || selected.size === 0}
-                className="btn-secondary px-3 py-1.5 text-xs flex items-center gap-1.5"
+                className="btn-primary px-2 py-1 text-[11px] flex items-center gap-1"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3 h-3" />
                 Add {selected.size || ''}
               </button>
             </div>
@@ -647,7 +662,7 @@ export default function ProjectPage() {
           onToggleCollapsed={() => setSectionCollapsed('linkedBins', !collapsedSections.linkedBins)}
         >
           <button
-            onClick={() => setAddBinsOpen(prev => !prev)}
+            onClick={() => setAddBinsOpenPersisted(!addBinsOpen)}
             className="btn-secondary px-2 py-1 text-[11px] inline-flex items-center gap-1"
           >
             <Plus className="w-3 h-3" />
@@ -714,7 +729,7 @@ export default function ProjectPage() {
           projectBins.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {projectBins.map(bin => {
-                const isExpanded = expandedBinIds.has(bin.id)
+                const isExpanded = linkedBinDetailsOpen
                 const binTools = (bin.tool_ids || []).map(toolId => toolById.get(toolId)).filter(Boolean) as ToolSummary[]
                 const outsideTools = binTools.filter(tool => !projectToolIds.has(tool.id))
                 const projectToolsInBin = binTools.filter(tool => projectToolIds.has(tool.id))
@@ -726,7 +741,7 @@ export default function ProjectPage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <button
-                      onClick={() => toggleExpandedBin(bin.id)}
+                      onClick={toggleLinkedBinDetails}
                       className="p-1 text-text-muted hover:text-accent rounded-[7px] transition-colors cursor-pointer flex-shrink-0"
                       title={isExpanded ? 'Hide tools' : 'Show tools'}
                     >

@@ -16,8 +16,11 @@ interface Props {
   hovered?: string | null
   onHoveredChange?: (id: string | null) => void
 }
-// base sizes for SVG UI elements, designed for ~800px viewBox width
-const BASE_VIEW_WIDTH = 800
+const VERTEX_HANDLE_RADIUS_PX = 5
+const VERTEX_HIT_RADIUS_PX = 16
+const VERTEX_STROKE_WIDTH_PX = 1.25
+const ADD_VERTEX_HANDLE_RADIUS_PX = 3.5
+const EDGE_HIT_WIDTH_PX = 20
 
 type EditMode = 'select' | 'vertex' | 'add-vertex' | 'delete-vertex'
 type DragState =
@@ -38,8 +41,6 @@ export function PolygonEditor({
   const containerRef = useRef<HTMLDivElement>(null)
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 })
   const [fitted, setFitted] = useState({ width: 0, height: 0 })
-  // scale UI elements relative to image size so they're visible on large photos
-  const uiScale = imageSize.width > 0 ? imageSize.width / BASE_VIEW_WIDTH : 1
 
   // active polygon for vertex editing (internal)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -289,6 +290,13 @@ export function PolygonEditor({
   }
 
   const activePoly = polygons.find(p => p.id === activeId)
+  const displayScale = imageSize.width > 0 && fitted.width > 0 ? fitted.width / imageSize.width : 1
+  const vertexHandleRadius = VERTEX_HANDLE_RADIUS_PX / displayScale
+  const vertexHitRadius = VERTEX_HIT_RADIUS_PX / displayScale
+  const vertexStrokeWidth = VERTEX_STROKE_WIDTH_PX / displayScale
+  const addVertexHandleRadius = ADD_VERTEX_HANDLE_RADIUS_PX / displayScale
+  const edgeHitWidth = EDGE_HIT_WIDTH_PX / displayScale
+  const uiScale = imageSize.width > 0 ? imageSize.width / 800 : 1
 
   return (
     <div className="flex flex-col gap-3 h-full min-h-0">
@@ -441,17 +449,17 @@ export function PolygonEditor({
                           x2={nextPoint.x}
                           y2={nextPoint.y}
                           stroke="transparent"
-                          strokeWidth={uiScale * 20}
+                          strokeWidth={edgeHitWidth}
                           className="cursor-crosshair"
                           onClick={handleEdgeClick(poly.id, idx)}
                         />
                         <circle
                           cx={midX}
                           cy={midY}
-                          r={uiScale * 5}
+                          r={addVertexHandleRadius}
                           fill="rgb(34, 197, 94)"
                           stroke="#27272a"
-                          strokeWidth={uiScale * 2}
+                          strokeWidth={vertexStrokeWidth}
                           className="cursor-crosshair pointer-events-none"
                         />
                       </g>
@@ -468,7 +476,7 @@ export function PolygonEditor({
                       <circle
                         cx={point.x}
                         cy={point.y}
-                        r={uiScale * 16}
+                        r={vertexHitRadius}
                         fill="transparent"
                         className={editMode === 'delete-vertex' ? 'cursor-pointer touch-none' : 'cursor-move touch-none'}
                         onMouseDown={editMode !== 'delete-vertex' ? handleVertexMouseDown(poly.id, idx) : undefined}
@@ -478,10 +486,10 @@ export function PolygonEditor({
                       <circle
                         cx={point.x}
                         cy={point.y}
-                        r={uiScale * 8}
+                        r={vertexHandleRadius}
                         fill={editMode === 'delete-vertex' ? 'rgb(239, 68, 68)' : '#27272a'}
                         stroke={editMode === 'delete-vertex' ? 'rgb(185, 28, 28)' : 'rgb(72, 168, 214)'}
-                        strokeWidth={uiScale * 2}
+                        strokeWidth={vertexStrokeWidth}
                         className="pointer-events-none"
                       />
                     </g>

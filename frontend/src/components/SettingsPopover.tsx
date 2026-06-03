@@ -39,7 +39,7 @@ export function SettingsPopover() {
       </IconButton>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-64 glass rounded-[10px] shadow-xl z-50 p-4">
+        <div className="absolute right-0 top-full mt-1.5 w-64 popover-surface rounded-[10px] shadow-xl z-50 p-4">
           <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-3">Settings</h3>
 
           <div className="space-y-1.5">

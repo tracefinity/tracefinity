@@ -1,6 +1,6 @@
 # Tracefinity
 
-Tool tracing app that generates 3D-printable gridfinity bins from photos. Backend is Python/FastAPI with OpenCV and manifold3d; frontend is Next.js 16/React 19/TypeScript with react-three-fiber for 3D preview. Bin projects group tools and bins for planning larger drawer/workspace workflows.
+Tool tracing app that generates 3D-printable gridfinity bins from photos. Backend is Python/FastAPI with OpenCV and manifold3d; frontend is Next.js 16/React 19/TypeScript with react-three-fiber for 3D preview. Bin projects group tools and bins for planning larger drawer/workspace workflows. Photo stations save camera/paper/capture-area setups for repeated capture workflows.
 
 ## Docs
 
@@ -32,6 +32,8 @@ make dev  # starts backend (:8000) and frontend (:4001) concurrently
 - Coordinate systems differ across layers (see docs/gotchas.md). SVG/layout Y is down; manifold3d Y is up. Always negate Y when crossing that boundary.
 - Images are downscaled to max 2048px on upload and after perspective correction. Original uploads are deleted after correction. `scale_factor` must be adjusted by the downscale ratio.
 - Paper is for scale only. Tools can overflow the paper edges. The full visible area beyond the paper is included in the corrected image.
+- Photo stations own their preview image under `station-photos/`, store optional `capture_crop`, and should update `last_used_at` on reuse without changing `updated_at`.
+- Browser camera capture requires a secure context: localhost or HTTPS. Plain HTTP LAN hostnames should keep Upload file available.
 - Masks: tools BLACK, background WHITE. `_trace_mask()` handles both alpha and RGB masks.
 - Tool polygons are stored in px on the trace page, converted to mm (via `scale_factor`) when saved as Tools. Placed tools in bins are already in mm -- don't re-scale.
 - Cache-bust image URLs with `?v={timestamp}`. PolygonEditor needs a `key` prop to force remount on URL change.

@@ -50,7 +50,7 @@ export function ConfirmModal({
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onCancel}
       />
-      <div className="relative glass rounded-[10px] shadow-xl max-w-md w-full mx-4 p-6">
+      <div className="relative popover-surface rounded-[10px] shadow-xl max-w-md w-full mx-4 p-6">
         <div className="flex items-start gap-4">
           {variant === 'danger' && (
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-900/30 flex items-center justify-center">
