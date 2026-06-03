@@ -3,8 +3,6 @@ export interface Point {
   y: number
 }
 
-export type CutoutShape = 'circle' | 'cylinder' | 'square' | 'rectangle' | 'filleted_rectangle'
-
 export interface FingerHole {
   id: string
   x: number
@@ -16,6 +14,8 @@ export interface FingerHole {
   height?: number
   depth_override?: number | null
 }
+
+export type CutoutShape = 'circle' | 'cylinder' | 'square' | 'rectangle' | 'filleted_rectangle'
 
 export interface Polygon {
   id: string
