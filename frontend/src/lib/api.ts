@@ -134,6 +134,23 @@ export function getImageUrl(path: string): string {
   return `${API_URL}${path}`
 }
 
+export interface RestoreBackupResponse {
+  status: string
+  auto_backup_filename: string
+  auto_backup_url: string
+  restored_files: number
+}
+
+export function getBackupExportUrl(): string {
+  return `${API_URL}/api/users/me/export`
+}
+
+export async function restoreBackup(file: File): Promise<RestoreBackupResponse> {
+  const formData = new FormData()
+  formData.append('backup', file)
+  return fetchForm('/api/users/me/restore', formData)
+}
+
 export function getStlUrl(sessionId: string): string {
   return `${API_URL}/api/files/${sessionId}/bin.stl`
 }

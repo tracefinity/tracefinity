@@ -41,6 +41,12 @@
 - `GET /api/bin-projects/{id}/health` - report project/tool/bin link mismatches
 - `POST /api/bin-projects/{id}/repair` - repair safe project/tool/bin link mismatches
 
+## User data
+- `GET /api/users/me/export` - download a ZIP backup of the current user's Tracefinity storage data
+- `POST /api/users/me/restore` - upload a Tracefinity ZIP backup and replace current user data; saves an automatic pre-restore backup first
+- `GET /api/users/me/backups/{file_name}` - download an automatic backup saved during restore
+- `DELETE /api/users/me` - delete all current user data
+
 ## File serving
 - `GET /api/files/{session_id}/bin.stl` - session STL
 - `GET /api/files/{session_id}/bin.3mf` - session 3MF

@@ -6,7 +6,7 @@
 - Tool tracing via local models (BiRefNet Lite, IS-Net, InSPyReNet) or Gemini API
 - Manual mask upload as alternative
 - Session persistence (JSON files)
-- Tool library, bin, and bin project persistence (JSON files)
+- Tool library, bin, bin project, and backup/restore persistence (JSON files + ZIP packages)
 - STL/3MF generation with manifold3d
 
 ## Frontend (Next.js 16/React/TypeScript)
@@ -40,7 +40,8 @@ tracefinity/
 │   │       ├── tool_store.py              # tool library persistence
 │   │       ├── bin_store.py               # bin persistence
 │   │       ├── project_store.py           # bin project persistence
-│   │       └── project_service.py         # project summaries, health, repair
+│   │       ├── project_service.py         # project summaries, health, repair
+│   │       └── backup_service.py          # user data ZIP export/restore
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -84,8 +85,9 @@ tracefinity/
 - **Tool**: a single traced polygon + finger holes, stored in mm, centred at origin. Lives in a persistent library (`tools.json`).
 - **PlacedTool**: a positioned copy of a tool in a bin. Points/holes in bin-space mm. Has `tool_id` linking back to source.
 - **Bin**: bin config + placed tools + text labels. Used for STL generation (`bins.json`).
-- **BinProject**: a planning group of tool ids and linked bin ids. Placement status is derived from linked bins (`projects.json`).
+- **BinProject**: a planning group of tool ids and linked bin ids. Placement status is derived from linked bins (`bin-projects.json`).
 - **Session**: ephemeral, used only for upload/trace workflow. Output is tools saved to library via `save-tools`.
+- **Backup**: a ZIP package containing Tracefinity storage metadata plus user JSON records and assets under `storage/`. Saved restore safety backups live in `backups/` and are not nested into future exports.
 
 PlacedTools sync with their library source on bin load (`GET /bins/{id}`) via `bin_service.sync_placed_tools()`. Edits to a tool's points, finger holes, or name propagate to all bins that use it. The position offset is preserved.
 
