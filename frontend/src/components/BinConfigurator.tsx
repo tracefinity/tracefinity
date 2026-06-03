@@ -2,6 +2,7 @@
 
 import { Info } from 'lucide-react'
 import type { BinConfig } from '@/types'
+import { NumericInput } from './NumericInput'
 
 const GF_HEIGHT_UNIT = 7.0
 const GF_BASE_HEIGHT = 4.75
@@ -108,17 +109,13 @@ function SliderRow({
           style={{ '--slider-pct': `${pct}%` } as React.CSSProperties}
         />
         <div className="flex items-center gap-1">
-          <input
-            type="number"
+          <NumericInput
             min={min}
             max={max}
             step={step}
             value={value}
             disabled={disabled}
-            onChange={(e) => {
-              const v = step >= 1 ? parseInt(e.target.value) : parseFloat(e.target.value)
-              if (!isNaN(v)) onChange(Math.min(max, Math.max(min, v)))
-            }}
+            onChange={onChange}
             className="w-14 h-7 bg-elevated text-right text-xs font-semibold text-text-primary rounded pr-2 focus:outline-none"
           />
           {unit && <span className="text-[10px] text-text-muted w-5">{unit}</span>}

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { MousePointer2, Trash2, Magnet, Type, Pencil, Maximize2 } from 'lucide-react'
 import type { FingerHole, PlacedTool, TextLabel } from '@/types'
 import { SNAP_GRID } from '@/lib/constants'
+import { NumericInput } from './NumericInput'
 
 interface DepthInputProps {
   value: number | null | undefined
@@ -231,20 +232,18 @@ export function BinEditorToolbar({
           />
           <div className="flex items-center gap-0.5 text-[10px] text-text-muted" title="Text size">
             <span>Size</span>
-            <input
-              type="number"
+            <NumericInput
               value={selectedLabel.font_size}
-              onChange={e => onUpdateLabel({ font_size: Math.max(1, Math.min(50, parseFloat(e.target.value) || 1)) })}
+              onChange={font_size => onUpdateLabel({ font_size })}
               className="w-10 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent"
               min={1} max={50} step={0.5}
             />
           </div>
           <div className="flex items-center gap-0.5 text-[10px] text-text-muted" title="Depth into surface">
             <span>Depth</span>
-            <input
-              type="number"
+            <NumericInput
               value={selectedLabel.depth}
-              onChange={e => onUpdateLabel({ depth: Math.max(0.1, Math.min(5, parseFloat(e.target.value) || 0.5)) })}
+              onChange={depth => onUpdateLabel({ depth })}
               className="w-10 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent"
               min={0.1} max={5} step={0.1}
             />
