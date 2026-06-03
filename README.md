@@ -38,6 +38,9 @@ docker run -p 3000:3000 -v ./data:/app/storage ghcr.io/tracefinity/tracefinity
 
 # or with Gemini API
 docker run -p 3000:3000 -v ./data:/app/storage -e GOOGLE_API_KEY=your-key ghcr.io/tracefinity/tracefinity
+
+# run as your host user (files in ./data owned by you, not root)
+docker run -p 3000:3000 -v ./data:/app/storage --user "$(id -u):$(id -g)" ghcr.io/tracefinity/tracefinity
 ```
 
 Open http://localhost:3000

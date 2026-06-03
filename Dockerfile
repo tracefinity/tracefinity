@@ -1,6 +1,7 @@
 # Single container with frontend + backend
 # Build: docker build -t tracefinity .
-# Run: docker run -p 3000:3000 -v ./data:/app/storage -e GOOGLE_API_KEY=your-key tracefinity
+# Run: docker run -p 3000:3000 -v ./data:/app/storage tracefinity
+# Run as host user: docker run -p 3000:3000 -v ./data:/app/storage --user "$(id -u):$(id -g)" tracefinity
 
 FROM node:20-slim AS frontend-build
 
@@ -46,9 +47,16 @@ COPY --from=frontend-build /frontend/node_modules ./node_modules
 # storage directory
 RUN mkdir -p /app/storage/uploads /app/storage/processed /app/storage/outputs
 
-# nginx config: reverse proxy with proper timeouts
+# non-root user (UID 1000). --user flag can override with any UID.
+RUN groupadd -r -g 1000 tracefinity && \
+    useradd -r -u 1000 -g tracefinity -d /app -s /sbin/nologin tracefinity
+
+# model cache inside /app so it's writable by any user
+RUN mkdir -p /app/.u2net
+
+# nginx: move pid and logs to /tmp so non-root can write them
 RUN rm -f /etc/nginx/sites-enabled/default
-COPY <<'EOF' /etc/nginx/sites-enabled/tracefinity.conf
+COPY <<'NGINX_EOF' /etc/nginx/sites-enabled/tracefinity.conf
 server {
     listen 3000;
     client_max_body_size 25m;
@@ -77,13 +85,19 @@ server {
         proxy_set_header Host $host;
     }
 }
-EOF
+NGINX_EOF
+
+# nginx non-root: pid in /tmp, disable default error_log (supervisor captures it)
+RUN sed -i 's|pid /run/nginx.pid;|pid /tmp/nginx/nginx.pid;|' /etc/nginx/nginx.conf && \
+    sed -i '/^user /d' /etc/nginx/nginx.conf
 
 # supervisor config
-COPY <<EOF /etc/supervisor/conf.d/tracefinity.conf
+COPY <<SUPERVISOR_EOF /etc/supervisor/conf.d/tracefinity.conf
 [supervisord]
 nodaemon=true
-user=root
+pidfile=/tmp/supervisor/supervisord.pid
+logfile=/tmp/supervisor/supervisord.log
+childlogdir=/tmp/supervisor
 
 [program:nginx]
 command=nginx -g "daemon off;"
@@ -115,11 +129,25 @@ stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
-EOF
+SUPERVISOR_EOF
+
+# make all runtime-writable directories accessible to any UID
+RUN chmod -R 777 /app/storage /app/.u2net /app/.next && \
+    chmod -R 777 /var/lib/nginx /var/log/nginx && \
+    mkdir -p /tmp/nginx /tmp/supervisor && chmod 777 /tmp/nginx /tmp/supervisor
+
+# entrypoint handles directory creation for arbitrary UIDs
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3000
 
 ENV GEMINI_IMAGE_MODEL="gemini-3-pro-image-preview"
 ENV STORAGE_PATH=/app/storage
+ENV U2NET_HOME=/app/.u2net
+ENV HOME=/app
 
+USER tracefinity
+
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["supervisord", "-c", "/etc/supervisor/conf.d/tracefinity.conf"]
