@@ -37,10 +37,11 @@ import {
 import { AlertTriangle, ArrowLeft, CheckSquare, ChevronDown, ChevronRight, Loader2, Package, Plus, Search, Square, Trash2, Unlink } from 'lucide-react'
 
 const PROJECT_SECTION_COLLAPSE_KEY = 'tracefinity.project.collapsedSections'
-type ProjectSectionId = 'projectTools' | 'linkedBins'
+type ProjectSectionId = 'binDefaults' | 'projectTools' | 'linkedBins'
 type ProjectSectionCollapseState = Record<ProjectSectionId, boolean>
 
 const defaultProjectSectionCollapse: ProjectSectionCollapseState = {
+  binDefaults: true,
   projectTools: false,
   linkedBins: false,
 }
@@ -296,7 +297,7 @@ export default function ProjectPage() {
       const bin = await createProjectBin(project.id, {
         name: `${project.name} bin ${projectBins.length + 1}`,
         tool_ids: Array.from(selectedBinToolIds),
-        bin_config: project.default_bin_config || getDefaultBinDefaults(),
+        ...(project.default_bin_config ? {} : { bin_config: getDefaultBinDefaults() }),
       })
       router.push(projectScopedHref(project.id, `/bins/${bin.id}`))
     } catch (err) {
@@ -429,40 +430,47 @@ export default function ProjectPage() {
 
       {error && <Alert variant="error">{error}</Alert>}
 
-      <section className="glass rounded-[8px] px-3 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px]">Bin defaults</h2>
-            <p className="mt-1 text-[11px] text-text-secondary">
-              {project.default_bin_config ? 'Project-specific defaults' : 'Using global defaults'}
-            </p>
+      <section>
+        <SectionHeader
+          title="Bin defaults"
+          collapsed={collapsedSections.binDefaults}
+          onToggleCollapsed={() => setSectionCollapsed('binDefaults', !collapsedSections.binDefaults)}
+        >
+          <span className="text-[11px] text-text-muted">
+            {project.default_bin_config ? 'Project-specific defaults' : 'Using global defaults'}
+          </span>
+          {!collapsedSections.binDefaults && (
+            <>
+              {projectDefaultsStatus && (
+                <span className="text-[10px] text-text-muted">{projectDefaultsStatus}</span>
+              )}
+              <button
+                type="button"
+                onClick={handleClearProjectDefaults}
+                disabled={savingProjectDefaults}
+                className="btn-secondary px-2 py-1 text-[11px]"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveProjectDefaults}
+                disabled={savingProjectDefaults}
+                className="btn-primary px-2.5 py-1 text-[11px] inline-flex items-center gap-1"
+              >
+                {savingProjectDefaults && <Loader2 className="w-3 h-3 animate-spin" />}
+                Save defaults
+              </button>
+            </>
+          )}
+        </SectionHeader>
+        {!collapsedSections.binDefaults && (
+          <div className="glass rounded-[8px] px-3 py-3">
+            <div className="max-w-sm">
+              <BinConfigurator config={projectDefaultConfig} onChange={setProjectDefaultConfig} />
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            {projectDefaultsStatus && (
-              <span className="text-[10px] text-text-muted">{projectDefaultsStatus}</span>
-            )}
-            <button
-              type="button"
-              onClick={handleClearProjectDefaults}
-              disabled={savingProjectDefaults}
-              className="btn-secondary px-2 py-1 text-[11px]"
-            >
-              Clear
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveProjectDefaults}
-              disabled={savingProjectDefaults}
-              className="btn-primary px-2.5 py-1 text-[11px] inline-flex items-center gap-1"
-            >
-              {savingProjectDefaults && <Loader2 className="w-3 h-3 animate-spin" />}
-              Save defaults
-            </button>
-          </div>
-        </div>
-        <div className="mt-3 max-w-sm">
-          <BinConfigurator config={projectDefaultConfig} onChange={setProjectDefaultConfig} />
-        </div>
+        )}
       </section>
 
       {healthIssues.length > 0 && (

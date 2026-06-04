@@ -23,7 +23,7 @@ export function SectionHeader({ title, count, search, onSearchChange, sortKey, o
   }, [searchOpen])
 
   return (
-    <div className="flex items-center justify-between mb-3 gap-2">
+    <div className="flex h-[32px] items-center justify-between mb-3 gap-2">
       {onToggleCollapsed ? (
         <button
           onClick={onToggleCollapsed}

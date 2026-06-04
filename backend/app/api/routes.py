@@ -371,7 +371,7 @@ def _build_bin_from_tools(
             interior_rings=list(tool.interior_rings),
         ))
 
-    bc = BinConfig.model_validate(default_config.model_dump()) if default_config else BinConfig()
+    bc = BinConfig(**default_config.model_dump(exclude={"text_labels"}), text_labels=[]) if default_config else BinConfig()
     if all_points_mm:
         all_xs = [p[0] for p in all_points_mm]
         all_ys = [p[1] for p in all_points_mm]

@@ -59,6 +59,7 @@ export default function BinPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [defaultsStatus, setDefaultsStatus] = useState<string | null>(null)
+  const defaultsStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const exportRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -178,7 +179,10 @@ export default function BinPage() {
   )
 
   useEffect(() => {
-    return () => { abortRef.current?.abort() }
+    return () => {
+      abortRef.current?.abort()
+      if (defaultsStatusTimeoutRef.current) clearTimeout(defaultsStatusTimeoutRef.current)
+    }
   }, [])
 
   useEffect(() => {
@@ -312,14 +316,23 @@ export default function BinPage() {
     window.open(getBinInsertUrl(binId), '_blank')
   }
 
+  function showDefaultsStatus(message: string) {
+    if (defaultsStatusTimeoutRef.current) clearTimeout(defaultsStatusTimeoutRef.current)
+    setDefaultsStatus(message)
+    defaultsStatusTimeoutRef.current = setTimeout(() => {
+      setDefaultsStatus(null)
+      defaultsStatusTimeoutRef.current = null
+    }, 2500)
+  }
+
   function handleSaveDefaults() {
     saveDefaultBinConfig(config)
-    setDefaultsStatus('Defaults saved')
+    showDefaultsStatus('Defaults saved')
   }
 
   function handleResetDefaults() {
     setConfig(resetDefaultBinConfig())
-    setDefaultsStatus('Defaults reset')
+    showDefaultsStatus('Defaults reset')
   }
 
   if (loading) {

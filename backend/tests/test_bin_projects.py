@@ -199,6 +199,34 @@ def test_project_placed_status_updates_when_bin_contents_change(tmp_path, monkey
     assert detail["unplaced_tool_ids"] == ["tool-1"]
 
 
+def test_project_update_round_trips_default_bin_config(tmp_path, monkeypatch):
+    client = _api_client(tmp_path, monkeypatch)
+    project = client.post("/api/bin-projects", json={"name": "Top drawer"}).json()
+
+    update_resp = client.patch(f"/api/bin-projects/{project['id']}", json={
+        "default_bin_config": {
+            "magnet_diameter": 6.2,
+            "magnet_depth": 2.8,
+            "magnet_corners_only": True,
+            "bed_size": 220,
+        },
+    })
+
+    assert update_resp.status_code == 200
+    updated_config = update_resp.json()["default_bin_config"]
+    assert updated_config["magnet_diameter"] == 6.2
+    assert updated_config["magnet_depth"] == 2.8
+    assert updated_config["magnet_corners_only"] is True
+    assert updated_config["bed_size"] == 220
+    detail_config = client.get(f"/api/bin-projects/{project['id']}").json()["default_bin_config"]
+    assert detail_config == updated_config
+
+    clear_resp = client.patch(f"/api/bin-projects/{project['id']}", json={"default_bin_config": None})
+
+    assert clear_resp.status_code == 200
+    assert clear_resp.json()["default_bin_config"] is None
+
+
 def test_create_bin_accepts_default_bin_config(tmp_path, monkeypatch):
     client = _api_client(tmp_path, monkeypatch)
 

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  binDefaultsFromConfig,
   buildBinConfig,
   getDefaultBinConfig,
   getDefaultBinDefaults,
@@ -62,6 +63,17 @@ describe('bin defaults', () => {
     expect(defaults.magnet_diameter).toBe(6.2)
     expect(defaults.magnet_depth).toBe(2.8)
     expect(defaults.magnet_corners_only).toBe(true)
+    expect('text_labels' in defaults).toBe(false)
+  })
+
+  it('strips text labels when deriving defaults from a full config', () => {
+    const defaults = binDefaultsFromConfig({
+      ...buildBinConfig({ magnet_diameter: 6.2 }),
+      text_labels: [{ id: 'label-1', text: '12mm', x: 1, y: 2, font_size: 4, rotation: 0, emboss: true, depth: 0.6 }],
+    })
+
+    expect(defaults.magnet_diameter).toBe(6.2)
+    expect('text_labels' in defaults).toBe(false)
   })
 
   it('keeps the legacy bedSize setting authoritative', () => {
@@ -85,5 +97,25 @@ describe('bin defaults', () => {
     expect(reset.magnet_diameter).toBe(6)
     expect(stored.bedSize).toBe(256)
     expect(stored.binDefaults).toBeUndefined()
+  })
+
+  it('does not throw when localStorage writes are unavailable', () => {
+    const storage = {
+      get length() {
+        return 0
+      },
+      clear: () => {},
+      getItem: () => null,
+      key: () => null,
+      removeItem: () => {},
+      setItem: () => {
+        throw new Error('localStorage blocked')
+      },
+    } as Storage
+    vi.stubGlobal('window', { localStorage: storage })
+    vi.stubGlobal('localStorage', storage)
+
+    expect(() => saveDefaultBinConfig(buildBinConfig({ magnet_diameter: 6.2 }))).not.toThrow()
+    expect(() => resetDefaultBinConfig()).not.toThrow()
   })
 })

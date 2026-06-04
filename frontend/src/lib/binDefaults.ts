@@ -29,24 +29,8 @@ export function buildBinConfig(overrides: Partial<BinDefaults> | null = null): B
 }
 
 export function binDefaultsFromConfig(config: Partial<BinConfig>): BinDefaults {
-  const merged = buildBinConfig(config)
-  return {
-    grid_x: merged.grid_x,
-    grid_y: merged.grid_y,
-    height_units: merged.height_units,
-    magnets: merged.magnets,
-    magnet_diameter: merged.magnet_diameter,
-    magnet_depth: merged.magnet_depth,
-    magnet_corners_only: merged.magnet_corners_only,
-    stacking_lip: merged.stacking_lip,
-    wall_thickness: merged.wall_thickness,
-    cutout_depth: merged.cutout_depth,
-    cutout_clearance: merged.cutout_clearance,
-    cutout_chamfer: merged.cutout_chamfer,
-    insert_enabled: merged.insert_enabled,
-    insert_height: merged.insert_height,
-    bed_size: merged.bed_size,
-  }
+  const { text_labels: _textLabels, ...defaults } = buildBinConfig(config)
+  return defaults
 }
 
 export function getDefaultBinConfig(): BinConfig {
