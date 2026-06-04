@@ -56,6 +56,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const [editMode, setEditMode] = useState<EditMode>('select')
   const [dragging, setDragging] = useState<DragState>(null)
   const [snapEnabled, setSnapEnabled] = useState(true)
+  const [snapGrid, setSnapGrid] = useState(SNAP_GRID)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [cutoutOpen, setCutoutOpen] = useState(false)
@@ -235,8 +236,8 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
 
   const snapToGrid = useCallback((v: number) => {
     if (!snapEnabled) return v
-    return snapToGridUtil(v, SNAP_GRID)
-  }, [snapEnabled])
+    return snapToGridUtil(v, snapGrid)
+  }, [snapEnabled, snapGrid])
 
   const snapRef = useRef(snapToGrid)
   useEffect(() => { snapRef.current = snapToGrid }, [snapToGrid])
@@ -661,6 +662,8 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
           onSmoothLevelChange={onSmoothLevelChange}
           snapEnabled={snapEnabled}
           setSnapEnabled={setSnapEnabled}
+          snapGrid={snapGrid}
+          setSnapGrid={setSnapGrid}
           canUndo={canUndo}
           canRedo={canRedo}
           handleUndo={handleUndo}

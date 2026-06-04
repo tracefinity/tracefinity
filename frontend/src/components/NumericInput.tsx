@@ -10,6 +10,7 @@ interface Props {
   onChange: (v: number) => void
   className?: string
   disabled?: boolean
+  title?: string
 }
 
 export function clampNumericValue(raw: string, min: number, max: number, step: number, fallback: number): number {
@@ -21,7 +22,7 @@ export function clampNumericValue(raw: string, min: number, max: number, step: n
 }
 
 // defers min/max clamping to blur or Enter -- lets users type freely
-export function NumericInput({ value, min, max, step = 1, onChange, className, disabled }: Props) {
+export function NumericInput({ value, min, max, step = 1, onChange, className, disabled, title }: Props) {
   const [text, setText] = useState(String(value))
   const committedRef = useRef(value)
 
@@ -53,6 +54,7 @@ export function NumericInput({ value, min, max, step = 1, onChange, className, d
       step={step}
       value={text}
       disabled={disabled}
+      title={title}
       onChange={(e) => setText(e.target.value)}
       onBlur={(e) => commit(e.target.value)}
       onKeyDown={(e) => {

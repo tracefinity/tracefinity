@@ -3,7 +3,8 @@
 import { ReactNode } from 'react'
 import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Disc, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, FlipHorizontal2, FlipVertical2, ChevronDown, PaintBucket, Locate } from 'lucide-react'
 import type { FingerHole } from '@/types'
-import { SNAP_GRID } from '@/lib/constants'
+import { SNAP_GRID_MIN, SNAP_GRID_MAX } from '@/lib/constants'
+import { NumericInput } from '@/components/NumericInput'
 
 export type EditMode = 'select' | 'add-vertex' | 'delete-vertex' | 'finger-hole' | 'circle' | 'cylinder' | 'square' | 'rectangle' | 'fill-ring'
 
@@ -21,6 +22,8 @@ interface Props {
   onSmoothLevelChange: (level: number) => void
   snapEnabled: boolean
   setSnapEnabled: (enabled: boolean) => void
+  snapGrid: number
+  setSnapGrid: (grid: number) => void
   canUndo: boolean
   canRedo: boolean
   handleUndo: () => void
@@ -44,7 +47,7 @@ interface Props {
 export function ToolEditorToolbar({
   editMode, setEditMode,
   smoothed, smoothLevel, onSmoothedChange, onSmoothLevelChange,
-  snapEnabled, setSnapEnabled,
+  snapEnabled, setSnapEnabled, snapGrid, setSnapGrid,
   canUndo, canRedo, handleUndo, handleRedo,
   cutoutOpen, setCutoutOpen,
   isCutoutMode, cutoutModeIcon, cutoutModeLabel,
@@ -192,11 +195,22 @@ export function ToolEditorToolbar({
           className={`px-2 py-1 rounded-[7px] text-[11px] flex items-center gap-1 transition-colors ${
             snapEnabled ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
           }`}
-          title={`Snap to ${SNAP_GRID}mm grid${snapEnabled ? ' (on)' : ' (off)'}`}
+          title={`Snap to ${snapGrid}mm grid${snapEnabled ? ' (on)' : ' (off)'}`}
         >
           <Magnet className="w-3.5 h-3.5" />
           Snap
         </button>
+        {snapEnabled && (
+          <NumericInput
+            value={snapGrid}
+            onChange={setSnapGrid}
+            min={SNAP_GRID_MIN}
+            max={SNAP_GRID_MAX}
+            step={0.5}
+            title="Snap distance (mm) — how far apart the snap grid points are"
+            className="w-12 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent"
+          />
+        )}
         <div className="flex items-center rounded-[7px] overflow-hidden border border-border-subtle text-[11px]">
           <button
             onClick={() => onSmoothedChange(false)}

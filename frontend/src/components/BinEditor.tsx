@@ -62,6 +62,7 @@ export function BinEditor({
   const [activeTool, setActiveTool] = useState<Tool>('select')
   const [dragging, setDragging] = useState<DragState>(null)
   const [snapEnabled, setSnapEnabled] = useState(true)
+  const [snapGrid, setSnapGrid] = useState(SNAP_GRID)
   const [pendingLabel, setPendingLabel] = useState<{ x: number; y: number } | null>(null)
   const [pendingText, setPendingText] = useState('')
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null)
@@ -142,8 +143,8 @@ export function BinEditor({
 
   const snapToGrid = useCallback((v: number) => {
     if (!snapEnabled) return v
-    return snapToGridUtil(v, SNAP_GRID)
-  }, [snapEnabled])
+    return snapToGridUtil(v, snapGrid)
+  }, [snapEnabled, snapGrid])
 
   const handleToolMouseDown = (toolId: string) => (e: React.MouseEvent) => {
     if (activeTool === 'text') return
@@ -511,6 +512,8 @@ export function BinEditor({
           setActiveTool={setActiveTool}
           snapEnabled={snapEnabled}
           setSnapEnabled={setSnapEnabled}
+          snapGrid={snapGrid}
+          setSnapGrid={setSnapGrid}
           handleRecenter={handleRecenter}
           selectedTool={selectedTool ?? null}
           selectedLabel={selectedLabel ?? null}

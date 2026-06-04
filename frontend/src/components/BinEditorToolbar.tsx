@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { MousePointer2, Trash2, Magnet, Type, Pencil, Maximize2 } from 'lucide-react'
 import type { FingerHole, PlacedTool, TextLabel } from '@/types'
-import { SNAP_GRID } from '@/lib/constants'
+import { SNAP_GRID_MIN, SNAP_GRID_MAX } from '@/lib/constants'
 import { NumericInput } from '@/components/NumericInput'
 
 interface DepthInputProps {
@@ -77,6 +77,8 @@ interface Props {
   setActiveTool: (tool: Tool) => void
   snapEnabled: boolean
   setSnapEnabled: (enabled: boolean) => void
+  snapGrid: number
+  setSnapGrid: (grid: number) => void
   handleRecenter: () => void
   selectedTool: PlacedTool | null
   selectedLabel: TextLabel | null
@@ -105,6 +107,8 @@ export function BinEditorToolbar({
   setActiveTool,
   snapEnabled,
   setSnapEnabled,
+  snapGrid,
+  setSnapGrid,
   handleRecenter,
   selectedTool,
   selectedLabel,
@@ -147,11 +151,22 @@ export function BinEditorToolbar({
       <button
         onClick={() => setSnapEnabled(!snapEnabled)}
         className={`${tbBtn} ${snapEnabled ? 'text-accent' : tbInactive}`}
-        title={`Snap to ${SNAP_GRID}mm grid${snapEnabled ? ' (on)' : ' (off)'}`}
+        title={`Snap to ${snapGrid}mm grid${snapEnabled ? ' (on)' : ' (off)'}`}
       >
         <Magnet className="w-3.5 h-3.5" />
         Snap
       </button>
+      {snapEnabled && (
+        <NumericInput
+          value={snapGrid}
+          onChange={setSnapGrid}
+          min={SNAP_GRID_MIN}
+          max={SNAP_GRID_MAX}
+          step={0.5}
+          title="Snap distance (mm) — how far apart the snap grid points are"
+          className="w-12 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent"
+        />
+      )}
       <button
         onClick={handleRecenter}
         className={`${tbBtn} ${tbInactive}`}
