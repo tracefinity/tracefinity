@@ -5,13 +5,15 @@
 
 FROM node:20-slim AS frontend-build
 
+RUN corepack enable pnpm
+
 WORKDIR /frontend
-COPY frontend/package*.json ./
-RUN npm ci
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
 ENV NEXT_PUBLIC_API_URL=
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN pnpm run build
 
 FROM python:3.12-slim
 
@@ -23,7 +25,6 @@ RUN apt-get update && apt-get install -y \
     libxrender1 \
     libheif-dev \
     nodejs \
-    npm \
     nginx \
     supervisor \
     git \
@@ -41,7 +42,7 @@ COPY backend/ ./backend/
 # frontend (built)
 COPY --from=frontend-build /frontend/.next ./.next
 COPY --from=frontend-build /frontend/public ./public
-COPY --from=frontend-build /frontend/package*.json ./
+COPY --from=frontend-build /frontend/package.json ./
 COPY --from=frontend-build /frontend/node_modules ./node_modules
 
 # storage directory
@@ -120,7 +121,7 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
 [program:frontend]
-command=npm start
+command=node_modules/.bin/next start
 directory=/app
 environment=PORT="3001",BACKEND_URL="http://127.0.0.1:8000"
 autostart=true
