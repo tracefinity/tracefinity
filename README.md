@@ -56,7 +56,7 @@ By default, Tracefinity uses [IS-Net](https://github.com/xuebinqin/DIS) for loca
 
 ### From Source
 
-Prerequisites: Python 3.11+, Node.js 20+
+Prerequisites: Python 3.11+, Node.js 20+, [pnpm](https://pnpm.io/installation)
 
 ```bash
 git clone https://github.com/tracefinity/tracefinity
@@ -64,7 +64,7 @@ cd tracefinity
 
 # First time setup
 cd backend && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
-cd ../frontend && npm install
+cd ../frontend && pnpm install
 cd ..
 
 # Run (starts backend on :8000 and frontend on :4001)

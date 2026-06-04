@@ -23,7 +23,7 @@ docker run -p 3000:3000 -v ./data:/app/storage -e GOOGLE_API_KEY=your-key ghcr.i
 
 # local (first time)
 cd backend && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
-cd frontend && npm install
+cd frontend && pnpm install
 
 # local (day-to-day)
 make dev  # starts backend (:8000) and frontend (:4001) concurrently
