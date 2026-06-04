@@ -146,6 +146,7 @@ EXPOSE 3000
 ENV GEMINI_IMAGE_MODEL="gemini-3-pro-image-preview"
 ENV STORAGE_PATH=/app/storage
 ENV U2NET_HOME=/app/.u2net
+ENV NUMBA_CACHE_DIR=/tmp/numba_cache
 ENV HOME=/app
 
 USER tracefinity
