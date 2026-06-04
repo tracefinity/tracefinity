@@ -25,7 +25,7 @@ class DrawerStore:
                 data = json.loads(self.file_path.read_text())
                 for did, ddata in data.items():
                     self._drawers[did] = DrawerModel.model_validate(ddata)
-            except PermissionError:
+            except OSError:
                 logger.error(f"Failed to load {self.file_path}: permission denied")
                 raise
             except Exception as e:

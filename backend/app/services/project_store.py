@@ -25,7 +25,7 @@ class ProjectStore:
                 data = json.loads(self.file_path.read_text())
                 for pid, pdata in data.items():
                     self._projects[pid] = BinProject.model_validate(pdata)
-            except PermissionError:
+            except OSError:
                 logger.error(f"Failed to load {self.file_path}: permission denied")
                 raise
             except Exception as e:

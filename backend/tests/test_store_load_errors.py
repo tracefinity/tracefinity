@@ -5,6 +5,7 @@ file exists but can't be read (e.g. PermissionError from UID mismatch).
 """
 
 import json
+import logging
 import os
 import stat
 
@@ -14,6 +15,8 @@ from app.services.tool_store import ToolStore
 from app.services.bin_store import BinStore
 from app.services.session_store import SessionStore
 from app.services.project_store import ProjectStore
+
+# DrawerStore excluded: DrawerModel doesn't exist in schemas (dead code)
 
 
 # -- helpers --
@@ -65,7 +68,6 @@ class TestPermissionError:
 
         try:
             with pytest.raises(PermissionError):
-                import logging
                 with caplog.at_level(logging.ERROR):
                     store_cls(tmp_path)
 
@@ -90,7 +92,6 @@ class TestCorruptJson:
         file_path = tmp_path / filename
         file_path.write_text("{invalid json!!!")
 
-        import logging
         with caplog.at_level(logging.ERROR):
             store_cls(tmp_path)
 

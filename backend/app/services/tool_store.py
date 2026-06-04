@@ -25,7 +25,7 @@ class ToolStore:
                 data = json.loads(self.file_path.read_text())
                 for tid, tdata in data.items():
                     self._tools[tid] = Tool.model_validate(tdata)
-            except PermissionError:
+            except OSError:
                 logger.error(f"Failed to load {self.file_path}: permission denied")
                 raise
             except Exception as e:

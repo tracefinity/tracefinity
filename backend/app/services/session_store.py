@@ -25,7 +25,7 @@ class SessionStore:
                 data = json.loads(self.file_path.read_text())
                 for sid, sdata in data.items():
                     self._sessions[sid] = Session.model_validate(sdata)
-            except PermissionError:
+            except OSError:
                 logger.error(f"Failed to load {self.file_path}: permission denied")
                 raise
             except Exception as e:

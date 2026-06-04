@@ -25,7 +25,7 @@ class BinStore:
                 data = json.loads(self.file_path.read_text())
                 for bid, bdata in data.items():
                     self._bins[bid] = BinModel.model_validate(bdata)
-            except PermissionError:
+            except OSError:
                 logger.error(f"Failed to load {self.file_path}: permission denied")
                 raise
             except Exception as e:
