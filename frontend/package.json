@@ -2,6 +2,7 @@
   "name": "tracefinity-frontend",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.29.2",
   "scripts": {
     "dev": "next dev -p 4001",
     "build": "next build",
