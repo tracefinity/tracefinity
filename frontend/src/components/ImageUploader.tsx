@@ -2,8 +2,9 @@
 
 import { useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 
-function UploadIllustration() {
+function UploadIllustration({ reduceMotion }: { reduceMotion: boolean }) {
   return (
     <svg viewBox="0 0 280 180" fill="none" className="w-full h-full" style={{ color: 'var(--color-surface)' }}>
       <defs>
@@ -41,8 +42,12 @@ function UploadIllustration() {
 
       {/* screwdriver - angled, overflows top */}
       <g filter="url(#toolShadow)">
-        <animate attributeName="opacity" values="0;1" dur="0.4s" fill="freeze" />
-        <animateTransform attributeName="transform" type="translate" values="0,8;0,0" dur="0.4s" fill="freeze" />
+        {!reduceMotion && (
+          <>
+            <animate attributeName="opacity" values="0;1" dur="0.4s" fill="freeze" />
+            <animateTransform attributeName="transform" type="translate" values="0,8;0,0" dur="0.4s" fill="freeze" />
+          </>
+        )}
         <g transform="rotate(15, 80, 70)">
           {/* handle */}
           <rect x="74" y="80" width="12" height="50" rx="4" fill="#dc6843" />
@@ -61,8 +66,12 @@ function UploadIllustration() {
 
       {/* spanner - overflows right */}
       <g filter="url(#toolShadow)">
-        <animate attributeName="opacity" values="0;0;1" dur="0.8s" fill="freeze" />
-        <animateTransform attributeName="transform" type="translate" values="0,8;0,8;0,0" dur="0.8s" fill="freeze" />
+        {!reduceMotion && (
+          <>
+            <animate attributeName="opacity" values="0;0;1" dur="0.8s" fill="freeze" />
+            <animateTransform attributeName="transform" type="translate" values="0,8;0,8;0,0" dur="0.8s" fill="freeze" />
+          </>
+        )}
         <g transform="rotate(-25, 160, 90)">
           {/* open jaw */}
           <path d="M155 16 L153 28 L147 32 L147 38 L153 42 L155 54 L165 54 L167 42 L173 38 L173 32 L167 28 L165 16Z" fill="#64748b" />
@@ -79,8 +88,12 @@ function UploadIllustration() {
 
       {/* hex key (allen key) - on paper */}
       <g filter="url(#toolShadow)">
-        <animate attributeName="opacity" values="0;0;0;1" dur="1.2s" fill="freeze" />
-        <animateTransform attributeName="transform" type="translate" values="0,6;0,6;0,6;0,0" dur="1.2s" fill="freeze" />
+        {!reduceMotion && (
+          <>
+            <animate attributeName="opacity" values="0;0;0;1" dur="1.2s" fill="freeze" />
+            <animateTransform attributeName="transform" type="translate" values="0,6;0,6;0,6;0,0" dur="1.2s" fill="freeze" />
+          </>
+        )}
         <g transform="rotate(40, 120, 115)">
           <path d="M118 80 L118 125 L140 125" stroke="#94a3b8" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           <path d="M118 80 L118 125 L140 125" stroke="#b0bec5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -88,11 +101,13 @@ function UploadIllustration() {
       </g>
 
       {/* scan line sweeping over paper */}
-      <g transform="rotate(-2, 115, 92)">
-        <rect x="30" y="22" width="170" height="18" fill="url(#scanGlow)">
-          <animateTransform attributeName="transform" type="translate" values="0,0;0,112;0,0" dur="3.5s" repeatCount="indefinite" />
-        </rect>
-      </g>
+      {!reduceMotion && (
+        <g transform="rotate(-2, 115, 92)">
+          <rect x="30" y="22" width="170" height="18" fill="url(#scanGlow)">
+            <animateTransform attributeName="transform" type="translate" values="0,0;0,112;0,0" dur="3.5s" repeatCount="indefinite" />
+          </rect>
+        </g>
+      )}
 
       {/* corner brackets */}
       {[
@@ -103,10 +118,12 @@ function UploadIllustration() {
       ].map(({ x, y, d }, i) => (
         <g key={i}>
           {/* pulse ring */}
-          <circle cx={x} cy={y} r="4" fill="none" stroke="#5ab4de" strokeWidth="1" opacity="0">
-            <animate attributeName="r" values="4;12" dur="2s" begin={`${i * 0.5}s`} repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.4;0" dur="2s" begin={`${i * 0.5}s`} repeatCount="indefinite" />
-          </circle>
+          {!reduceMotion && (
+            <circle cx={x} cy={y} r="4" fill="none" stroke="#5ab4de" strokeWidth="1" opacity="0">
+              <animate attributeName="r" values="4;12" dur="2s" begin={`${i * 0.5}s`} repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.4;0" dur="2s" begin={`${i * 0.5}s`} repeatCount="indefinite" />
+            </circle>
+          )}
           {/* bracket */}
           <path d={d} stroke="#5ab4de" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.8" />
           {/* dot */}
@@ -116,7 +133,9 @@ function UploadIllustration() {
 
       {/* camera/phone icon - top right */}
       <g>
-        <animateTransform attributeName="transform" type="translate" values="0,0;0,-3;0,0" dur="4s" repeatCount="indefinite" />
+        {!reduceMotion && (
+          <animateTransform attributeName="transform" type="translate" values="0,0;0,-3;0,0" dur="4s" repeatCount="indefinite" />
+        )}
 
         {/* phone body */}
         <rect x="228" y="28" width="34" height="56" rx="5" fill="#1e293b" stroke="#334155" strokeWidth="1" />
@@ -124,8 +143,10 @@ function UploadIllustration() {
         <rect x="232" y="34" width="26" height="40" rx="2" fill="#0f172a" />
         {/* lens ring */}
         <circle cx="245" cy="54" r="9" fill="none" stroke="#334155" strokeWidth="1" />
-        <circle cx="245" cy="54" r="6" fill="#5ab4de" opacity="0.08">
-          <animate attributeName="opacity" values="0.08;0.25;0.08" dur="2s" repeatCount="indefinite" />
+        <circle cx="245" cy="54" r="6" fill="#5ab4de" opacity={reduceMotion ? '0.15' : '0.08'}>
+          {!reduceMotion && (
+            <animate attributeName="opacity" values="0.08;0.25;0.08" dur="2s" repeatCount="indefinite" />
+          )}
         </circle>
         <circle cx="245" cy="54" r="3.5" fill="#5ab4de" opacity="0.35" />
         <circle cx="245" cy="54" r="1.5" fill="#5ab4de" opacity="0.8" />
@@ -135,7 +156,9 @@ function UploadIllustration() {
 
       {/* dashed line from phone to scene */}
       <path d="M245 90 L245 92 Q245 102 238 108 L180 138" stroke="#5ab4de" strokeWidth="1" strokeDasharray="3 3" opacity="0.3">
-        <animate attributeName="strokeDashoffset" values="0;-12" dur="1.5s" repeatCount="indefinite" />
+        {!reduceMotion && (
+          <animate attributeName="strokeDashoffset" values="0;-12" dur="1.5s" repeatCount="indefinite" />
+        )}
       </path>
       <circle cx="178" cy="139" r="2" fill="#5ab4de" opacity="0.3" />
     </svg>
@@ -150,6 +173,7 @@ interface Props {
 export function ImageUploader({ onUpload, disabled }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   function handleClick() {
     if (!disabled) inputRef.current?.click()
@@ -202,7 +226,7 @@ export function ImageUploader({ onUpload, disabled }: Props) {
       ) : (
         <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-10">
           <div className="w-72 h-44 flex-shrink-0">
-            <UploadIllustration />
+            <UploadIllustration reduceMotion={reduceMotion} />
           </div>
           <div className="text-center sm:text-left flex-1">
             <p className="text-lg text-white font-bold mb-3 leading-snug">
