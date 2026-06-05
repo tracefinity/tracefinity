@@ -266,3 +266,48 @@ input[type="number"] { -moz-appearance: textfield; }
     min-height: 44px;
   }
 }
+
+/* upload illustration animations */
+@keyframes upload-tool-1 {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes upload-tool-2 {
+  0%, 25% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes upload-tool-3 {
+  0%, 50% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes upload-scan {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(112px); }
+}
+
+@keyframes upload-pulse {
+  from { opacity: 0.4; transform: scale(1); }
+  to { opacity: 0; transform: scale(3); }
+}
+
+@keyframes upload-phone-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes upload-lens-glow {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 0.25; }
+}
+
+@keyframes upload-dash-march {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -12; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-anim { animation: none !important; }
+}
