@@ -41,7 +41,7 @@ export function SettingsPopover() {
     if (!file) return
 
     const confirmed = window.confirm(
-      'Restore this backup? Existing data will be overridden. Tracefinity will first save an automatic backup with the app before replacing current data.'
+      'Restore this backup? Existing data will be overwritten. Tracefinity will first save an automatic backup with the app before replacing current data.'
     )
     if (!confirmed) return
 

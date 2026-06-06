@@ -43,7 +43,7 @@
 
 ## User data
 - `GET /api/users/me/export` - download a ZIP backup of the current user's Tracefinity storage data
-- `POST /api/users/me/restore` - upload a Tracefinity ZIP backup and replace current user data; saves an automatic pre-restore backup first
+- `POST /api/users/me/restore` - upload a Tracefinity ZIP backup and replace current user data; saves an automatic pre-restore backup first; limited by `MAX_BACKUP_MB`
 - `GET /api/users/me/backups/{file_name}` - download an automatic backup saved during restore
 - `DELETE /api/users/me` - delete all current user data
 

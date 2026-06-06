@@ -40,6 +40,10 @@ class BackupError(ValueError):
     """Raised when a backup package cannot be imported safely."""
 
 
+class BackupSizeError(BackupError):
+    """Raised when a backup package exceeds the configured size limit."""
+
+
 @dataclass
 class RestoreResult:
     auto_backup_path: Path
@@ -68,7 +72,7 @@ def _should_export(rel_path: Path) -> bool:
         return False
     if rel_path.parts[0] in EXCLUDED_TOP_LEVEL:
         return False
-    if rel_path.name.endswith(".tmp") and rel_path.name.startswith("."):
+    if rel_path.name.endswith(".tmp") or rel_path.name.startswith("."):
         return False
     return True
 
@@ -130,6 +134,19 @@ def _storage_rel_from_archive_name(name: str) -> Path | None:
     return Path(*rel_parts)
 
 
+def _is_zip_symlink(info: zipfile.ZipInfo) -> bool:
+    return ((info.external_attr >> 16) & 0o170000) == 0o120000
+
+
+def validate_backup_file_size(backup_file: BinaryIO, max_bytes: int) -> None:
+    current = backup_file.tell()
+    backup_file.seek(0, 2)
+    size = backup_file.tell()
+    backup_file.seek(current)
+    if size > max_bytes:
+        raise BackupSizeError(f"backup file too large (max {max_bytes // (1024 * 1024)}MB)")
+
+
 def extract_backup_package(backup_file: BinaryIO, staging_path: Path) -> int:
     """Validate and extract a backup package into staging_path."""
     staging_path.mkdir(parents=True, exist_ok=True)
@@ -142,6 +159,8 @@ def extract_backup_package(backup_file: BinaryIO, staging_path: Path) -> int:
             for info in zf.infolist():
                 if info.is_dir():
                     continue
+                if _is_zip_symlink(info):
+                    raise BackupError("backup contains an unsafe file type")
                 rel_path = _storage_rel_from_archive_name(info.filename)
                 if rel_path is None:
                     continue
@@ -248,31 +267,46 @@ def validate_staged_user_data(staging_path: Path, user_id: str) -> None:
             _validate_store_file(path, model, user_id)
 
 
-def _clear_user_data(user_path: Path) -> None:
-    user_path.mkdir(parents=True, exist_ok=True)
-    for child in user_path.iterdir():
-        if child.name == BACKUP_DIR_NAME:
-            continue
-        if child.is_dir():
-            shutil.rmtree(child)
-        else:
-            child.unlink()
+def _remove_path(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink(missing_ok=True)
 
 
-def _copy_staged_data(staging_path: Path, user_path: Path) -> None:
-    for child in staging_path.iterdir():
-        dest = user_path / child.name
-        if child.is_dir():
-            shutil.copytree(child, dest, dirs_exist_ok=True)
-        else:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(child, dest)
+def _move_children(src_dir: Path, dest_dir: Path) -> None:
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    for child in list(src_dir.iterdir()):
+        shutil.move(str(child), str(dest_dir / child.name))
+
+
+def _install_staged_data_atomically(staging_path: Path, user_path: Path, old_data_path: Path) -> None:
+    old_data_path.mkdir(parents=True, exist_ok=True)
+    installed_paths: list[Path] = []
+    try:
+        for child in list(user_path.iterdir()):
+            if child.name == BACKUP_DIR_NAME:
+                continue
+            shutil.move(str(child), str(old_data_path / child.name))
+        for child in list(staging_path.iterdir()):
+            dest = user_path / child.name
+            shutil.move(str(child), str(dest))
+            installed_paths.append(dest)
+    except Exception:
+        for path in installed_paths:
+            if path.exists():
+                _remove_path(path)
+        _move_children(old_data_path, user_path)
+        raise
+    else:
+        shutil.rmtree(old_data_path, ignore_errors=True)
 
 
 def restore_backup_package(user_path: Path, backup_file: BinaryIO) -> RestoreResult:
     """Restore a backup package, saving an automatic pre-restore backup first."""
     user_path.mkdir(parents=True, exist_ok=True)
     staging_path = user_path.parent / f".restore-{backup_timestamp()}-{uuid.uuid4().hex}"
+    old_data_path = user_path.parent / f".restore-old-{backup_timestamp()}-{uuid.uuid4().hex}"
     backup_dir = user_path / BACKUP_DIR_NAME
     auto_backup_path = backup_dir / backup_filename("tracefinity-auto-backup")
 
@@ -281,8 +315,8 @@ def restore_backup_package(user_path: Path, backup_file: BinaryIO) -> RestoreRes
         _rewrite_staged_user_paths(staging_path, user_path.name)
         validate_staged_user_data(staging_path, user_path.name)
         create_backup_package(user_path, auto_backup_path)
-        _clear_user_data(user_path)
-        _copy_staged_data(staging_path, user_path)
+        _install_staged_data_atomically(staging_path, user_path, old_data_path)
         return RestoreResult(auto_backup_path=auto_backup_path, restored_files=restored_files)
     finally:
         shutil.rmtree(staging_path, ignore_errors=True)
+        shutil.rmtree(old_data_path, ignore_errors=True)

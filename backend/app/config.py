@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     gemini_image_model: str = "gemini-3.1-flash-image-preview"
     gemini_label_model: str = "gemini-2.0-flash"
     max_upload_mb: int = 20
+    max_backup_mb: int = 250
     log_level: str = "INFO"
     proxy_secret: Optional[str] = None
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:4001"]
