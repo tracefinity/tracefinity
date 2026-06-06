@@ -209,6 +209,39 @@ def test_restore_rewrites_storage_paths_for_target_user(tmp_path):
     assert bin_data["stl_path"] == "default/outputs/bin-1.stl"
 
 
+def test_restore_rewrites_photo_station_paths_for_target_user(tmp_path):
+    source_path = tmp_path / "source"
+    (source_path / "station-photos").mkdir(parents=True)
+    (source_path / "station-photos" / "station-1.jpg").write_bytes(b"station preview")
+    (source_path / "photo-stations.json").write_text(json.dumps({
+        "station-1": {
+            "id": "station-1",
+            "name": "Bench station",
+            "image_width": 1000,
+            "image_height": 800,
+            "image_path": "source/station-photos/station-1.jpg",
+            "paper_size": "a4",
+            "corners": [
+                {"x": 0, "y": 0},
+                {"x": 100, "y": 0},
+                {"x": 100, "y": 100},
+                {"x": 0, "y": 100},
+            ],
+        }
+    }))
+    package_path = tmp_path / "source.zip"
+    create_backup_package(source_path, package_path)
+
+    target_path = tmp_path / "default"
+    target_path.mkdir()
+    with package_path.open("rb") as f:
+        restore_backup_package(target_path, f)
+
+    station = json.loads((target_path / "photo-stations.json").read_text())["station-1"]
+    assert station["image_path"] == "default/station-photos/station-1.jpg"
+    assert (target_path / "station-photos" / "station-1.jpg").read_bytes() == b"station preview"
+
+
 def test_restore_rejects_invalid_store_before_changing_data(tmp_path):
     target_path = tmp_path / "default"
     target_path.mkdir()

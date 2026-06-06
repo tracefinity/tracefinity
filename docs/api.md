@@ -42,7 +42,7 @@
 - `POST /api/bin-projects/{id}/repair` - repair safe project/tool/bin link mismatches
 
 ## User data
-- `GET /api/users/me/export` - download a ZIP backup of the current user's Tracefinity storage data
+- `GET /api/users/me/export` - download a ZIP backup of the current user's Tracefinity storage data, including photo station records and preview images
 - `POST /api/users/me/restore` - upload a Tracefinity ZIP backup and replace current user data; saves an automatic pre-restore backup first; limited by `MAX_BACKUP_MB`
 - `GET /api/users/me/backups/{file_name}` - download an automatic backup saved during restore
 - `DELETE /api/users/me` - delete all current user data

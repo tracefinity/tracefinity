@@ -11,6 +11,7 @@ from typing import BinaryIO
 
 from pydantic import ValidationError
 
+from app.models import schemas
 from app.models.schemas import BinModel, BinProject, Session, Tool
 
 
@@ -19,14 +20,16 @@ BACKUP_FORMAT_VERSION = 1
 BACKUP_STORAGE_PREFIX = "storage"
 BACKUP_DIR_NAME = "backups"
 EXCLUDED_TOP_LEVEL = {BACKUP_DIR_NAME}
-RESTORED_TOP_LEVEL = {"uploads", "processed", "outputs", "tools", "bins"}
+RESTORED_TOP_LEVEL = {"uploads", "processed", "outputs", "tools", "bins", "station-photos"}
 STORAGE_PATH_FIELDS = {
     "original_image_path",
     "corrected_image_path",
     "mask_image_path",
+    "station_image_path",
     "stl_path",
     "source_image_path",
     "thumbnail_path",
+    "image_path",
 }
 STORE_MODELS = {
     "sessions.json": Session,
@@ -34,6 +37,9 @@ STORE_MODELS = {
     "bins.json": BinModel,
     "bin-projects.json": BinProject,
 }
+if hasattr(schemas, "PhotoStation"):
+    STORE_MODELS["photo-stations.json"] = schemas.PhotoStation
+PATH_REWRITE_STORE_FILES = set(STORE_MODELS) | {"photo-stations.json"}
 
 
 class BackupError(ValueError):
@@ -206,7 +212,7 @@ def _rewrite_storage_paths(value: object, user_id: str, key: str | None = None) 
 
 
 def _rewrite_staged_user_paths(staging_path: Path, user_id: str) -> None:
-    for file_name in STORE_MODELS:
+    for file_name in PATH_REWRITE_STORE_FILES:
         path = staging_path / file_name
         if not path.exists():
             continue

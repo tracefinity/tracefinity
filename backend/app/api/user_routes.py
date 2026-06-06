@@ -30,10 +30,13 @@ BACKUP_FILE_NAME_RE = re.compile(r"^tracefinity-auto-backup-\d{8}-\d{6}\.zip$")
 
 
 def _evict_user_store_cache(user_id: str) -> None:
-    from app.api.routes import _project_store_cache, _store_cache
+    import app.api.routes as routes
 
-    _store_cache.pop(user_id, None)
-    _project_store_cache.pop(user_id, None)
+    routes._store_cache.pop(user_id, None)
+    routes._project_store_cache.pop(user_id, None)
+    photo_station_cache = getattr(routes, "_photo_station_store_cache", None)
+    if photo_station_cache is not None:
+        photo_station_cache.pop(user_id, None)
 
 
 @router.get("/users/me/export")
