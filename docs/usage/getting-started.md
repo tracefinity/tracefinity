@@ -20,10 +20,10 @@ Without an API key, tracing uses a local model (IS-Net by default). See [tracing
 
 ## Your first trace
 
-1. Place tools flat on a sheet of A4 or Letter paper. Use a contrasting surface underneath.
+1. Place tools flat on a sheet of A4, Letter, A3, or Tabloid paper. Use a contrasting surface underneath.
 2. Photograph from above. Directly overhead gives the best scale accuracy.
 3. From the home page, drag and drop your photo onto the uploader (or click to browse). JPG, PNG, WebP, and HEIC are accepted.
-4. Drag the four corner handles onto the paper edges. Select A4 or Letter.
+4. Drag the four corner handles onto the paper edges. Select A4, Letter, A3, or Tabloid.
 5. Tracing starts automatically. The AI generates silhouette masks for each tool, typically in a few seconds.
 6. Click to select which traced tools to keep. Selected tools are saved to your library.
 

@@ -3,6 +3,8 @@ export interface Point {
   y: number
 }
 
+export type PaperSize = 'a4' | 'letter' | 'a3' | 'tabloid'
+
 export interface FingerHole {
   id: string
   x: number
@@ -52,7 +54,7 @@ export interface Session {
   corrected_image_path: string | null
   mask_image_path: string | null
   corners: Point[] | null
-  paper_size: 'a4' | 'letter' | null
+  paper_size: PaperSize | null
   scale_factor: number | null
   polygons: Polygon[] | null
   stl_path: string | null

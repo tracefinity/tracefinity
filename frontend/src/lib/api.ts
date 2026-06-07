@@ -19,6 +19,7 @@ import type {
   BinSummary,
   PlacedTool,
   TextLabel,
+  PaperSize,
 } from '@/types'
 
 export class ApiError extends Error {
@@ -73,7 +74,7 @@ export async function uploadImage(file: File): Promise<UploadResponse> {
 export async function setCorners(
   sessionId: string,
   corners: Point[],
-  paperSize: 'a4' | 'letter'
+  paperSize: PaperSize
 ): Promise<CornersResponse> {
   return fetchApi(`/api/sessions/${sessionId}/corners`, {
     method: 'POST',

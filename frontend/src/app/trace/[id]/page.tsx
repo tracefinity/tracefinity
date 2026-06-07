@@ -11,9 +11,16 @@ import { Alert } from '@/components/Alert'
 import { getSession, setCorners, traceTools, updatePolygons, updateSession, getImageUrl, getAvailableKeys, traceFromMask, saveToolsFromSession } from '@/lib/api'
 import { CornersHint, TraceHint, EditHint } from '@/components/OnboardingIllustrations'
 import { StepBar } from '@/components/StepBar'
-import type { Point, Polygon, Session } from '@/types'
+import type { PaperSize, Point, Polygon, Session } from '@/types'
 
 type Step = 'corners' | 'trace' | 'edit'
+
+const PAPER_SIZE_OPTIONS: { value: PaperSize; label: string }[] = [
+  { value: 'a4', label: 'A4' },
+  { value: 'letter', label: 'Letter' },
+  { value: 'a3', label: 'A3' },
+  { value: 'tabloid', label: 'Tabloid' },
+]
 
 const MASK_PROMPT = `Generate a pure black and white silhouette mask of ONLY the tools/objects in this image.
 - Tools should be solid BLACK (#000000)
@@ -42,7 +49,7 @@ export default function TracePage() {
   const [error, setError] = useState<string | null>(null)
 
   const [corners, setLocalCorners] = useState<Point[]>([])
-  const [paperSize, setPaperSize] = useState<'a4' | 'letter'>('a4')
+  const [paperSize, setPaperSize] = useState<PaperSize>('a4')
   const [imageUrl, setImageUrl] = useState<string>('')
   const [correctedImageUrl, setCorrectedImageUrl] = useState<string>('')
   const [polygons, setPolygons] = useState<Polygon[]>([])
@@ -97,6 +104,9 @@ export default function TracePage() {
 
         if (s.corners) {
           setLocalCorners(s.corners)
+        }
+        if (s.paper_size) {
+          setPaperSize(s.paper_size)
         }
         if (s.corrected_image_path) {
           setCorrectedImageUrl(`/storage/${s.corrected_image_path}`)
@@ -354,27 +364,20 @@ export default function TracePage() {
 
               <div>
                 <span className="text-xs text-text-primary tracking-[0.3px]">Paper Size</span>
-                <div className="inline-flex rounded-[10px] glass p-0.5 mt-1.5">
-                  <button
-                    onClick={() => setPaperSize('a4')}
-                    className={`px-3 py-1 rounded text-xs font-medium ${
-                      paperSize === 'a4'
-                        ? 'bg-surface text-text-primary shadow-sm'
-                        : 'text-text-muted hover:text-text-primary'
-                    }`}
-                  >
-                    A4
-                  </button>
-                  <button
-                    onClick={() => setPaperSize('letter')}
-                    className={`px-3 py-1 rounded text-xs font-medium ${
-                      paperSize === 'letter'
-                        ? 'bg-surface text-text-primary shadow-sm'
-                        : 'text-text-muted hover:text-text-primary'
-                    }`}
-                  >
-                    Letter
-                  </button>
+                <div className="grid grid-cols-2 gap-0.5 rounded-[10px] glass p-0.5 mt-1.5 w-full">
+                  {PAPER_SIZE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setPaperSize(option.value)}
+                      className={`h-7 px-2 rounded text-xs font-medium whitespace-nowrap ${
+                        paperSize === option.value
+                          ? 'bg-surface text-text-primary shadow-sm'
+                          : 'text-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>

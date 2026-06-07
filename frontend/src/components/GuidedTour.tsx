@@ -8,7 +8,7 @@ interface Props {
 }
 
 const STEPS = [
-  { Illustration: PhotoIllustration, label: '1. Photograph', caption: 'Place your tools on a sheet of A4 or Letter paper and take a photo from above.' },
+  { Illustration: PhotoIllustration, label: '1. Photograph', caption: 'Place your tools on a sheet of A4, Letter, A3, or Tabloid paper and take a photo from above.' },
   { Illustration: CornersIllustration, label: '2. Adjust corners', caption: 'Drag the corner handles to match the paper edges. This gives us the scale.' },
   { Illustration: TraceIllustration, label: '3. Trace', caption: 'AI generates a silhouette mask and traces the tool outlines automatically.' },
   { Illustration: OrganiseIllustration, label: '4. Organise & export', caption: 'Arrange tools in a gridfinity bin layout and download the STL for 3D printing.' },

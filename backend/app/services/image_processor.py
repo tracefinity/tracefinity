@@ -5,14 +5,10 @@ import logging
 import math
 import numpy as np
 from pathlib import Path
-from typing import Literal
+
+from app.constants import PAPER_SIZES, PaperSize
 
 logger = logging.getLogger(__name__)
-
-PAPER_SIZES = {
-    "a4": (210, 297),
-    "letter": (215.9, 279.4),
-}
 
 PX_PER_MM = 10
 
@@ -238,7 +234,7 @@ class ImageProcessor:
                 logger.debug("paper candidate rejected: fill_ratio=%.2f at thresh=%d", fill_ratio, thresh_val)
                 continue
 
-            # check aspect ratio is paper-like (A4=0.707, Letter=0.77)
+            # check aspect ratio is paper-like (A-series=0.707, Letter=0.77, Tabloid=0.65)
             rect_w, rect_h = rect[1]
             if rect_w == 0 or rect_h == 0:
                 continue
@@ -341,7 +337,7 @@ class ImageProcessor:
         self,
         image_path: str,
         corners: list[tuple[float, float]],
-        paper_size: Literal["a4", "letter"],
+        paper_size: PaperSize,
     ) -> tuple[str, float]:
         """warp image to top-down view and return output path + scale factor.
         includes the full visible area beyond the paper so oversized tools

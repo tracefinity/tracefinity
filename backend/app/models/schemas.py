@@ -3,6 +3,8 @@ from __future__ import annotations
 from pydantic import BaseModel, field_validator
 from typing import Literal, Optional
 
+from app.constants import PaperSize
+
 
 class Point(BaseModel):
     x: float
@@ -48,7 +50,7 @@ class UploadResponse(BaseModel):
 
 class CornersRequest(BaseModel):
     corners: list[Point]
-    paper_size: Literal["a4", "letter"]
+    paper_size: PaperSize
 
 
 class CornersResponse(BaseModel):
@@ -180,7 +182,7 @@ class Session(BaseModel):
     corrected_image_path: str | None = None
     mask_image_path: str | None = None
     corners: list[Point] | None = None
-    paper_size: Literal["a4", "letter"] | None = None
+    paper_size: PaperSize | None = None
     scale_factor: float | None = None
     polygons: list[Polygon] | None = None
     stl_path: str | None = None

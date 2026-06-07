@@ -220,7 +220,7 @@ export function ImageUploader({ onUpload, disabled }: Props) {
             <ul className="text-sm text-text-secondary leading-relaxed space-y-1.5 mb-5">
               <li className="flex items-start gap-2 justify-center sm:justify-start">
                 <span className="mt-[7px] block w-1.5 h-1.5 rounded-full bg-accent/50 flex-shrink-0" />
-                Place tools on A4 or Letter paper
+                Place tools on A4, Letter, A3, or Tabloid paper
               </li>
               <li className="flex items-start gap-2 justify-center sm:justify-start">
                 <span className="mt-[7px] block w-1.5 h-1.5 rounded-full bg-accent/50 flex-shrink-0" />

@@ -51,7 +51,7 @@ Boolean operations (add, subtract) are single-threaded in OCCT. More cores don't
 
 Uses a two-stage approach: U2-Net Portable generates a rough tool mask (~0.17s), tool pixels are blacked out, then OpenCV brightness thresholding finds the paper rectangle in the cleaned image. This prevents tools (especially dark ones on white paper) from fragmenting the paper region during detection.
 
-The brightness detection tries multiple thresholds (200, 190, 180), picks the largest valid candidate, and validates against aspect ratio (0.55-0.85, covering A4 and Letter) and fill ratio (>35% of the bounding rectangle is bright). A convex hull merge step handles cases where the paper is split into fragments.
+The brightness detection tries multiple thresholds (200, 190, 180), picks the largest valid candidate, and validates against aspect ratio (0.55-0.85, covering A-series, Letter, and Tabloid) and fill ratio (>35% of the bounding rectangle is bright). A convex hull merge step handles cases where the paper is split into fragments.
 
 Difficult cases: hands in the frame, sticks/rods crossing the paper, very heavy tool overflow with minimal visible paper. These may need manual corner adjustment.
 

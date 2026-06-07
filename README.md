@@ -13,7 +13,7 @@
 
 ## How It Works
 
-1. Place tools on A4/Letter paper (tools can overflow the edges)
+1. Place tools on A4, Letter, A3, or Tabloid paper (tools can overflow the edges)
 2. Take a photo from above
 3. Upload and adjust paper corners for scale calibration
 4. AI traces tool outlines automatically

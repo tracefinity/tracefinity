@@ -2,7 +2,7 @@
 
 ## Paper as a size reference
 
-Tracefinity uses a sheet of paper as a known-size reference to scale outlines to real-world dimensions. Place tools flat on A4 or Letter paper.
+Tracefinity uses a sheet of paper as a known-size reference to scale outlines to real-world dimensions. Place tools flat on A4, Letter, A3, or Tabloid paper.
 
 The paper is for scale only. Tools can overflow the paper edges. The full visible area beyond the paper is included in the corrected image.
 
@@ -22,4 +22,4 @@ Images are automatically downscaled to a maximum of 2048px on the longest edge. 
 
 ## Paper size
 
-After uploading, select A4 or Letter. Pick whichever you actually used. This determines the scale of everything downstream: tool outlines, bin dimensions, and exported STL geometry.
+After uploading, select A4, Letter, A3, or Tabloid. Pick whichever you actually used. This determines the scale of everything downstream: tool outlines, bin dimensions, and exported STL geometry.

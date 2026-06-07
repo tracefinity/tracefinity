@@ -742,7 +742,7 @@ export default function HomePage() {
           {!collapsedSections.howItWorks && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { Illustration: PhotoIllustration, label: '1. Photograph', caption: 'Place tools on A4 or Letter paper and photograph from above' },
+              { Illustration: PhotoIllustration, label: '1. Photograph', caption: 'Place tools on A4, Letter, A3, or Tabloid paper and photograph from above' },
               { Illustration: CornersIllustration, label: '2. Corners', caption: 'Adjust the paper corners so we know the scale' },
               { Illustration: TraceIllustration, label: '3. Trace', caption: 'AI traces tool outlines into precise silhouettes' },
               { Illustration: OrganiseIllustration, label: '4. Organise', caption: 'Arrange tools in a bin and export the STL for printing' },
