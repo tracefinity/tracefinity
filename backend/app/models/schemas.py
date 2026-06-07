@@ -78,6 +78,8 @@ class BinParams(BaseModel):
     width_mm: float = 84.0
     depth_mm: float = 84.0
     height_units: int = 4
+    height_mm: float = 0.0  # freeform only: mm. 0 = use height_units * 7
+    no_base: bool = True  # freeform only: default no base plate
     magnets: bool = True
     magnet_diameter: float = 6.0
     magnet_depth: float = 2.4
@@ -113,6 +115,15 @@ class BinParams(BaseModel):
     def validate_height(cls, v: int) -> int:
         if v < 1 or v > 20:
             raise ValueError("height must be between 1 and 20 units")
+        return v
+
+    @field_validator("height_mm")
+    @classmethod
+    def validate_height_mm(cls, v: float, info) -> float:
+        if not info.data.get("freeform"):
+            return v
+        if v < 0.1 or v > 200:
+            raise ValueError("height_mm must be between 0.1 and 200mm")
         return v
 
     @field_validator("cutout_depth")

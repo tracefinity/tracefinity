@@ -101,6 +101,8 @@ export interface BinDefaults {
   width_mm: number
   depth_mm: number
   height_units: number
+  height_mm: number
+  no_base: boolean
   magnets: boolean
   magnet_diameter: number
   magnet_depth: number

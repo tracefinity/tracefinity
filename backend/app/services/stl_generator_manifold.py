@@ -21,6 +21,13 @@ from app.constants import GF_GRID
 GF_HEIGHT_UNIT = 7.0
 
 
+def _resolve_height(config: GenerateRequest) -> float:
+    """Freeform: use height_mm if set, else fall back to height_units * 7."""
+    if config.freeform and config.height_mm > 0:
+        return config.height_mm
+    return config.height_units * GF_HEIGHT_UNIT
+
+
 def _outer_dim(config: GenerateRequest, axis: str) -> float:
     """Outer width (w) or depth (h) in mm. Gridfinity: grid_count * 42mm. Freeform: direct mm."""
     if config.freeform:
@@ -156,14 +163,16 @@ def _build_shell(config: GenerateRequest):
     """
     import manifold3d as mf
 
-    height = config.height_units * GF_HEIGHT_UNIT
+    height = _resolve_height(config)
     outer_w = _outer_dim(config, "w") - 0.5
     outer_h = _outer_dim(config, "h") - 0.5
     r = GF_CORNER_R
 
     if config.freeform:
-        # single solid base at full dimensions, no grid-cell pattern
-        base_units = [_build_base_unit(outer_w, outer_h)]
+        if config.no_base:
+            base_units = []
+        else:
+            base_units = [_build_base_unit(outer_w, outer_h)]
     else:
         grid_x, grid_y = config.grid_x, config.grid_y
         base_units = []
@@ -175,9 +184,13 @@ def _build_shell(config: GenerateRequest):
                 base_units.append(unit.translate((cx, cy, 0.0)))
 
     cs_wall = _cs(_rounded_rect_pts(outer_w, outer_h, r))
-    wall_body = mf.Manifold.extrude(cs_wall, height - GF_BASE_HEIGHT).translate(
-        (0.0, 0.0, GF_BASE_HEIGHT)
-    )
+    if config.freeform and config.no_base:
+        # no base plate: wall from z=0
+        wall_body = mf.Manifold.extrude(cs_wall, height).translate((0.0, 0.0, 0.0))
+    else:
+        wall_body = mf.Manifold.extrude(cs_wall, height - GF_BASE_HEIGHT).translate(
+            (0.0, 0.0, GF_BASE_HEIGHT)
+        )
 
     parts = base_units + [wall_body]
     return mf.Manifold.batch_boolean(parts, mf.OpType.Add)
@@ -784,7 +797,7 @@ class ManifoldSTLGenerator:
         bin_depth = _outer_dim(config, "h")
         offset_x = -bin_width / 2
         offset_y = -bin_depth / 2
-        wall_top_z = config.height_units * GF_HEIGHT_UNIT
+        wall_top_z = _resolve_height(config)
 
         # build solid shell (wall body to wall_top_z, no lip yet)
         t1 = time.monotonic()
@@ -821,7 +834,7 @@ class ManifoldSTLGenerator:
 
         pocket_depth = 5
         if polygons:
-            floor_z = GF_BASE_HEIGHT
+            floor_z = 0.0 if (config.freeform and config.no_base) else GF_BASE_HEIGHT
             lip_deduction = (LIP_D3 + LIP_D4) if config.stacking_lip else 0
             max_depth = wall_top_z - floor_z - 2 - lip_deduction
             # Default pocket_depth (used by text labels below) still tracks the

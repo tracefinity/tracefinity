@@ -9,8 +9,7 @@ const GF_BASE_HEIGHT = 4.75
 // lip_d3 (1.2) + lip_d4 (2.6)
 const LIP_NOTCH_DEPTH = 3.8
 
-export function calcMaxCutoutDepth(heightUnits: number, stackingLip: boolean): number {
-  const wallTopZ = heightUnits * GF_HEIGHT_UNIT
+export function calcMaxCutoutDepth(wallTopZ: number, stackingLip: boolean): number {
   const lipDeduction = stackingLip ? LIP_NOTCH_DEPTH : 0
   return Math.max(5, wallTopZ - GF_BASE_HEIGHT - 2 - lipDeduction)
 }
@@ -130,7 +129,8 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
     onChange({ ...config, ...partial })
   }
 
-  const maxCutoutDepth = calcMaxCutoutDepth(config.height_units, config.stacking_lip)
+  const wallTopZ = config.freeform && config.height_mm > 0 ? config.height_mm : config.height_units * GF_HEIGHT_UNIT
+  const maxCutoutDepth = calcMaxCutoutDepth(wallTopZ, config.stacking_lip)
   const binWidth = config.freeform ? config.width_mm : config.grid_x * 42
   const binDepth = config.freeform ? config.depth_mm : config.grid_y * 42
   const needsSplit = config.bed_size > 0 && (binWidth > config.bed_size || binDepth > config.bed_size)
@@ -146,10 +146,12 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
               // switching to gridfinity: preserve width_mm/depth_mm as grid units
               const gx = Math.max(1, Math.min(10, Math.round(config.width_mm / 42)))
               const gy = Math.max(1, Math.min(10, Math.round(config.depth_mm / 42)))
-              update({ freeform: false, grid_x: gx, grid_y: gy })
+              const hu = config.height_mm > 0 ? Math.max(1, Math.min(20, Math.round(config.height_mm / GF_HEIGHT_UNIT))) : config.height_units
+              update({ freeform: false, grid_x: gx, grid_y: gy, height_units: hu })
             } else {
               // switching to freeform: preserve grid units as mm
-              update({ freeform: true, width_mm: config.grid_x * 42, depth_mm: config.grid_y * 42 })
+              const hu = config.height_units || 1
+              update({ freeform: true, width_mm: config.grid_x * 42, depth_mm: config.grid_y * 42, height_mm: Math.round(hu * GF_HEIGHT_UNIT * 10) / 10 })
             }
           }}
           className={`text-xs px-2 py-1 rounded transition-colors ${config.freeform ? 'bg-accent text-white' : 'bg-elevated text-text-muted'}`}
@@ -228,22 +230,45 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
         </>
       )}
 
-      <SliderRow
-        label="Height"
-        help={`Bin height. Each gridfinity unit is 7mm, plus a 4.75mm base. Current: ${(config.height_units * 7 + 4.75).toFixed(1)}mm total.`}
-        value={config.height_units}
-        min={1}
-        max={20}
-        unit="u"
-        onChange={(v) => {
-          const newMax = calcMaxCutoutDepth(v, config.stacking_lip)
-          update({ height_units: v, cutout_depth: Math.min(config.cutout_depth, newMax) })
-        }}
-      />
+      {config.freeform ? (
+        <>
+          <SliderRow
+            label="Height"
+            help={`Bin height in mm. Current: ${config.height_mm.toFixed(1)}mm total.`}
+            value={config.height_mm}
+            min={5}
+            max={200}
+            unit="mm"
+            onChange={(v) => {
+              const newMax = calcMaxCutoutDepth(v, config.stacking_lip)
+              update({ height_mm: v, cutout_depth: Math.min(config.cutout_depth, newMax) })
+            }}
+          />
+          <Toggle
+            checked={!config.no_base}
+            onChange={(v) => update({ no_base: !v })}
+            label="Base plate"
+            help="Gridfinity-style base plate with chamfered bottom. Disable for a flat-bottomed box."
+          />
+        </>
+      ) : (
+        <SliderRow
+          label="Height"
+          help={`Bin height. Each gridfinity unit is 7mm, plus a 4.75mm base. Current: ${(config.height_units * 7 + 4.75).toFixed(1)}mm total.`}
+          value={config.height_units}
+          min={1}
+          max={20}
+          unit="u"
+          onChange={(v) => {
+            const newMax = calcMaxCutoutDepth(v * GF_HEIGHT_UNIT, config.stacking_lip)
+            update({ height_units: v, cutout_depth: Math.min(config.cutout_depth, newMax) })
+          }}
+        />
+      )}
 
       <SliderRow
         label="Cutout Depth"
-        help={`How deep the tool pocket is cut into the bin. Max ${maxCutoutDepth.toFixed(1)}mm at ${config.height_units}u height.`}
+        help={`How deep the tool pocket is cut into the bin. Max ${maxCutoutDepth.toFixed(1)}mm at ${(config.freeform && config.height_mm > 0 ? config.height_mm : config.height_units * GF_HEIGHT_UNIT).toFixed(1)}mm height.`}
         value={Math.min(config.cutout_depth, maxCutoutDepth)}
         min={5}
         max={maxCutoutDepth}
@@ -312,7 +337,8 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
         <Toggle
           checked={config.stacking_lip}
           onChange={(v) => {
-            const newMax = calcMaxCutoutDepth(config.height_units, v)
+            const wallZ = config.freeform && config.height_mm > 0 ? config.height_mm : config.height_units * GF_HEIGHT_UNIT
+            const newMax = calcMaxCutoutDepth(wallZ, v)
             update({ stacking_lip: v, cutout_depth: Math.min(config.cutout_depth, newMax) })
           }}
           label="Stacking lip"

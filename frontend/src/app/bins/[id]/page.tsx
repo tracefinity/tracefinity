@@ -7,7 +7,7 @@ import { BinConfigurator, calcMaxCutoutDepth } from '@/components/BinConfigurato
 import { BinPreview3D } from '@/components/BinPreview3D'
 import { ToolBrowser } from '@/components/ToolBrowser'
 import { getBin, updateBin, generateBinStl, getBinStlUrl, getBinZipUrl, getBinThreemfUrl, getBinInsertUrl, getImageUrl, listTools, updateTool } from '@/lib/api'
-import { getDefaultBinConfig, resetDefaultBinConfig, saveDefaultBinConfig } from '@/lib/binDefaults'
+import { getDefaultBinConfig, normalizeBinConfig, resetDefaultBinConfig, saveDefaultBinConfig } from '@/lib/binDefaults'
 import type { BinConfig, BinData, PlacedTool, TextLabel } from '@/types'
 import { Download, Loader2, Package, ChevronDown, Check } from 'lucide-react'
 import { Breadcrumb } from '@/components/Breadcrumb'
@@ -100,7 +100,7 @@ export default function BinPage() {
         setPlacedTools(synced)
         setTextLabels(data.text_labels)
         setName(data.name || '')
-        setConfig(data.bin_config)
+        setConfig(normalizeBinConfig(data.bin_config))
         setSmoothedToolIds(new Set(tools.filter(t => t.smoothed).map(t => t.id)))
         setSmoothLevels(new Map(tools.map(t => [t.id, t.smooth_level])))
       } catch {

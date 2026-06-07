@@ -8,6 +8,8 @@ export const FACTORY_BIN_CONFIG: BinConfig = {
   freeform: false,
   width_mm: 0,
   depth_mm: 0,
+  height_mm: 0,
+  no_base: true,
   magnets: true,
   magnet_diameter: 6.0,
   magnet_depth: 2.4,
@@ -34,6 +36,15 @@ export function buildBinConfig(overrides: Partial<BinDefaults> | null = null): B
 export function binDefaultsFromConfig(config: Partial<BinConfig>): BinDefaults {
   const { text_labels: _textLabels, ...defaults } = buildBinConfig(config)
   return defaults
+}
+
+/** Ensure height_mm has a value derived from height_units if not set. */
+const GF_HEIGHT_UNIT = 7.0
+export function normalizeBinConfig(config: BinConfig): BinConfig {
+  if (config.height_mm === 0) {
+    return { ...config, height_mm: config.height_units * GF_HEIGHT_UNIT }
+  }
+  return config
 }
 
 export function getDefaultBinConfig(): BinConfig {
