@@ -1,6 +1,6 @@
 import type { FingerHole } from '@/types'
-import { DISPLAY_SCALE } from '@/lib/constants'
-import { isFilletedRectangleCutout, isRectangularCutout } from '@/lib/cutouts'
+import { DEFAULT_CUTOUT_DEPTH, DISPLAY_SCALE } from '@/lib/constants'
+import { filletedRectangleRadius, isFilletedRectangleCutout, isRectangularCutout } from '@/lib/cutouts'
 
 interface Props {
   holes: FingerHole[]
@@ -8,11 +8,12 @@ interface Props {
   interactive?: boolean
   selectedId?: string
   editMode?: string
+  defaultCutoutDepth?: number
   onMouseDown?: (id: string, e: React.MouseEvent) => void
   onClick?: (e: React.MouseEvent) => void
 }
 
-export function CutoutOverlay({ holes, zoom = 1, interactive, selectedId, editMode, onMouseDown, onClick }: Props) {
+export function CutoutOverlay({ holes, zoom = 1, interactive, selectedId, editMode, defaultCutoutDepth = DEFAULT_CUTOUT_DEPTH, onMouseDown, onClick }: Props) {
   return (
     <>
       {holes.map(fh => {
@@ -30,7 +31,8 @@ export function CutoutOverlay({ holes, zoom = 1, interactive, selectedId, editMo
         const fill = isSelected ? 'rgb(30, 41, 59)' : 'rgb(51, 65, 85)'
         const stroke = isSelected ? 'rgb(90, 180, 222)' : 'rgb(30, 41, 59)'
         const strokeWidth = (isSelected ? 3 : 1) / zoom
-        const filletR = Math.min(w / 3, h / 2)
+        const cutoutDepth = (fh.depth_override ?? defaultCutoutDepth) * DISPLAY_SCALE
+        const filletR = filletedRectangleRadius(w, cutoutDepth)
         const left = x - w / 2
         const right = x + w / 2
         const top = y - h / 2

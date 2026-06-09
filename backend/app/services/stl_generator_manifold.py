@@ -62,6 +62,22 @@ def _cs(pts: np.ndarray):
     return mf.CrossSection([np.asarray(pts, dtype=np.float64)])
 
 
+def _signed_area(pts: np.ndarray) -> float:
+    """Signed 2D polygon area; positive means CCW."""
+    arr = np.asarray(pts, dtype=np.float64)
+    if len(arr) < 3:
+        return 0.0
+    x = arr[:, 0]
+    y = arr[:, 1]
+    return 0.5 * float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+
+
+def _ensure_ccw(pts: np.ndarray) -> np.ndarray:
+    """Return points in CCW order for manifold3d CrossSection input."""
+    arr = np.asarray(pts, dtype=np.float64)
+    return arr if _signed_area(arr) >= 0 else arr[::-1].copy()
+
+
 def _build_base_unit(outer_w: float, outer_h: float):
     """Solid gridfinity base unit for one grid cell, centred at (0,0), z=0..GF_BASE_HEIGHT."""
     import manifold3d as mf
@@ -197,12 +213,12 @@ def _rounded_bottom_rect_profile_pts(
     hw = w / 2.0
     r = min(max(fillet_r, 0.0), hw, d)
     if r <= 1e-6:
-        return np.array([
+        return _ensure_ccw(np.array([
             (hw, 0.0),
             (hw, d),
             (-hw, d),
             (-hw, 0.0),
-        ], dtype=np.float64)
+        ], dtype=np.float64))
 
     n = max(4, segs // 8)
     pts: list[tuple[float, float]] = []
@@ -224,7 +240,7 @@ def _rounded_bottom_rect_profile_pts(
         a = math.pi + j * (math.pi / 2.0) / n
         pts.append((left_cx + r * math.cos(a), left_cy + r * math.sin(a)))
 
-    return np.array(pts, dtype=np.float64)
+    return _ensure_ccw(np.array(pts, dtype=np.float64))
 
 
 def _make_filleted_rectangle_cutter(
@@ -243,7 +259,7 @@ def _make_filleted_rectangle_cutter(
     h = max(height, 0.01)
     z_margin = 0.005
     profile_depth = pocket_depth + z_margin * 2.0
-    length = h + z_margin * 2.0
+    length = h
     r = _filleted_rect_radius(w, pocket_depth)
     profile = _rounded_bottom_rect_profile_pts(w, profile_depth, r)
     cs = _cs(profile)

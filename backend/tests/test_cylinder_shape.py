@@ -2,9 +2,12 @@
 from app.models.schemas import BinParams
 from app.services.polygon_scaler import ScaledFingerHole, ScaledPolygon
 from app.services.stl_generator_manifold import (
+    _ensure_ccw,
     _filleted_rect_radius,
     _make_finger_hole_chamfers,
     _make_finger_holes,
+    _rounded_bottom_rect_profile_pts,
+    _signed_area,
 )
 
 
@@ -24,7 +27,7 @@ def _scaled_poly_with_hole(shape: str, radius=10.0):
     )
 
 
-def _scaled_poly_with_rectangle_hole(shape: str, width=40.0, height=18.0):
+def _scaled_poly_with_rectangle_hole(shape: str, width=40.0, height=18.0, rotation=0.0):
     fh = ScaledFingerHole(
         id="fh1",
         x_mm=0.0,
@@ -33,6 +36,7 @@ def _scaled_poly_with_rectangle_hole(shape: str, width=40.0, height=18.0):
         shape=shape,
         width_mm=width,
         height_mm=height,
+        rotation=rotation,
     )
     return ScaledPolygon(
         id="p1",
@@ -40,6 +44,10 @@ def _scaled_poly_with_rectangle_hole(shape: str, width=40.0, height=18.0):
         label="test",
         finger_holes=[fh],
     )
+
+
+def _has_point(profile, x: float, y: float, tol: float = 1e-9) -> bool:
+    return any(abs(px - x) < tol and abs(py - y) < tol for px, py in profile)
 
 
 class TestCylinderShape:
@@ -110,6 +118,49 @@ class TestFilletedRectangleShape:
     def test_filleted_rectangle_radius_clamps_to_width_or_depth(self):
         assert abs(_filleted_rect_radius(width=10.0, pocket_depth=30.0) - (10.0 / 3.0)) < 1e-9
         assert _filleted_rect_radius(width=80.0, pocket_depth=30.0) == 15.0
+        assert _filleted_rect_radius(width=-10.0, pocket_depth=30.0) == 0.0
+        assert _filleted_rect_radius(width=10.0, pocket_depth=-30.0) == 0.0
+
+    def test_filleted_rectangle_profile_is_ccw(self):
+        profile = _rounded_bottom_rect_profile_pts(width=30.0, depth=20.0, fillet_r=5.0)
+        assert _signed_area(profile) > 0
+        assert _ensure_ccw(profile[::-1])[0].tolist() == profile[0].tolist()
+
+    def test_filleted_rectangle_profile_zero_fillet_is_rectangular(self):
+        profile = _rounded_bottom_rect_profile_pts(width=20.0, depth=10.0, fillet_r=0.0)
+        assert _signed_area(profile) > 0
+        assert profile.tolist() == [
+            [10.0, 0.0],
+            [10.0, 10.0],
+            [-10.0, 10.0],
+            [-10.0, 0.0],
+        ]
+
+    def test_filleted_rectangle_profile_handles_half_width_fillet(self):
+        profile = _rounded_bottom_rect_profile_pts(width=20.0, depth=30.0, fillet_r=10.0)
+        assert _signed_area(profile) > 0
+        assert abs(profile[:, 0].min() + 10.0) < 1e-9
+        assert abs(profile[:, 0].max() - 10.0) < 1e-9
+        assert abs(profile[:, 1].min()) < 1e-9
+        assert abs(profile[:, 1].max() - 30.0) < 1e-9
+
+    def test_filleted_rectangle_profile_clamps_negative_dimensions(self):
+        profile = _rounded_bottom_rect_profile_pts(width=-20.0, depth=-30.0, fillet_r=5.0)
+        assert _signed_area(profile) > 0
+        assert abs(profile[:, 0].min() + 0.005) < 1e-9
+        assert abs(profile[:, 0].max() - 0.005) < 1e-9
+        assert abs(profile[:, 1].min()) < 1e-9
+        assert abs(profile[:, 1].max() - 0.01) < 1e-9
+
+    def test_filleted_rectangle_profile_key_positions(self):
+        profile = _rounded_bottom_rect_profile_pts(width=30.0, depth=20.0, fillet_r=5.0)
+        assert profile[0].tolist() == [10.0, 0.0]
+        assert _has_point(profile, 15.0, 5.0)
+        assert _has_point(profile, 15.0, 20.0)
+        assert _has_point(profile, -15.0, 20.0)
+        assert _has_point(profile, -15.0, 5.0)
+        assert abs(profile[-1][0] + 10.0) < 1e-9
+        assert abs(profile[-1][1]) < 1e-9
 
     def test_filleted_rectangle_reaches_full_depth(self):
         wall_top = 30.0
@@ -127,7 +178,23 @@ class TestFilletedRectangleShape:
         expected_floor = wall_top - depth
         assert abs(bb[2] - expected_floor) < 0.05
         assert 39.5 < bb[3] - bb[0] < 40.5
-        assert 17.5 < bb[4] - bb[1] < 18.5
+        assert abs((bb[4] - bb[1]) - 18.0) < 0.005
+
+    def test_filleted_rectangle_rotation_swaps_xy_extents(self):
+        wall_top = 30.0
+        depth = 12.0
+        poly = _scaled_poly_with_rectangle_hole("filleted_rectangle", width=40.0, height=18.0, rotation=90.0)
+        config = BinParams(cutout_depth=depth)
+
+        result = _make_finger_holes(
+            [poly], config, wall_top_z=wall_top, max_depth=depth,
+            offset_x=0.0, offset_y=0.0,
+        )
+
+        assert result is not None
+        bb = result.bounding_box()
+        assert abs((bb[3] - bb[0]) - 18.0) < 0.05
+        assert abs((bb[4] - bb[1]) - 40.0) < 0.05
 
     def test_filleted_rectangle_chamfer_cutter_built(self):
         poly = _scaled_poly_with_rectangle_hole("filleted_rectangle")

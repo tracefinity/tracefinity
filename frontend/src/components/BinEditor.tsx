@@ -550,6 +550,7 @@ export function BinEditor({
         activeTool={activeTool}
         binWidthMm={binWidthMm}
         binHeightMm={binHeightMm}
+        defaultCutoutDepth={defaultCutoutDepth}
         handleR={handleR}
         handleStroke={handleStroke}
         handleOffset={handleOffset}

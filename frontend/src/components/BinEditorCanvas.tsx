@@ -33,6 +33,7 @@ interface Props {
   activeTool: Tool
   binWidthMm: number
   binHeightMm: number
+  defaultCutoutDepth: number
   // handle sizing
   handleR: number
   handleStroke: number
@@ -77,6 +78,7 @@ export function BinEditorCanvas({
   activeTool,
   binWidthMm,
   binHeightMm,
+  defaultCutoutDepth,
   handleR,
   handleStroke,
   handleOffset,
@@ -171,6 +173,7 @@ export function BinEditorCanvas({
                   holes={tool.finger_holes}
                   interactive={activeTool === 'select'}
                   selectedId={selection?.type === 'hole' && selection.toolId === tool.id ? selection.holeId : undefined}
+                  defaultCutoutDepth={tool.depth_override ?? defaultCutoutDepth}
                   onMouseDown={(holeId, e) => onHoleClick(tool.id, holeId, e)}
                 />
               </g>
