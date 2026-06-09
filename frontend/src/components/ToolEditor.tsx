@@ -835,8 +835,12 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
         onAxisMouseDown={handleAxisMouseDown}
       />
 
-      {/* floating toolbar: top centre */}
-      <div className="absolute top-3.5 left-1/2 -translate-x-1/2 z-20 glass-toolbar px-2 py-1 pointer-events-auto">
+      {/* floating toolbar: centred in the free space to the right of the
+          breadcrumb / projects panels (left-[330px]) so it never overlaps and
+          intercepts their clicks. The band is click-through; only the panel
+          itself catches pointer events. */}
+      <div className="absolute top-3.5 left-[330px] right-3.5 z-20 flex justify-center pointer-events-none">
+        <div className="glass-toolbar px-2 py-1 max-w-full pointer-events-auto">
         <ToolEditorToolbar
           editMode={editMode}
           setEditMode={setEditMode}
@@ -878,6 +882,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
           autoRotating={autoRotating}
           hasInteriorRings={currentRings.length > 0}
         />
+        </div>
       </div>
 
       {mirrorNote && (
