@@ -15,6 +15,7 @@ Gridfinity is a modular storage system where bins snap into a baseplate grid. Ea
 | Magnet diameter | 3-10mm | 6mm | Standard Gridfinity magnets are 6x2mm |
 | Magnet depth | 1-5mm | 2.4mm | Slightly deeper than magnet for press-fit |
 | Insert height | 0.5-10mm | 1.0mm | Only shown when insert is enabled |
+| Insert fit | 0-1mm | 0.2mm | Clearance shaved off insert edges so it drops into the pocket |
 | Bed size | 150-400mm | 256mm | For auto-splitting oversized bins |
 
 ## Toggles

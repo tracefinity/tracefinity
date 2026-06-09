@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import cv2
 import logging
+import math
 import numpy as np
 from pathlib import Path
 from typing import Literal
@@ -14,6 +15,98 @@ PAPER_SIZES = {
 }
 
 PX_PER_MM = 10
+
+
+def _quad_aspect_ratio(
+    corners: list[tuple[float, float]], principal_point: tuple[float, float]
+) -> float | None:
+    """estimate width/height of the rectangle behind a projected quad.
+
+    Zhang & He, "Whiteboard scanning and image enhancement": with the
+    principal point assumed at the image centre, the focal length and the
+    rectangle's aspect ratio have a closed-form solution from the four
+    corners. falls back to the affine formula when the quad has no
+    perspective (vanishing points at infinity). returns None when degenerate.
+
+    corners ordered TL, TR, BR, BL."""
+    u0, v0 = principal_point
+    tl, tr, br, bl = corners
+    m1 = np.array([tl[0], tl[1], 1.0])
+    m2 = np.array([tr[0], tr[1], 1.0])
+    m3 = np.array([bl[0], bl[1], 1.0])
+    m4 = np.array([br[0], br[1], 1.0])
+
+    denom2 = np.cross(m2, m4) @ m3
+    denom3 = np.cross(m3, m4) @ m2
+    if abs(denom2) < 1e-9 or abs(denom3) < 1e-9:
+        return None
+    k2 = (np.cross(m1, m4) @ m3) / denom2
+    k3 = (np.cross(m1, m4) @ m2) / denom3
+
+    n2 = k2 * m2 - m1
+    n3 = k3 * m3 - m1
+
+    # n[2] = k - 1 is the depth disparity along that edge pair
+    flat2 = abs(n2[2]) < 1e-4
+    flat3 = abs(n3[2]) < 1e-4
+
+    if flat2 and flat3:
+        # paper parallel to the image plane: ratio is the px length ratio
+        len2 = math.hypot(n2[0], n2[1])
+        len3 = math.hypot(n3[0], n3[1])
+        if len3 < 1e-9:
+            return None
+        return len2 / len3
+
+    if flat2 or flat3:
+        # one edge pair parallel to the image plane: focal length (and with
+        # it the ratio) is indeterminate from the quad alone
+        return None
+
+    f_sq = -(
+        (n2[0] * n3[0] - (n2[0] * n3[2] + n2[2] * n3[0]) * u0 + n2[2] * n3[2] * u0 * u0)
+        + (n2[1] * n3[1] - (n2[1] * n3[2] + n2[2] * n3[1]) * v0 + n2[2] * n3[2] * v0 * v0)
+    ) / (n2[2] * n3[2])
+    if not np.isfinite(f_sq) or f_sq <= 1.0:
+        return None
+    f = math.sqrt(f_sq)
+
+    a = np.array([[f, 0.0, u0], [0.0, f, v0], [0.0, 0.0, 1.0]])
+    ata_inv = np.linalg.inv(a @ a.T)
+    num = float(n2 @ ata_inv @ n2)
+    den = float(n3 @ ata_inv @ n3)
+    if den <= 0 or num <= 0:
+        return None
+    return math.sqrt(num / den)
+
+
+def pick_paper_orientation(
+    corners: list[tuple[float, float]],
+    width_mm: float,
+    height_mm: float,
+    principal_point: tuple[float, float] | None = None,
+) -> tuple[float, float]:
+    """return (w, h) with the paper's long axis matched to the photographed quad.
+
+    px edge lengths lie under perspective: a foreshortened long edge can
+    project shorter than the short edge, flipping a naive comparison. the
+    rectangle's true aspect ratio is recovered from the quad instead and
+    matched against the paper's two orientations."""
+    src = np.array(corners, dtype=np.float64)
+    if principal_point is None:
+        principal_point = (float(src[:, 0].mean()), float(src[:, 1].mean()))
+
+    estimated = _quad_aspect_ratio(corners, principal_point)
+    if estimated is not None and estimated > 0:
+        ratio = width_mm / height_mm
+        if abs(math.log(estimated / ratio)) <= abs(math.log(estimated * ratio)):
+            return width_mm, height_mm
+        return height_mm, width_mm
+
+    # degenerate quad: fall back to the px edge comparison
+    top = np.linalg.norm(src[1] - src[0])
+    left = np.linalg.norm(src[3] - src[0])
+    return (height_mm, width_mm) if top > left else (width_mm, height_mm)
 
 
 class ImageProcessor:
@@ -257,15 +350,13 @@ class ImageProcessor:
         src = np.array(corners, dtype="float32")
 
         width_mm, height_mm = PAPER_SIZES[paper_size]
+        h_img, w_img = img.shape[:2]
+        width_mm, height_mm = pick_paper_orientation(
+            corners, width_mm, height_mm, principal_point=(w_img / 2, h_img / 2)
+        )
 
-        # detect landscape: if the top edge is wider than the left edge, swap
-        top_edge = np.linalg.norm(src[1] - src[0])
-        left_edge = np.linalg.norm(src[3] - src[0])
-        if top_edge > left_edge:
-            width_mm, height_mm = height_mm, width_mm
-
-        paper_w = int(width_mm * PX_PER_MM)
-        paper_h = int(height_mm * PX_PER_MM)
+        paper_w = round(width_mm * PX_PER_MM)
+        paper_h = round(height_mm * PX_PER_MM)
 
         dst = np.array(
             [

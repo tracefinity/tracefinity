@@ -1,8 +1,18 @@
-import math
+import logging
 from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.validation import make_valid
 
 from app.models.schemas import Polygon, Point, FingerHole
+
+logger = logging.getLogger(__name__)
+
+
+def smooth_epsilon(level: float) -> float:
+    """DP tolerance for smoothing, absolute mm. trace noise is a property of
+    the camera/mask resolution, not the tool, so it must not scale with size.
+    mirrored in frontend lib/svg.ts smoothEpsilon; keep in lockstep."""
+    level = max(0.0, min(1.0, level))
+    return 0.3 + level * 1.2
 
 
 def _chaikin_smooth(
@@ -122,6 +132,19 @@ class PolygonScaler:
 
         return centered, finger_holes, interior_rings
 
+    @staticmethod
+    def _largest_polygon(geom):
+        """largest Polygon component of a geometry, or None."""
+        if geom.is_empty:
+            return None
+        if geom.geom_type == "Polygon":
+            return geom
+        pieces = [
+            g for g in getattr(geom, "geoms", [])
+            if g.geom_type == "Polygon" and not g.is_empty
+        ]
+        return max(pieces, key=lambda g: g.area) if pieces else None
+
     def add_clearance(self, polygon: ScaledPolygon, clearance_mm: float) -> ScaledPolygon:
         """expand polygon outward by clearance amount"""
         if clearance_mm <= 0:
@@ -133,17 +156,19 @@ class PolygonScaler:
                 shape = make_valid(shape)
 
             buffered = shape.buffer(clearance_mm, join_style=2)
+            result = self._largest_polygon(buffered)
+            if result is None:
+                logger.warning("clearance produced no usable outline for %s; keeping original", polygon.id)
+                return polygon
+            if buffered.geom_type != "Polygon":
+                logger.warning("outline %s split during clearance repair; keeping largest piece", polygon.id)
 
-            if buffered.geom_type == "Polygon":
-                coords = list(buffered.exterior.coords)[:-1]
-                holes = [list(interior.coords)[:-1] for interior in buffered.interiors]
-            else:
-                coords = polygon.points_mm
-                holes = polygon.interior_rings_mm
-
+            coords = list(result.exterior.coords)[:-1]
+            holes = [list(interior.coords)[:-1] for interior in result.interiors]
             return ScaledPolygon(polygon.id, coords, polygon.label, polygon.finger_holes, holes, depth_override=polygon.depth_override)
 
         except Exception:
+            logger.exception("clearance failed for %s; keeping original outline", polygon.id)
             return polygon
 
     def simplify(self, polygon: ScaledPolygon, tolerance_mm: float = 0.3) -> ScaledPolygon:
@@ -173,19 +198,27 @@ class PolygonScaler:
         pts = polygon.points_mm
         if len(pts) < 4:
             return polygon
-        xs = [p[0] for p in pts]
-        ys = [p[1] for p in pts]
-        diag = math.hypot(max(xs) - min(xs), max(ys) - min(ys))
-        # level 0 = gentle (0.002 * diag), level 1 = moderate (0.008 * diag)
-        factor = 0.002 + level * (0.008 - 0.002)
-        epsilon = max(0.3, diag * factor)
-        simplified = self.simplify(polygon, tolerance_mm=epsilon)
+        simplified = self.simplify(polygon, tolerance_mm=smooth_epsilon(level))
         smoothed_pts = _chaikin_smooth(simplified.points_mm)
         smoothed_rings = [_chaikin_smooth(ring) for ring in simplified.interior_rings_mm]
         # clean up dense chaikin output — remove near-collinear points that
         # cause clipper2 chord artifacts, while keeping the smooth shape
         result = ScaledPolygon(polygon.id, smoothed_pts, polygon.label, polygon.finger_holes, smoothed_rings, depth_override=polygon.depth_override)
         return self.simplify(result, tolerance_mm=0.05)
+
+    def prepare_for_generation(
+        self,
+        polygon: ScaledPolygon,
+        clearance_mm: float,
+        smoothed: bool,
+        smooth_level: float = 0.5,
+    ) -> ScaledPolygon:
+        """cutout pipeline: smooth or simplify first, clearance last.
+        vertex reduction erodes the outline by up to its tolerance; applied
+        before buffering that erosion can never eat into the clearance, and
+        the printed pocket is exactly the previewed shape grown by clearance."""
+        shape = self.smooth(polygon, level=smooth_level) if smoothed else self.simplify(polygon)
+        return self.add_clearance(shape, clearance_mm)
 
     def compute_bounding_box(
         self, polygons: list[ScaledPolygon]

@@ -49,7 +49,7 @@ Toggle between two outline modes using the Accurate/Smooth buttons.
 
 ## Grid snap
 
-Toggle the Snap button to snap vertices to a 5mm grid. Grid lines are drawn at 10mm intervals for reference.
+Toggle the Snap button to snap vertices to a 5mm grid. Off by default so outline corrections keep their traced precision. Grid lines are drawn at 10mm intervals for reference.
 
 ## Undo / Redo
 

@@ -16,6 +16,7 @@ export const FACTORY_BIN_CONFIG: BinConfig = {
   cutout_chamfer: 0,
   insert_enabled: false,
   insert_height: 1.0,
+  insert_clearance: 0.2,
   bed_size: 256,
   text_labels: [],
 }

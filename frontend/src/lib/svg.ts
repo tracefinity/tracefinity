@@ -105,12 +105,12 @@ export function smoothPathData(
   return d
 }
 
-export function smoothEpsilon(points: Point[], level: number): number {
-  let mnX = Infinity, mnY = Infinity, mxX = -Infinity, mxY = -Infinity
-  for (const p of points) { mnX = Math.min(mnX, p.x); mnY = Math.min(mnY, p.y); mxX = Math.max(mxX, p.x); mxY = Math.max(mxY, p.y) }
-  const diag = Math.hypot(mxX - mnX, mxY - mnY)
-  const factor = 0.002 + level * 0.006
-  return Math.max(0.3, diag * factor)
+// DP tolerance for smoothing, absolute mm. trace noise is a property of the
+// camera/mask resolution, not the tool, so it must not scale with size.
+// mirrors backend polygon_scaler.smooth_epsilon; keep in lockstep.
+export function smoothEpsilon(level: number): number {
+  const lv = Math.max(0, Math.min(1, level))
+  return 0.3 + lv * 1.2
 }
 
 export function snapToGrid(v: number, grid: number): number {

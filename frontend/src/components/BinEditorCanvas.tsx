@@ -148,7 +148,7 @@ export function BinEditorCanvas({
             let pathData: string
             if (smoothedToolIds?.has(tool.tool_id)) {
               const level = smoothLevels?.get(tool.tool_id) ?? 0.5
-              pathData = smoothPathData(simplifyPolygon(tool.points, smoothEpsilon(tool.points, level)), tool.interior_rings, DISPLAY_SCALE)
+              pathData = smoothPathData(simplifyPolygon(tool.points, smoothEpsilon(level)), tool.interior_rings, DISPLAY_SCALE)
             } else {
               pathData = polygonPathData(tool.points, tool.interior_rings, DISPLAY_SCALE)
             }

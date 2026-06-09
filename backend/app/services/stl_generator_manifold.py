@@ -701,6 +701,34 @@ def _make_text_labels(
     return recessed_union, embossed_union
 
 
+def _shrink_rings(
+    pts: list[tuple], holes: list[list[tuple]], amount: float
+) -> list[tuple[list[tuple], list[list[tuple]]]]:
+    """inward offset of a ring set. returns one ring set per resulting piece;
+    a narrow neck can split the shape and every piece must survive.
+    mitre join so convex corners stay sharp and match the pocket walls."""
+    from shapely.geometry import Polygon as _SPoly
+    from shapely.validation import make_valid
+
+    sp = _SPoly(pts, holes=holes)
+    if not sp.is_valid:
+        sp = make_valid(sp)
+    shrunk = sp.buffer(-amount, join_style=2)
+    if shrunk.is_empty:
+        return []
+    if shrunk.geom_type == "Polygon":
+        pieces = [shrunk]
+    else:
+        pieces = [
+            g for g in getattr(shrunk, "geoms", [])
+            if g.geom_type == "Polygon" and not g.is_empty
+        ]
+    return [
+        (list(p.exterior.coords[:-1]), [list(i.coords[:-1]) for i in p.interiors])
+        for p in pieces
+    ]
+
+
 # ── export helpers ────────────────────────────────────────────────────────────
 
 def _manifold_to_trimesh(m):
@@ -873,6 +901,9 @@ class ManifoldSTLGenerator:
         import manifold3d as mf
 
         insert_height = getattr(config, 'insert_height', 1.0)
+        # the insert must drop into the pocket cut from the same outline; FDM
+        # bias makes pockets undersized and positives oversized, so shrink
+        fit_clearance = getattr(config, 'insert_clearance', 0.2)
         shapes = []
         failed = 0
         for poly in polygons:
@@ -892,20 +923,28 @@ class ManifoldSTLGenerator:
                 ]
                 if len(shifted_hole) >= 3:
                     shifted_holes.append(shifted_hole)
-            try:
-                rings = _shapely_to_cross_sections(shifted, shifted_holes)
-                if not rings:
-                    logger.warning("insert: empty cross-section for polygon %s", poly.id)
+            ring_sets = [(shifted, shifted_holes)]
+            if fit_clearance > 0:
+                ring_sets = _shrink_rings(shifted, shifted_holes, fit_clearance)
+                if not ring_sets:
+                    logger.warning("insert: polygon %s vanished at %.2fmm fit clearance", poly.id, fit_clearance)
                     failed += 1
                     continue
-                has_holes = len(rings) > 1
-                cs = mf.CrossSection(rings, mf.FillRule.EvenOdd) if has_holes else mf.CrossSection(rings)
-                if cs.area() <= 0:
-                    cs = mf.CrossSection([r[::-1] for r in rings], mf.FillRule.EvenOdd if has_holes else mf.FillRule.Positive)
-                if cs.area() > 0:
-                    shapes.append(mf.Manifold.extrude(cs, insert_height))
-                else:
-                    logger.warning("insert: zero-area cross-section for polygon %s", poly.id)
+            made = 0
+            try:
+                for piece_pts, piece_holes in ring_sets:
+                    rings = _shapely_to_cross_sections(piece_pts, piece_holes)
+                    if not rings:
+                        continue
+                    has_holes = len(rings) > 1
+                    cs = mf.CrossSection(rings, mf.FillRule.EvenOdd) if has_holes else mf.CrossSection(rings)
+                    if cs.area() <= 0:
+                        cs = mf.CrossSection([r[::-1] for r in rings], mf.FillRule.EvenOdd if has_holes else mf.FillRule.Positive)
+                    if cs.area() > 0:
+                        shapes.append(mf.Manifold.extrude(cs, insert_height))
+                        made += 1
+                if made == 0:
+                    logger.warning("insert: empty cross-section for polygon %s", poly.id)
                     failed += 1
             except Exception as e:
                 logger.warning("insert polygon %s failed: %s", poly.id, e)

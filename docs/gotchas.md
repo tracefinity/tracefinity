@@ -11,6 +11,14 @@ SVG/layout/bin-space is Y-down (0 = top edge). build123d is Y-up. Always negate 
 - BinPreview3D.tsx: rotation `[-PI/2, 0, 0]` converts Z-up to Y-up. Do NOT add `scale [1, -1, 1]` -- that was a compensating hack for un-flipped Y
 - All three must match: layout editor, 3D preview, downloaded STL in slicer
 
+## Cutout pipeline order
+
+Smoothing/simplification runs BEFORE clearance (`prepare_for_generation`), never after -- vertex reduction erodes the outline by up to its tolerance and must not eat the clearance. The printed pocket is the previewed shape grown by exactly the clearance. The smoothing epsilon is absolute mm (`smooth_epsilon`), duplicated in `lib/svg.ts smoothEpsilon` -- change both together or preview and print diverge.
+
+## EXIF orientation
+
+cv2 ignores EXIF orientation, browsers apply it. `ingest_image` bakes orientation into the pixels at upload -- without it, corner coordinates from the UI land in a different frame than the backend warps. All image ingest (upload, corrected downscale, mask upload) must go through it.
+
 ## Three.js memory leaks
 
 Every `BufferGeometry` and `EdgesGeometry` must be `.dispose()`d on React unmount. STL regeneration creates new geometries each time -- if the old ones aren't disposed, the browser will OOM. Same applies to `Image` objects created in useEffect (use a `cancelled` flag in cleanup).

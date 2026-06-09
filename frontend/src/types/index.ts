@@ -109,6 +109,7 @@ export interface BinDefaults {
   cutout_chamfer: number
   insert_enabled: boolean
   insert_height: number
+  insert_clearance: number
   bed_size: number
 }
 

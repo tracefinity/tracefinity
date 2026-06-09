@@ -85,6 +85,7 @@ class BinParams(BaseModel):
     cutout_clearance: float = 1.0
     insert_enabled: bool = False
     insert_height: float = 1.0
+    insert_clearance: float = 0.2  # mm shaved off the insert so it fits the pocket
     cutout_chamfer: float = 0.0
 
     @field_validator("grid_x", "grid_y")
@@ -120,6 +121,13 @@ class BinParams(BaseModel):
     def validate_insert_height(cls, v: float) -> float:
         if v < 0.1 or v > 10:
             raise ValueError("insert height must be between 0.1 and 10mm")
+        return v
+
+    @field_validator("insert_clearance")
+    @classmethod
+    def validate_insert_clearance(cls, v: float) -> float:
+        if v < 0 or v > 2:
+            raise ValueError("insert clearance must be between 0 and 2mm")
         return v
 
     @field_validator("cutout_chamfer")

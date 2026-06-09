@@ -13,7 +13,6 @@ from fastapi import APIRouter, Depends, UploadFile, HTTPException
 from fastapi.responses import FileResponse, Response
 from starlette.requests import Request
 from PIL import Image
-import io
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +62,7 @@ from app.models.schemas import (
     CreateBinRequest,
 )
 from app.constants import GF_GRID
+from app.services.image_ingest import ingest_image
 from app.services.image_processor import ImageProcessor
 from app.services.ai_tracer import AITracer
 from app.services.polygon_scaler import PolygonScaler, ScaledPolygon, ScaledFingerHole
@@ -91,13 +91,6 @@ router = APIRouter()
 
 # Heuristic mismatch score combining a label penalty with bbox and point deltas measured in mm.
 SOURCE_POLYGON_MATCH_MAX_SCORE = 80.0
-
-# register heif/heic support with pillow
-try:
-    import pillow_heif
-    pillow_heif.register_heif_opener()
-except ImportError:
-    pass
 
 # Fail fast for misspelled TRACERS values without loading local model weights.
 validate_tracer_ids(settings.available_tracers)
@@ -132,38 +125,7 @@ def _user_path(user_id: str) -> Path:
 
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"}
-HEIC_EXTENSIONS = {".heic", ".heif"}
-
-
-def _convert_heic_to_jpeg(content: bytes, original_ext: str) -> tuple[bytes, str]:
-    """convert heic/heif to jpeg. returns (content, new_extension)."""
-    if original_ext.lower() not in HEIC_EXTENSIONS:
-        return content, original_ext
-    img = Image.open(io.BytesIO(content))
-    buf = io.BytesIO()
-    img.convert("RGB").save(buf, format="JPEG", quality=95)
-    return buf.getvalue(), ".jpg"
-
-
 MAX_UPLOAD_DIM = 2048
-
-
-def _downscale_image(content: bytes, ext: str) -> tuple[bytes, float]:
-    """downscale to MAX_UPLOAD_DIM on the long edge. preserves format.
-    returns (image_bytes, downscale_ratio) where ratio is <1 when shrunk."""
-    img = Image.open(io.BytesIO(content))
-    w, h = img.size
-    if max(w, h) <= MAX_UPLOAD_DIM:
-        return content, 1.0
-    scale = MAX_UPLOAD_DIM / max(w, h)
-    new_w, new_h = int(w * scale), int(h * scale)
-    img = img.resize((new_w, new_h), Image.LANCZOS)
-    buf = io.BytesIO()
-    fmt = "JPEG" if ext.lower() in (".jpg", ".jpeg") else "PNG"
-    img.save(buf, format=fmt, quality=90)
-    logging.info("downscaled upload %dx%d -> %dx%d (%.1fMB -> %.1fMB)",
-                 w, h, new_w, new_h, len(content) / 1e6, buf.tell() / 1e6)
-    return buf.getvalue(), scale
 
 
 image_processor = ImageProcessor()
@@ -525,8 +487,7 @@ async def upload_image(request: Request, image: UploadFile, user_id: str = Depen
     if len(content) > max_bytes:
         raise HTTPException(status_code=413, detail=f"file too large (max {settings.max_upload_mb}MB)")
 
-    content, ext = _convert_heic_to_jpeg(content, ext)
-    content, _ = _downscale_image(content, ext)
+    content, ext, _ = ingest_image(content, ext, MAX_UPLOAD_DIM)
     image_path = up / "uploads" / f"{session_id}{ext}"
     image_path.write_bytes(content)
 
@@ -563,7 +524,7 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
     # pixel→mm conversion stays correct after the image shrinks.
     corrected_bytes = Path(output_path).read_bytes()
     ext = Path(output_path).suffix
-    corrected_bytes, ds_ratio = _downscale_image(corrected_bytes, ext)
+    corrected_bytes, _, ds_ratio = ingest_image(corrected_bytes, ext, MAX_UPLOAD_DIM)
     Path(output_path).write_bytes(corrected_bytes)
     if ds_ratio < 1.0:
         scale_factor /= ds_ratio
@@ -673,7 +634,7 @@ async def trace_from_mask(request: Request, session_id: str, mask: UploadFile, u
     mask_ext = Path(mask.filename or "mask.png").suffix.lower() or ".png"
     if mask_ext not in ALLOWED_IMAGE_EXTENSIONS:
         raise HTTPException(status_code=400, detail="unsupported image format")
-    content, mask_ext = _convert_heic_to_jpeg(content, mask_ext)
+    content, mask_ext, _ = ingest_image(content, mask_ext)
     mask_path = up / "processed" / f"{session_id}_mask.png"
     mask_path.write_bytes(content)
 
@@ -728,8 +689,10 @@ def generate_stl(request: Request, session_id: str, req: GenerateRequest, user_i
     input_hash = hashlib.md5(json.dumps(req.model_dump(), sort_keys=True, default=str).encode()).hexdigest()
 
     scaled = polygon_scaler.scale_to_mm(polygons, session.scale_factor)
-    scaled = [polygon_scaler.add_clearance(p, req.cutout_clearance) for p in scaled]
-    scaled = [polygon_scaler.simplify(p) for p in scaled]
+    scaled = [
+        polygon_scaler.prepare_for_generation(p, req.cutout_clearance, smoothed=False)
+        for p in scaled
+    ]
 
     response = _run_generate(scaled, req, session_id, up, input_hash, user_id)
 
@@ -1553,12 +1516,13 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
             for ring in pt.interior_rings
         ]
         sp = ScaledPolygon(pt.id, points_mm, pt.name, fholes, interior_rings_mm, depth_override=pt.depth_override)
-        sp = polygon_scaler.add_clearance(sp, bc.cutout_clearance)
         source_tool = user_tools.get(pt.tool_id)
-        if source_tool and source_tool.smoothed:
-            sp = polygon_scaler.smooth(sp, level=source_tool.smooth_level)
-        else:
-            sp = polygon_scaler.simplify(sp)
+        sp = polygon_scaler.prepare_for_generation(
+            sp,
+            bc.cutout_clearance,
+            smoothed=bool(source_tool and source_tool.smoothed),
+            smooth_level=source_tool.smooth_level if source_tool else 0.5,
+        )
         scaled.append(sp)
 
     gen_req = GenerateRequest(
@@ -1575,6 +1539,7 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
         cutout_clearance=bc.cutout_clearance,
         insert_enabled=bc.insert_enabled,
         insert_height=bc.insert_height,
+        insert_clearance=bc.insert_clearance,
         cutout_chamfer=bc.cutout_chamfer,
         text_labels=bc.text_labels + bin_data.text_labels,
         bed_size=bc.bed_size,

@@ -265,16 +265,28 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
           help="Generates a separate insert STL to print in a contrasting colour. The pocket is deepened to accommodate it."
         />
         {config.insert_enabled && (
-          <SliderRow
-            label="Insert Height"
-            help="Thickness of the insert in mm."
-            value={config.insert_height}
-            min={0.5}
-            max={10}
-            step={0.1}
-            unit="mm"
-            onChange={(v) => update({ insert_height: v })}
-          />
+          <>
+            <SliderRow
+              label="Insert Height"
+              help="Thickness of the insert in mm."
+              value={config.insert_height}
+              min={0.5}
+              max={10}
+              step={0.1}
+              unit="mm"
+              onChange={(v) => update({ insert_height: v })}
+            />
+            <SliderRow
+              label="Insert Fit"
+              help="Clearance shaved off the insert edges so it drops into the pocket."
+              value={config.insert_clearance}
+              min={0}
+              max={1}
+              step={0.05}
+              unit="mm"
+              onChange={(v) => update({ insert_clearance: v })}
+            />
+          </>
         )}
       </div>
 

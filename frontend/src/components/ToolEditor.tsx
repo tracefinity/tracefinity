@@ -40,7 +40,7 @@ type DragState =
   | { type: 'hole'; holeId: string; startX: number; startY: number; origX: number; origY: number }
   | { type: 'resize'; holeId: string; startX: number; startY: number; origRadius: number; origWidth?: number; origHeight?: number; centerX: number; centerY: number; anchorX?: number; anchorY?: number; rotation?: number }
   | { type: 'rotate-hole'; holeId: string; centerX: number; centerY: number; startAngle: number; origRotation: number }
-  | { type: 'rotate-polygon'; centerX: number; centerY: number; startAngle: number; origPoints: Point[]; origHoles: FingerHole[] }
+  | { type: 'rotate-polygon'; centerX: number; centerY: number; startAngle: number; origPoints: Point[]; origHoles: FingerHole[]; origRings: Point[][] }
   | { type: 'pan'; startClientX: number; startClientY: number; origPanX: number; origPanY: number; svgScale: number }
   | null
 
@@ -55,7 +55,9 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const [selection, setSelection] = useState<Selection>(null)
   const [editMode, setEditMode] = useState<EditMode>('select')
   const [dragging, setDragging] = useState<DragState>(null)
-  const [snapEnabled, setSnapEnabled] = useState(true)
+  // off by default: outline vertices carry the traced size, a 5mm lattice
+  // would quantise corrections by up to ~3.5mm
+  const [snapEnabled, setSnapEnabled] = useState(false)
   const [snapGrid, setSnapGrid] = useState(SNAP_GRID)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -80,11 +82,13 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   // local drag state: renders locally during drag, flushes to parent on mouseup
   const [dragPoints, setDragPoints] = useState<Point[] | null>(null)
   const [dragHoles, setDragHoles] = useState<FingerHole[] | null>(null)
+  const [dragRings, setDragRings] = useState<Point[][] | null>(null)
   const rawDisplayPoints = dragPoints ?? points
   const displayHoles = dragHoles ?? fingerHoles
+  const displayRings = dragRings ?? currentRings
   const smoothedPoints = useMemo(() => {
     if (!smoothed || rawDisplayPoints.length <= 3) return null
-    return simplifyPolygon(rawDisplayPoints, smoothEpsilon(rawDisplayPoints, smoothLevel))
+    return simplifyPolygon(rawDisplayPoints, smoothEpsilon(smoothLevel))
   }, [smoothed, smoothLevel, rawDisplayPoints])
   const displayPoints = smoothed && smoothedPoints ? smoothedPoints : rawDisplayPoints
 
@@ -93,16 +97,20 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const holesRef = useRef(fingerHoles)
   const dragPointsRef = useRef(dragPoints)
   const dragHolesRef = useRef(dragHoles)
+  const dragRingsRef = useRef(dragRings)
   const onPointsRef = useRef(onPointsChange)
   const onHolesRef = useRef(onFingerHolesChange)
+  const onRingsRef = useRef(onInteriorRingsChange)
   const imageTransformRef = useRef<AffineMatrix | null>(sourceImageContext?.transform ?? null)
   const onImageTransformRef = useRef(onImageTransformChange)
   useEffect(() => { pointsRef.current = points }, [points])
   useEffect(() => { holesRef.current = fingerHoles }, [fingerHoles])
   useEffect(() => { dragPointsRef.current = dragPoints }, [dragPoints])
   useEffect(() => { dragHolesRef.current = dragHoles }, [dragHoles])
+  useEffect(() => { dragRingsRef.current = dragRings }, [dragRings])
   useEffect(() => { onPointsRef.current = onPointsChange }, [onPointsChange])
   useEffect(() => { onHolesRef.current = onFingerHolesChange }, [onFingerHolesChange])
+  useEffect(() => { onRingsRef.current = onInteriorRingsChange }, [onInteriorRingsChange])
   useEffect(() => { imageTransformRef.current = sourceImageContext?.transform ?? null }, [sourceImageContext?.transform])
   useEffect(() => { onImageTransformRef.current = onImageTransformChange }, [onImageTransformChange])
   const rotateDragRef = useRef<{ delta: number; cx: number; cy: number } | null>(null)
@@ -253,10 +261,11 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     const pts = pointsRef.current
     if (pts.length === 0) return
     const { x: cx, y: cy } = centroidOf(pts)
-    const rotated = rotateGeometry(pts, holesRef.current, currentRings, angleDeg)
-    pushHistory({ points: rotated.points, fingerHoles: rotated.fingerHoles, interiorRings: currentRings })
+    const rotated = rotateGeometry(pts, holesRef.current, currentRingsRef.current, angleDeg)
+    pushHistory({ points: rotated.points, fingerHoles: rotated.fingerHoles, interiorRings: rotated.interiorRings })
     onPointsRef.current(rotated.points)
     onHolesRef.current(rotated.fingerHoles)
+    onRingsRef.current?.(rotated.interiorRings)
     const m = imageTransformRef.current
     if (m && onImageTransformRef.current) {
       const rad = angleDeg * Math.PI / 180
@@ -264,7 +273,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       imageTransformRef.current = next
       onImageTransformRef.current(next)
     }
-  }, [pushHistory, currentRings])
+  }, [pushHistory])
 
   // wraps the parent's auto-rotate to add undo history and image transform rotation
   const handleAutoRotateWrapped = useCallback(async () => {
@@ -329,6 +338,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       startAngle,
       origPoints: JSON.parse(JSON.stringify(points)),
       origHoles: JSON.parse(JSON.stringify(fingerHoles)),
+      origRings: JSON.parse(JSON.stringify(currentRings)),
     })
   }
 
@@ -521,10 +531,11 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       const delta = currentAngle - dragging.startAngle
       const cos = Math.cos(delta), sin = Math.sin(delta)
       const cx = dragging.centerX, cy = dragging.centerY
-      const newPts = dragging.origPoints.map(p => {
+      const rotPt = (p: Point): Point => {
         const dx = p.x - cx, dy = p.y - cy
         return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos }
-      })
+      }
+      const newPts = dragging.origPoints.map(rotPt)
       const newHoles = dragging.origHoles.map(fh => {
         const dx = fh.x - cx, dy = fh.y - cy
         const origRot = fh.rotation || 0
@@ -532,6 +543,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       })
       setDragPoints(newPts)
       setDragHoles(newHoles)
+      setDragRings(dragging.origRings.map(ring => ring.map(rotPt)))
       rotateDragRef.current = { delta, cx, cy }
     } else if (dragging.type === 'pan') {
       const dx = (e.clientX - dragging.startClientX) / dragging.svgScale
@@ -549,9 +561,11 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       }
       const finalPoints = dragPointsRef.current ?? pointsRef.current
       const finalHoles = dragHolesRef.current ?? holesRef.current
+      const finalRings = dragRingsRef.current ?? currentRingsRef.current
       if (dragPointsRef.current) onPointsRef.current(finalPoints)
       if (dragHolesRef.current) onHolesRef.current(finalHoles)
-      pushHistory({ points: finalPoints, fingerHoles: finalHoles, interiorRings: currentRingsRef.current })
+      if (dragRingsRef.current) onRingsRef.current?.(finalRings)
+      pushHistory({ points: finalPoints, fingerHoles: finalHoles, interiorRings: finalRings })
       if (dragging.type === 'rotate-polygon' && rotateDragRef.current) {
         const { delta, cx, cy } = rotateDragRef.current
         const m = imageTransformRef.current
@@ -564,6 +578,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       rotateDragRef.current = null
       setDragPoints(null)
       setDragHoles(null)
+      setDragRings(null)
     }
     setDragging(null)
   }, [dragging, pushHistory])
@@ -634,7 +649,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
         zoom={zoom}
         displayPoints={displayPoints}
         smoothed={smoothed}
-        interiorRings={interiorRings}
+        interiorRings={displayRings}
         points={points}
         editMode={editMode}
         selection={selection}
