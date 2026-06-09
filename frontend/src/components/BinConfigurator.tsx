@@ -258,6 +258,19 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
           label="Stacking lip"
           help="Raised rim at the top so bins can stack securely on top of each other."
         />
+        {config.stacking_lip && (
+          <div className="pl-3 border-l border-border-subtle ml-1 space-y-0">
+            <SliderRow
+              label="Raise Lip"
+              help="Extends the wall and lip this many units (7mm each) above the floor face, leaving the interior open. Lets a tool protrude above the floor while a stacked bin still clears it. 0 = standard."
+              value={config.rim_units}
+              min={0}
+              max={10}
+              unit="u"
+              onChange={(v) => update({ rim_units: v })}
+            />
+          </div>
+        )}
         <Toggle
           checked={config.insert_enabled}
           onChange={(v) => update({ insert_enabled: v })}

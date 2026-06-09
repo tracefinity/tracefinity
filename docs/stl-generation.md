@@ -7,8 +7,10 @@ STL generation uses manifold3d (mesh booleans, 10-100x faster than OCCT B-rep). 
 ## Z-Axis Reference Heights
 
 - **Base top**: 4.75mm (three tapered layers: 2.15 + 1.8 + 0.8). Infill starts here.
-- **Wall top**: `height_units * 7`. Infill stops here.
-- **Stacking lip top**: wall top + 4.4mm (d0=1.9 + d1=1.8 + d2=0.7). Do NOT use bounding box max Z.
+- **Wall top (floor face)**: `height_units * 7`. Infill stops here; cutouts pocket down from here.
+- **Raised rim**: with `rim_units > 0`, a hollow perimeter collar extends the wall from the floor face up by `rim_units * 7`mm, leaving the interior open. The stacking lip rides on top of the collar.
+- **Lip base**: `height_units * 7 + rim_units * 7` (= wall top when `rim_units == 0`).
+- **Stacking lip top**: lip base + 4.4mm (d0=1.9 + d1=1.8 + d2=0.7). Do NOT use bounding box max Z.
 - **Pocket extrude margin**: 0.01mm epsilon for boolean cleanliness.
 
 ## Gridfinity Constants

@@ -107,6 +107,7 @@ export interface BinDefaults {
   magnet_depth: number
   magnet_corners_only: boolean
   stacking_lip: boolean
+  rim_units: number
   wall_thickness: number
   cutout_depth: number
   cutout_clearance: number

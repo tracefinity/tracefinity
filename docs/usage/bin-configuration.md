@@ -26,6 +26,8 @@ Gridfinity is a modular storage system where bins snap into a baseplate grid. Ea
 
 **Stacking lip** -- raised rim so bins stack securely. On by default. Adds approximately 4.4mm to total height and reduces maximum cutout depth.
 
+**Raise lip** -- extends the wall and stacking lip upward by this many units (7mm each) above the floor face, leaving the interior open. Use it for shallow bins where a tool protrudes above the floor: the raised lip lets a stacked bin clear the protruding tool. 0 = standard (lip sits at the floor face). Shown only when the stacking lip is on.
+
 **Contrast insert** -- generates a separate STL to print in a different colour. The pocket is deepened automatically to accommodate the insert thickness.
 
 ## Auto grid sizing

@@ -888,22 +888,47 @@ class ManifoldSTLGenerator:
         bin_body = _build_shell(config)
         logger.info("shell: %.2fs", time.monotonic() - t1)
 
-        # stacking lip: build groove into a separate lip solid (z=wall_top_z to
-        # z=wall_top_z+lip_total) and add it to the bin body.  The notch extends
-        # below wall_top_z but only cuts the lip solid (not the wall body), so
-        # the groove is invisible below wall_top_z — matching gf.Bin behaviour
+        outer_w = config.grid_x * GF_GRID - 0.5
+        outer_h = config.grid_y * GF_GRID - 0.5
+
+        # raised rim ("collar"): a hollow perimeter wall extending the bin wall
+        # above the floor face (wall_top_z) without filling the interior.  A
+        # protruding tool sits in the open volume inside the collar, and the
+        # stacking lip (if enabled) rides on top so a stacked bin clears the
+        # tool.  Cutouts still pocket down from wall_top_z, unaffected by the rim.
+        rim_units = getattr(config, "rim_units", 0) or 0
+        rim_height = rim_units * GF_HEIGHT_UNIT
+        lip_base_z = wall_top_z + rim_height
+        # inner opening matches the stacking-lip inner opening so the collar wall
+        # is flush with the lip's inner face (no inward overhang/ledge).
+        rim_inner_w = outer_w - 2 * (LIP_D0 + LIP_D2)
+        rim_inner_h = outer_h - 2 * (LIP_D0 + LIP_D2)
+
+        if rim_height > 0:
+            outer_solid = mf.Manifold.extrude(
+                _cs(_rounded_rect_pts(outer_w, outer_h, GF_CORNER_R)), rim_height
+            )
+            inner_solid = mf.Manifold.extrude(
+                _cs(_rounded_rect_pts(rim_inner_w, rim_inner_h, GF_CORNER_R)), rim_height
+            )
+            collar = (outer_solid - inner_solid).translate((0.0, 0.0, wall_top_z))
+            bin_body = bin_body + collar
+            logger.info("raised rim (%du): %.2fs", rim_units, time.monotonic() - t1)
+
+        # stacking lip: build groove into a separate lip solid (z=lip_base_z to
+        # z=lip_base_z+lip_total) and add it to the bin body.  The notch extends
+        # below lip_base_z but only cuts the lip solid (not the wall/collar), so
+        # the groove is invisible below lip_base_z — matching gf.Bin behaviour
         # and preserving the large top-floor face at z=wall_top_z.
         if config.stacking_lip:
             lip_total = LIP_D0 + LIP_D1 + LIP_D2
             notch_depth_below = LIP_D3 + LIP_D4
-            outer_w = config.grid_x * GF_GRID - 0.5
-            outer_h = config.grid_y * GF_GRID - 0.5
             cs_wall_lip = _cs(_rounded_rect_pts(outer_w, outer_h, GF_CORNER_R))
             lip_solid = mf.Manifold.extrude(cs_wall_lip, lip_total).translate(
-                (0.0, 0.0, wall_top_z)
+                (0.0, 0.0, lip_base_z)
             )
             notch = _build_stacking_lip_notch(outer_w, outer_h).translate(
-                (0.0, 0.0, wall_top_z - notch_depth_below)
+                (0.0, 0.0, lip_base_z - notch_depth_below)
             )
             lip_with_groove = lip_solid - notch
             bin_body = bin_body + lip_with_groove

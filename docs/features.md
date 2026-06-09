@@ -55,6 +55,7 @@ Reference for AI agents. Check here before suggesting new features or claiming s
 - Magnet holes (enable/disable, diameter and depth)
 - Magnets at corners only option
 - Stacking lip toggle
+- Raise lip (extend wall/lip above the floor face in 7mm units so a stacked bin clears a protruding tool)
 - Insert mode (contrast insert with configurable height)
 - Bed size for auto-splitting large bins
 - Auto-size grid to fit placed tools

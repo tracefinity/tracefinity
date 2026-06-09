@@ -82,6 +82,7 @@ class BinParams(BaseModel):
     magnet_depth: float = 2.4
     magnet_corners_only: bool = False
     stacking_lip: bool = True
+    rim_units: int = 0  # extra height units (×7mm) the wall/lip rises above the floor face
     wall_thickness: float = 1.6
     cutout_depth: float = 20.0
     cutout_clearance: float = 1.0
@@ -102,6 +103,13 @@ class BinParams(BaseModel):
     def validate_height(cls, v: int) -> int:
         if v < 1 or v > 20:
             raise ValueError("height must be between 1 and 20 units")
+        return v
+
+    @field_validator("rim_units")
+    @classmethod
+    def validate_rim(cls, v: int) -> int:
+        if v < 0 or v > 20:
+            raise ValueError("rim must be between 0 and 20 units")
         return v
 
     @field_validator("cutout_depth")
