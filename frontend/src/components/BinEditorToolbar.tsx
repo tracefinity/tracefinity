@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { MousePointer2, Trash2, Magnet, Type, Pencil, Maximize2 } from 'lucide-react'
 import type { FingerHole, PlacedTool, TextLabel } from '@/types'
-import { SNAP_GRID } from '@/lib/constants'
+import { SNAP_GRID_MIN, SNAP_GRID_MAX } from '@/lib/constants'
 import { cutoutShapeLabel, isRectangularCutout } from '@/lib/cutouts'
+import { NumericInput } from '@/components/NumericInput'
 
 interface DepthInputProps {
   value: number | null | undefined
@@ -77,6 +78,8 @@ interface Props {
   setActiveTool: (tool: Tool) => void
   snapEnabled: boolean
   setSnapEnabled: (enabled: boolean) => void
+  snapGrid: number
+  setSnapGrid: (grid: number) => void
   handleRecenter: () => void
   selectedTool: PlacedTool | null
   selectedLabel: TextLabel | null
@@ -105,6 +108,8 @@ export function BinEditorToolbar({
   setActiveTool,
   snapEnabled,
   setSnapEnabled,
+  snapGrid,
+  setSnapGrid,
   handleRecenter,
   selectedTool,
   selectedLabel,
@@ -147,11 +152,22 @@ export function BinEditorToolbar({
       <button
         onClick={() => setSnapEnabled(!snapEnabled)}
         className={`${tbBtn} ${snapEnabled ? 'text-accent' : tbInactive}`}
-        title={`Snap to ${SNAP_GRID}mm grid${snapEnabled ? ' (on)' : ' (off)'}`}
+        title={`Snap to ${snapGrid}mm grid${snapEnabled ? ' (on)' : ' (off)'}`}
       >
         <Magnet className="w-3.5 h-3.5" />
         Snap
       </button>
+      {snapEnabled && (
+        <NumericInput
+          value={snapGrid}
+          onChange={setSnapGrid}
+          min={SNAP_GRID_MIN}
+          max={SNAP_GRID_MAX}
+          step={0.5}
+          title="Snap distance (mm) — how far apart the snap grid points are"
+          className="w-12 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent"
+        />
+      )}
       <button
         onClick={handleRecenter}
         className={`${tbBtn} ${tbInactive}`}
@@ -232,20 +248,18 @@ export function BinEditorToolbar({
           />
           <div className="flex items-center gap-0.5 text-[10px] text-text-muted" title="Text size">
             <span>Size</span>
-            <input
-              type="number"
+            <NumericInput
               value={selectedLabel.font_size}
-              onChange={e => onUpdateLabel({ font_size: Math.max(1, Math.min(50, parseFloat(e.target.value) || 1)) })}
+              onChange={v => onUpdateLabel({ font_size: v })}
               className="w-10 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent"
               min={1} max={50} step={0.5}
             />
           </div>
           <div className="flex items-center gap-0.5 text-[10px] text-text-muted" title="Depth into surface">
             <span>Depth</span>
-            <input
-              type="number"
+            <NumericInput
               value={selectedLabel.depth}
-              onChange={e => onUpdateLabel({ depth: Math.max(0.1, Math.min(5, parseFloat(e.target.value) || 0.5)) })}
+              onChange={v => onUpdateLabel({ depth: v })}
               className="w-10 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent"
               min={0.1} max={5} step={0.1}
             />

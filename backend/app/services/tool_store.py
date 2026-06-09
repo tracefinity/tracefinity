@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import tempfile
 import threading
 from pathlib import Path
 from typing import Optional
 
 from app.models.schemas import Tool
+
+logger = logging.getLogger(__name__)
 
 
 class ToolStore:
@@ -22,7 +25,11 @@ class ToolStore:
                 data = json.loads(self.file_path.read_text())
                 for tid, tdata in data.items():
                     self._tools[tid] = Tool.model_validate(tdata)
-            except Exception:
+            except OSError:
+                logger.error(f"Failed to load {self.file_path}: permission denied")
+                raise
+            except Exception as e:
+                logger.error(f"Failed to load {self.file_path}: {e}")
                 self._tools = {}
 
     def _save(self):

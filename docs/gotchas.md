@@ -22,6 +22,7 @@ Single container runs both frontend and backend via supervisor. Key details:
 - CORS origins in `backend/.env` override the Python defaults -- if you change the frontend port, update `.env` too
 - `NEXT_TELEMETRY_DISABLED=1` is set in the Dockerfile build stage
 - `.dockerignore` excludes `docs/`, `node_modules/`, `venv/`, `storage/`, `.claude/`
+- Container runs as non-root user `tracefinity` (UID 1000) by default. Supports `--user "$(id -u):$(id -g)"` for arbitrary UIDs. Runtime-writable dirs (`/app/storage`, `/app/.u2net`, `/app/.next`, `/tmp/nginx`, `/tmp/supervisor`, `/var/lib/nginx`) are world-writable. `U2NET_HOME` and `HOME` are set to `/app` paths so model downloads and nginx/supervisor state work without root.
 
 ## OCCT / build123d performance
 

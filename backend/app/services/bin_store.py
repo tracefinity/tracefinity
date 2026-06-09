@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import tempfile
 import threading
 from pathlib import Path
 from typing import Optional
 
 from app.models.schemas import BinModel
+
+logger = logging.getLogger(__name__)
 
 
 class BinStore:
@@ -22,7 +25,11 @@ class BinStore:
                 data = json.loads(self.file_path.read_text())
                 for bid, bdata in data.items():
                     self._bins[bid] = BinModel.model_validate(bdata)
-            except Exception:
+            except OSError:
+                logger.error(f"Failed to load {self.file_path}: permission denied")
+                raise
+            except Exception as e:
+                logger.error(f"Failed to load {self.file_path}: {e}")
                 self._bins = {}
 
     def _save(self):

@@ -66,21 +66,28 @@ def test_project_requests_support_clearable_fields():
     create_req = BinProjectCreateRequest(
         name="Top drawer",
         tool_ids=["tool-1"],
-        default_bin_config=BinConfig(grid_x=4, grid_y=3),
+        default_bin_config=BinConfig(grid_x=4, grid_y=3, magnet_diameter=6.2, bed_size=220),
     )
     update_req = BinProjectUpdateRequest(description=None, notes=None, target_grid_x=None)
     tools_req = BinProjectToolsRequest(tool_ids=["tool-1", "tool-2"])
     bins_req = BinProjectBinsRequest(bin_ids=["bin-1"], import_tools=True)
-    bin_req = BinProjectCreateBinRequest(name="Top drawer bin", tool_ids=["tool-1"])
+    bin_req = BinProjectCreateBinRequest(
+        name="Top drawer bin",
+        tool_ids=["tool-1"],
+        bin_config=BinConfig(magnet_diameter=6.4, bed_size=210),
+    )
 
     assert create_req.tool_ids == ["tool-1"]
     assert create_req.default_bin_config.grid_x == 4
+    assert create_req.default_bin_config.magnet_diameter == 6.2
+    assert create_req.default_bin_config.bed_size == 220
     assert "description" in update_req.model_fields_set
     assert "notes" in update_req.model_fields_set
     assert "target_grid_x" in update_req.model_fields_set
     assert tools_req.tool_ids == ["tool-1", "tool-2"]
     assert bins_req.import_tools is True
     assert bin_req.tool_ids == ["tool-1"]
+    assert bin_req.bin_config.magnet_diameter == 6.4
 
 
 def test_project_store_round_trips(tmp_path):
@@ -190,6 +197,86 @@ def test_project_placed_status_updates_when_bin_contents_change(tmp_path, monkey
 
     assert detail["placed_tool_ids"] == []
     assert detail["unplaced_tool_ids"] == ["tool-1"]
+
+
+def test_project_update_round_trips_default_bin_config(tmp_path, monkeypatch):
+    client = _api_client(tmp_path, monkeypatch)
+    project = client.post("/api/bin-projects", json={"name": "Top drawer"}).json()
+
+    update_resp = client.patch(f"/api/bin-projects/{project['id']}", json={
+        "default_bin_config": {
+            "magnet_diameter": 6.2,
+            "magnet_depth": 2.8,
+            "magnet_corners_only": True,
+            "bed_size": 220,
+        },
+    })
+
+    assert update_resp.status_code == 200
+    updated_config = update_resp.json()["default_bin_config"]
+    assert updated_config["magnet_diameter"] == 6.2
+    assert updated_config["magnet_depth"] == 2.8
+    assert updated_config["magnet_corners_only"] is True
+    assert updated_config["bed_size"] == 220
+    detail_config = client.get(f"/api/bin-projects/{project['id']}").json()["default_bin_config"]
+    assert detail_config == updated_config
+
+    clear_resp = client.patch(f"/api/bin-projects/{project['id']}", json={"default_bin_config": None})
+
+    assert clear_resp.status_code == 200
+    assert clear_resp.json()["default_bin_config"] is None
+
+
+def test_create_bin_accepts_default_bin_config(tmp_path, monkeypatch):
+    client = _api_client(tmp_path, monkeypatch)
+
+    resp = client.post("/api/bins", json={
+        "name": "Magnet test",
+        "bin_config": {
+            "magnet_diameter": 6.2,
+            "magnet_depth": 2.8,
+            "magnet_corners_only": True,
+            "bed_size": 220,
+        },
+    })
+
+    assert resp.status_code == 200
+    bin_config = resp.json()["bin_config"]
+    assert bin_config["magnet_diameter"] == 6.2
+    assert bin_config["magnet_depth"] == 2.8
+    assert bin_config["magnet_corners_only"] is True
+    assert bin_config["bed_size"] == 220
+
+
+def test_project_create_bin_uses_request_config_before_project_default(tmp_path, monkeypatch):
+    client = _api_client(tmp_path, monkeypatch)
+    _seed_tool("tool-1")
+
+    project = client.post("/api/bin-projects", json={
+        "name": "Top drawer",
+        "tool_ids": ["tool-1"],
+        "default_bin_config": {"magnet_diameter": 6.2, "bed_size": 220},
+    }).json()
+
+    project_default_resp = client.post(
+        f"/api/bin-projects/{project['id']}/create-bin",
+        json={"tool_ids": ["tool-1"]},
+    )
+    override_resp = client.post(
+        f"/api/bin-projects/{project['id']}/create-bin",
+        json={
+            "name": "Override bin",
+            "tool_ids": ["tool-1"],
+            "bin_config": {"magnet_diameter": 6.4, "bed_size": 210},
+        },
+    )
+
+    assert project_default_resp.status_code == 200
+    assert project_default_resp.json()["bin_config"]["magnet_diameter"] == 6.2
+    assert project_default_resp.json()["bin_config"]["bed_size"] == 220
+    assert override_resp.status_code == 200
+    assert override_resp.json()["bin_config"]["magnet_diameter"] == 6.4
+    assert override_resp.json()["bin_config"]["bed_size"] == 210
 
 
 def test_project_health_reports_and_repairs_safe_link_mismatches(tmp_path):

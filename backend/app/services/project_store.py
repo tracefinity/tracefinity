@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import tempfile
 import threading
 from pathlib import Path
 from typing import Optional
 
 from app.models.schemas import BinProject
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectStore:
@@ -22,7 +25,11 @@ class ProjectStore:
                 data = json.loads(self.file_path.read_text())
                 for pid, pdata in data.items():
                     self._projects[pid] = BinProject.model_validate(pdata)
-            except Exception:
+            except OSError:
+                logger.error(f"Failed to load {self.file_path}: permission denied")
+                raise
+            except Exception as e:
+                logger.error(f"Failed to load {self.file_path}: {e}")
                 self._projects = {}
 
     def _save(self):

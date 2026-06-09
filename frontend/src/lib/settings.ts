@@ -1,5 +1,8 @@
+import type { BinDefaults } from '@/types'
+
 export interface UserSettings {
   bedSize: number
+  binDefaults?: Partial<BinDefaults>
 }
 
 const DEFAULTS: UserSettings = { bedSize: 256 }
@@ -17,6 +20,15 @@ export function getSettings(): UserSettings {
 }
 
 export function saveSettings(partial: Partial<UserSettings>): void {
-  const current = getSettings()
-  localStorage.setItem(KEY, JSON.stringify({ ...current, ...partial }))
+  if (typeof window === 'undefined') return
+  try {
+    const current = getSettings()
+    const next: Record<string, unknown> = { ...current, ...partial }
+    for (const key of Object.keys(next)) {
+      if (next[key] === undefined) delete next[key]
+    }
+    window.localStorage.setItem(KEY, JSON.stringify(next))
+  } catch {
+    // localStorage can be unavailable in private browsing or restricted contexts.
+  }
 }

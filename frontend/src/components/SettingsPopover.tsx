@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Settings } from 'lucide-react'
 import { getSettings, saveSettings } from '@/lib/settings'
 import { IconButton } from '@/components/IconButton'
+import { NumericInput } from '@/components/NumericInput'
 
 export function SettingsPopover() {
   const [open, setOpen] = useState(false)
@@ -58,16 +59,12 @@ export function SettingsPopover() {
                 style={{ '--slider-pct': `${pct}%` } as React.CSSProperties}
               />
               <div className="flex items-center gap-1">
-                <input
-                  type="number"
+                <NumericInput
                   min={150}
                   max={400}
                   step={1}
                   value={bedSize}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value)
-                    if (!isNaN(v)) handleBedSizeChange(Math.min(400, Math.max(150, v)))
-                  }}
+                  onChange={handleBedSizeChange}
                   className="w-14 h-7 bg-elevated text-right text-xs font-semibold text-text-primary rounded pr-2 focus:outline-none"
                 />
                 <span className="text-[10px] text-text-muted w-5">mm</span>

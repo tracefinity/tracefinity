@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import tempfile
 import threading
 from pathlib import Path
 from typing import Optional
 
 from app.models.schemas import Session
+
+logger = logging.getLogger(__name__)
 
 
 class SessionStore:
@@ -22,7 +25,11 @@ class SessionStore:
                 data = json.loads(self.file_path.read_text())
                 for sid, sdata in data.items():
                     self._sessions[sid] = Session.model_validate(sdata)
-            except Exception:
+            except OSError:
+                logger.error(f"Failed to load {self.file_path}: permission denied")
+                raise
+            except Exception as e:
+                logger.error(f"Failed to load {self.file_path}: {e}")
                 self._sessions = {}
 
     def _save(self):

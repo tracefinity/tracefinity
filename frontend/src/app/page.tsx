@@ -12,6 +12,7 @@ import { Trash2, Package, Plus, Loader2, Grid3X3, Folder } from 'lucide-react'
 import { Alert } from '@/components/Alert'
 import { PhotoIllustration, CornersIllustration, TraceIllustration, OrganiseIllustration } from '@/components/OnboardingIllustrations'
 import { GRID_UNIT } from '@/lib/constants'
+import { getDefaultBinDefaults } from '@/lib/binDefaults'
 import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation'
 import { projectNameMap, projectStatusLabels, toolProjectLabel, toolProjectTitle } from '@/lib/projectSelectors'
 
@@ -367,7 +368,7 @@ export default function HomePage() {
     if (sourceToolId) setCreatingBin(sourceToolId)
     setNameModal(null)
     try {
-      const bin = await createBin({ name, tool_ids: toolIds })
+      const bin = await createBin({ name, tool_ids: toolIds, bin_config: getDefaultBinDefaults() })
       router.push(`/bins/${bin.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'failed to create bin')

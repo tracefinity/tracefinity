@@ -51,6 +51,7 @@ from app.models.schemas import (
     BinProjectToolsRequest,
     BinProjectCreateBinRequest,
     BinProjectBinsRequest,
+    BinDefaults,
     ProjectHealthResponse,
     PlacedTool,
     BinModel,
@@ -350,7 +351,7 @@ def _build_bin_from_tools(
     project_id: str | None,
     tool_ids: list[str],
     user_tools: ToolStore,
-    default_config: BinConfig | None = None,
+    default_config: BinDefaults | None = None,
 ) -> BinModel:
     placed: list[PlacedTool] = []
     all_points_mm: list[tuple[float, float]] = []
@@ -370,7 +371,7 @@ def _build_bin_from_tools(
             interior_rings=list(tool.interior_rings),
         ))
 
-    bc = BinConfig.model_validate(default_config.model_dump()) if default_config else BinConfig()
+    bc = BinConfig(**default_config.model_dump(exclude={"text_labels"}), text_labels=[]) if default_config else BinConfig()
     if all_points_mm:
         all_xs = [p[0] for p in all_points_mm]
         all_ys = [p[1] for p in all_points_mm]
@@ -1391,7 +1392,7 @@ async def create_bin_from_project(
         project_id=project_id,
         tool_ids=tool_ids,
         user_tools=user_tools,
-        default_config=project.default_bin_config,
+        default_config=req.bin_config or project.default_bin_config,
     )
     user_bins.set(bin_id, bin_data)
     add_bin_to_project(project_store, project_id, bin_id)
@@ -1448,6 +1449,7 @@ async def create_bin(request: Request, req: CreateBinRequest, user_id: str = Dep
         project_id=req.project_id,
         tool_ids=req.tool_ids,
         user_tools=user_tools,
+        default_config=req.bin_config,
     )
     user_bins.set(bin_id, bin_data)
     add_bin_to_project(project_store, req.project_id, bin_id)

@@ -38,6 +38,9 @@ docker run -p 3000:3000 -v ./data:/app/storage ghcr.io/tracefinity/tracefinity
 
 # or with Gemini API
 docker run -p 3000:3000 -v ./data:/app/storage -e GOOGLE_API_KEY=your-key ghcr.io/tracefinity/tracefinity
+
+# run as your host user (files in ./data owned by you, not root)
+docker run -p 3000:3000 -v ./data:/app/storage --user "$(id -u):$(id -g)" ghcr.io/tracefinity/tracefinity
 ```
 
 Open http://localhost:3000
@@ -53,7 +56,7 @@ By default, Tracefinity uses [IS-Net](https://github.com/xuebinqin/DIS) for loca
 
 ### From Source
 
-Prerequisites: Python 3.11+, Node.js 20+
+Prerequisites: Python 3.11+, Node.js 20+, [pnpm](https://pnpm.io/installation)
 
 ```bash
 git clone https://github.com/tracefinity/tracefinity
@@ -61,7 +64,7 @@ cd tracefinity
 
 # First time setup
 cd backend && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
-cd ../frontend && npm install
+cd ../frontend && pnpm install
 cd ..
 
 # Run (starts backend on :8000 and frontend on :4001)
@@ -145,6 +148,21 @@ No API key and prefer not to use the local model? Upload a mask manually:
 - **Bed splitting** -- Large bins auto-split into printable pieces with diagonal fit detection
 - **Landscape and portrait** -- Paper orientation auto-detected from corner positions
 - **Single-container Docker** -- Frontend and backend in one image, data in a single volume
+
+## Guides
+
+Step-by-step usage guides covering each part of the workflow:
+
+- [Getting started](docs/usage/getting-started.md)
+- [Uploading photos](docs/usage/uploading-photos.md)
+- [Tracing](docs/usage/tracing.md)
+- [Tool editor](docs/usage/tool-editor.md)
+- [Tool library](docs/usage/tool-library.md)
+- [Bin configuration](docs/usage/bin-configuration.md)
+- [Bin layout](docs/usage/bin-layout.md)
+- [Projects](docs/usage/projects.md)
+- [Exporting](docs/usage/exporting.md)
+- [Keyboard shortcuts](docs/usage/keyboard-shortcuts.md)
 
 ## What is Gridfinity?
 

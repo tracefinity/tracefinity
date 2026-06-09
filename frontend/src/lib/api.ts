@@ -5,6 +5,7 @@ import type {
   GenerateResponse,
   Point,
   Polygon,
+  BinDefaults,
   BinConfig,
   Session,
   SessionSummary,
@@ -245,6 +246,7 @@ export async function createProject(opts: {
   name: string
   description?: string | null
   status?: ProjectStatus
+  default_bin_config?: BinDefaults | null
   tool_ids?: string[]
 }): Promise<BinProject> {
   return fetchApi('/api/bin-projects', {
@@ -266,6 +268,7 @@ export async function updateProject(
     notes?: string | null
     target_grid_x?: number | null
     target_grid_y?: number | null
+    default_bin_config?: BinDefaults | null
   }
 ): Promise<BinProject> {
   return fetchApi(`/api/bin-projects/${projectId}`, {
@@ -313,7 +316,7 @@ export async function detachBinFromProject(projectId: string, binId: string): Pr
 
 export async function createProjectBin(
   projectId: string,
-  opts: { name?: string | null; tool_ids?: string[] | null } = {}
+  opts: { name?: string | null; tool_ids?: string[] | null; bin_config?: BinDefaults | null } = {}
 ): Promise<BinData> {
   return fetchApi(`/api/bin-projects/${projectId}/create-bin`, {
     method: 'POST',
@@ -332,7 +335,7 @@ export async function getBin(binId: string): Promise<BinData> {
   return fetchApi(`/api/bins/${binId}`)
 }
 
-export async function createBin(opts: { name?: string; project_id?: string | null; tool_ids?: string[] } = {}): Promise<BinData> {
+export async function createBin(opts: { name?: string; project_id?: string | null; tool_ids?: string[]; bin_config?: BinDefaults | null } = {}): Promise<BinData> {
   return fetchApi('/api/bins', {
     method: 'POST',
     body: JSON.stringify(opts),

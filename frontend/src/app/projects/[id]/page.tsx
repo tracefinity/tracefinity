@@ -17,12 +17,14 @@ import {
   repairProject,
   updateProject,
 } from '@/lib/api'
-import type { BinProject, BinProjectSummary, BinSummary, ProjectHealthIssue, ProjectStatus, ToolSummary } from '@/types'
+import type { BinConfig, BinProject, BinProjectSummary, BinSummary, ProjectHealthIssue, ProjectStatus, ToolSummary } from '@/types'
 import { Alert } from '@/components/Alert'
+import { BinConfigurator } from '@/components/BinConfigurator'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { SectionHeader } from '@/components/SectionHeader'
 import { ToolSummaryButton, ToolSummaryItem } from '@/components/ToolSummaryItem'
 import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation'
+import { binDefaultsFromConfig, buildBinConfig, getDefaultBinConfig, getDefaultBinDefaults } from '@/lib/binDefaults'
 import { projectScopedHref } from '@/lib/projectNavigation'
 import {
   binLabel,
@@ -35,10 +37,11 @@ import {
 import { AlertTriangle, ArrowLeft, CheckSquare, ChevronDown, ChevronRight, Loader2, Package, Plus, Search, Square, Trash2, Unlink } from 'lucide-react'
 
 const PROJECT_SECTION_COLLAPSE_KEY = 'tracefinity.project.collapsedSections'
-type ProjectSectionId = 'projectTools' | 'linkedBins'
+type ProjectSectionId = 'binDefaults' | 'projectTools' | 'linkedBins'
 type ProjectSectionCollapseState = Record<ProjectSectionId, boolean>
 
 const defaultProjectSectionCollapse: ProjectSectionCollapseState = {
+  binDefaults: true,
   projectTools: false,
   linkedBins: false,
 }
@@ -76,6 +79,9 @@ export default function ProjectPage() {
   const [allowReassignBins, setAllowReassignBins] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<ProjectSectionCollapseState>(loadProjectSectionCollapseState)
   const [healthIssues, setHealthIssues] = useState<ProjectHealthIssue[]>([])
+  const [projectDefaultConfig, setProjectDefaultConfig] = useState<BinConfig>(() => getDefaultBinConfig())
+  const [savingProjectDefaults, setSavingProjectDefaults] = useState(false)
+  const [projectDefaultsStatus, setProjectDefaultsStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [creatingBin, setCreatingBin] = useState(false)
@@ -99,6 +105,8 @@ export default function ProjectPage() {
       ])
       const savedAddToolsOpen = window.localStorage.getItem('tracefinity.project.addToolsOpen')
       setProject(p)
+      setProjectDefaultConfig(buildBinConfig(p.default_bin_config || getDefaultBinDefaults()))
+      setProjectDefaultsStatus(null)
       setProjects(allProjects)
       setTools(t)
       setBins(b)
@@ -206,6 +214,39 @@ export default function ProjectPage() {
     }
   }
 
+  async function handleSaveProjectDefaults() {
+    if (!project) return
+    setSavingProjectDefaults(true)
+    setError(null)
+    try {
+      const updated = await updateProject(project.id, {
+        default_bin_config: binDefaultsFromConfig(projectDefaultConfig),
+      })
+      setProject(updated)
+      setProjectDefaultsStatus('Project defaults saved')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to save project defaults')
+    } finally {
+      setSavingProjectDefaults(false)
+    }
+  }
+
+  async function handleClearProjectDefaults() {
+    if (!project) return
+    setSavingProjectDefaults(true)
+    setError(null)
+    try {
+      const updated = await updateProject(project.id, { default_bin_config: null })
+      setProject(updated)
+      setProjectDefaultConfig(getDefaultBinConfig())
+      setProjectDefaultsStatus('Using global defaults')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to clear project defaults')
+    } finally {
+      setSavingProjectDefaults(false)
+    }
+  }
+
   async function handleRepairHealth() {
     if (!project) return
     setSaving(true)
@@ -256,6 +297,7 @@ export default function ProjectPage() {
       const bin = await createProjectBin(project.id, {
         name: `${project.name} bin ${projectBins.length + 1}`,
         tool_ids: Array.from(selectedBinToolIds),
+        ...(project.default_bin_config ? {} : { bin_config: getDefaultBinDefaults() }),
       })
       router.push(projectScopedHref(project.id, `/bins/${bin.id}`))
     } catch (err) {
@@ -387,6 +429,49 @@ export default function ProjectPage() {
       </div>
 
       {error && <Alert variant="error">{error}</Alert>}
+
+      <section>
+        <SectionHeader
+          title="Bin defaults"
+          collapsed={collapsedSections.binDefaults}
+          onToggleCollapsed={() => setSectionCollapsed('binDefaults', !collapsedSections.binDefaults)}
+        >
+          <span className="text-[11px] text-text-muted">
+            {project.default_bin_config ? 'Project-specific defaults' : 'Using global defaults'}
+          </span>
+          {!collapsedSections.binDefaults && (
+            <>
+              {projectDefaultsStatus && (
+                <span className="text-[10px] text-text-muted">{projectDefaultsStatus}</span>
+              )}
+              <button
+                type="button"
+                onClick={handleClearProjectDefaults}
+                disabled={savingProjectDefaults}
+                className="btn-secondary px-2 py-1 text-[11px]"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveProjectDefaults}
+                disabled={savingProjectDefaults}
+                className="btn-primary px-2.5 py-1 text-[11px] inline-flex items-center gap-1"
+              >
+                {savingProjectDefaults && <Loader2 className="w-3 h-3 animate-spin" />}
+                Save defaults
+              </button>
+            </>
+          )}
+        </SectionHeader>
+        {!collapsedSections.binDefaults && (
+          <div className="glass rounded-[8px] px-3 py-3">
+            <div className="max-w-sm">
+              <BinConfigurator config={projectDefaultConfig} onChange={setProjectDefaultConfig} />
+            </div>
+          </div>
+        )}
+      </section>
 
       {healthIssues.length > 0 && (
         <section className="glass rounded-[8px] px-3 py-2">

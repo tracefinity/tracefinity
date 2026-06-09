@@ -7,7 +7,7 @@ import { BinConfigurator, calcMaxCutoutDepth } from '@/components/BinConfigurato
 import { BinPreview3D } from '@/components/BinPreview3D'
 import { ToolBrowser } from '@/components/ToolBrowser'
 import { getBin, updateBin, generateBinStl, getBinStlUrl, getBinZipUrl, getBinThreemfUrl, getBinInsertUrl, getImageUrl, listTools, updateTool } from '@/lib/api'
-import { getSettings } from '@/lib/settings'
+import { getDefaultBinConfig, resetDefaultBinConfig, saveDefaultBinConfig } from '@/lib/binDefaults'
 import type { BinConfig, BinData, PlacedTool, TextLabel } from '@/types'
 import { Download, Loader2, Package, ChevronDown, Check } from 'lucide-react'
 import { Breadcrumb } from '@/components/Breadcrumb'
@@ -24,27 +24,6 @@ function InfoBanner({ children }: { children: React.ReactNode }) {
   )
 }
 
-function defaultConfig(): BinConfig {
-  return {
-    grid_x: 2,
-    grid_y: 2,
-    height_units: 4,
-    magnets: true,
-    magnet_diameter: 6.0,
-    magnet_depth: 2.4,
-    magnet_corners_only: false,
-    stacking_lip: true,
-    wall_thickness: 1.6,
-    cutout_depth: 20,
-    cutout_clearance: 1.0,
-    cutout_chamfer: 0,
-    insert_enabled: false,
-    insert_height: 1.0,
-    text_labels: [],
-    bed_size: getSettings().bedSize,
-  }
-}
-
 export default function BinPage() {
   const router = useRouter()
   const params = useParams()
@@ -54,7 +33,7 @@ export default function BinPage() {
   const [binData, setBinData] = useState<BinData | null>(null)
   const [placedTools, setPlacedTools] = useState<PlacedTool[]>([])
   const [textLabels, setTextLabels] = useState<TextLabel[]>([])
-  const [config, setConfig] = useState<BinConfig>(defaultConfig)
+  const [config, setConfig] = useState<BinConfig>(() => getDefaultBinConfig())
   const [name, setName] = useState('')
   const [stlUrl, setStlUrl] = useState<string | null>(null)
   const [stlUrls, setStlUrls] = useState<string[]>([])
@@ -79,6 +58,8 @@ export default function BinPage() {
   const [autoSize, setAutoSize] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [defaultsStatus, setDefaultsStatus] = useState<string | null>(null)
+  const defaultsStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const exportRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -198,7 +179,10 @@ export default function BinPage() {
   )
 
   useEffect(() => {
-    return () => { abortRef.current?.abort() }
+    return () => {
+      abortRef.current?.abort()
+      if (defaultsStatusTimeoutRef.current) clearTimeout(defaultsStatusTimeoutRef.current)
+    }
   }, [])
 
   useEffect(() => {
@@ -332,6 +316,25 @@ export default function BinPage() {
     window.open(getBinInsertUrl(binId), '_blank')
   }
 
+  function showDefaultsStatus(message: string) {
+    if (defaultsStatusTimeoutRef.current) clearTimeout(defaultsStatusTimeoutRef.current)
+    setDefaultsStatus(message)
+    defaultsStatusTimeoutRef.current = setTimeout(() => {
+      setDefaultsStatus(null)
+      defaultsStatusTimeoutRef.current = null
+    }, 2500)
+  }
+
+  function handleSaveDefaults() {
+    saveDefaultBinConfig(config)
+    showDefaultsStatus('Defaults saved')
+  }
+
+  function handleResetDefaults() {
+    setConfig(resetDefaultBinConfig())
+    showDefaultsStatus('Defaults reset')
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12 gap-2 text-text-muted">
@@ -371,6 +374,28 @@ export default function BinPage() {
               {saved && <Check className="w-3 h-3 text-green-400 flex-shrink-0" />}
             </div>
             <BinConfigurator config={config} onChange={setConfig} autoSize={autoSize} onAutoSizeChange={setAutoSize} />
+            <div className="mt-3 border-t border-border pt-3 space-y-1.5">
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleSaveDefaults}
+                  className="btn-secondary flex-1 px-2 py-1.5 text-[11px]"
+                >
+                  Save as default
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetDefaults}
+                  className="btn-secondary px-2 py-1.5 text-[11px]"
+                  title="Reset this bin and saved defaults"
+                >
+                  Reset
+                </button>
+              </div>
+              {defaultsStatus && (
+                <p className="text-[10px] text-text-muted">{defaultsStatus}</p>
+              )}
+            </div>
           </div>
 
           <div className="glass rounded-[10px] px-3 py-3">
