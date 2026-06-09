@@ -1,7 +1,8 @@
 'use client'
 
 import { ReactNode } from 'react'
-import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Disc, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, FlipHorizontal2, FlipVertical2, ChevronDown, PaintBucket, Locate } from 'lucide-react'
+import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Disc, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, FlipHorizontal2, FlipVertical2, ChevronDown, PaintBucket, Locate, Columns2, Rows2, ArrowLeftRight, Waypoints } from 'lucide-react'
+import type { AxisOrientation, KeepSide } from '@/lib/symmetry'
 import type { FingerHole } from '@/types'
 import { SNAP_GRID_MIN, SNAP_GRID_MAX } from '@/lib/constants'
 import { NumericInput } from '@/components/NumericInput'
@@ -24,6 +25,17 @@ interface Props {
   setSnapEnabled: (enabled: boolean) => void
   snapGrid: number
   setSnapGrid: (grid: number) => void
+  mirrorMode: boolean
+  toggleMirror: () => void
+  axisOrientation: AxisOrientation
+  setAxisOrientation: (o: AxisOrientation) => void
+  keepSide: KeepSide
+  flipKeepSide: () => void
+  simplifyLevel: number
+  onSimplifyPreview: (level: number) => void
+  onSimplifyCommit: () => void
+  simplifyDisabled: boolean
+  nodeCount: number
   canUndo: boolean
   canRedo: boolean
   handleUndo: () => void
@@ -48,6 +60,8 @@ export function ToolEditorToolbar({
   editMode, setEditMode,
   smoothed, smoothLevel, onSmoothedChange, onSmoothLevelChange,
   snapEnabled, setSnapEnabled, snapGrid, setSnapGrid,
+  mirrorMode, toggleMirror, axisOrientation, setAxisOrientation, keepSide, flipKeepSide,
+  simplifyLevel, onSimplifyPreview, onSimplifyCommit, simplifyDisabled, nodeCount,
   canUndo, canRedo, handleUndo, handleRedo,
   cutoutOpen, setCutoutOpen,
   isCutoutMode, cutoutModeIcon, cutoutModeLabel,
@@ -211,6 +225,45 @@ export function ToolEditorToolbar({
             className="w-12 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent"
           />
         )}
+
+        <button
+          onClick={toggleMirror}
+          className={`px-2 py-1 rounded-[7px] text-[11px] flex items-center gap-1 transition-colors ${
+            mirrorMode ? 'bg-accent-muted text-accent' : 'hover:bg-border/50 text-text-secondary'
+          }`}
+          title="Symmetric editing — mirror one half onto the other and keep edits symmetric"
+        >
+          <FlipHorizontal2 className="w-3.5 h-3.5" />
+          Mirror
+        </button>
+        {mirrorMode && (
+          <>
+            <div className="flex items-center rounded-[7px] overflow-hidden border border-border-subtle">
+              <button
+                onClick={() => setAxisOrientation('vertical')}
+                className={`px-1.5 py-1 transition-colors ${axisOrientation === 'vertical' ? 'bg-accent-muted text-accent' : 'text-text-muted hover:text-text-secondary'}`}
+                title="Vertical axis (mirror left/right)"
+              >
+                <Columns2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setAxisOrientation('horizontal')}
+                className={`px-1.5 py-1 transition-colors ${axisOrientation === 'horizontal' ? 'bg-accent-muted text-accent' : 'text-text-muted hover:text-text-secondary'}`}
+                title="Horizontal axis (mirror top/bottom)"
+              >
+                <Rows2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <button
+              onClick={flipKeepSide}
+              className="px-1.5 py-1 rounded-[7px] text-[11px] flex items-center gap-1 transition-colors hover:bg-border/50 text-text-secondary"
+              title={`Keep ${axisOrientation === 'vertical' ? (keepSide === 'low' ? 'left' : 'right') : (keepSide === 'low' ? 'top' : 'bottom')} half — click to swap`}
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" />
+            </button>
+          </>
+        )}
+
         <div className="flex items-center rounded-[7px] overflow-hidden border border-border-subtle text-[11px]">
           <button
             onClick={() => onSmoothedChange(false)}
@@ -237,6 +290,31 @@ export function ToolEditorToolbar({
             title={`Smooth level: ${Math.round(smoothLevel * 100)}%`}
           />
         )}
+
+        <div className="h-4 w-px bg-border-subtle mx-0.5" />
+
+        {/* node-count slider: simple <-> accurate (re-derives from the original trace) */}
+        <div
+          className={`flex items-center gap-1.5 text-text-muted ${simplifyDisabled ? 'opacity-30' : ''}`}
+          title={simplifyDisabled
+            ? 'Detail is unavailable while Mirror mode is on'
+            : `Detail: ${nodeCount} nodes — drag toward Accurate for full trace detail, Simple for fewer nodes`}
+        >
+          <Waypoints className="w-3.5 h-3.5" />
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={simplifyLevel}
+            disabled={simplifyDisabled}
+            onChange={e => onSimplifyPreview(parseFloat(e.target.value))}
+            onPointerUp={onSimplifyCommit}
+            onKeyUp={onSimplifyCommit}
+            className="w-20 h-1 accent-accent disabled:cursor-not-allowed"
+          />
+          <span className="text-[10px] tabular-nums w-7 text-right">{nodeCount}</span>
+        </div>
 
         <div className="h-4 w-px bg-border-subtle mx-0.5" />
 

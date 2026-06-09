@@ -2,6 +2,7 @@
 
 import { RefObject, useState } from 'react'
 import type { Point, FingerHole, ToolImageContext } from '@/types'
+import type { SymmetryAxis } from '@/lib/symmetry'
 import { polygonPathData, smoothPathData } from '@/lib/svg'
 import { DISPLAY_SCALE } from '@/lib/constants'
 import { CutoutOverlay } from '@/components/CutoutOverlay'
@@ -48,6 +49,9 @@ interface Props {
   showSourceImage: boolean
   sourceImageOpacity: number
 
+  // symmetric editing
+  symmetryAxis?: SymmetryAxis | null
+  onAxisMouseDown?: (e: React.MouseEvent) => void
 }
 
 export function ToolEditorCanvas({
@@ -60,6 +64,7 @@ export function ToolEditorCanvas({
   displayHoles, handleHoleMouseDown, handleResizeMouseDown, handleHoleRotateMouseDown,
   handleRotatePolygonMouseDown, onRingClick,
   sourceImageContext, showSourceImage, sourceImageOpacity,
+  symmetryAxis, onAxisMouseDown,
 }: Props) {
   const stopClick = (e: React.MouseEvent) => e.stopPropagation()
   const [hoveredRing, setHoveredRing] = useState<number | null>(null)
@@ -141,6 +146,36 @@ export function ToolEditorCanvas({
             stroke={sourceImage ? 'rgb(226, 232, 240)' : 'rgb(148, 163, 184)'}
             strokeWidth={(sourceImage ? 2.5 : 2) / zoom}
           />
+
+          {/* symmetry axis */}
+          {symmetryAxis && (() => {
+            const ds = DISPLAY_SCALE
+            const vertical = symmetryAxis.orientation === 'vertical'
+            const pos = symmetryAxis.pos * ds
+            const x1 = vertical ? pos : zvbX
+            const y1 = vertical ? zvbY : pos
+            const x2 = vertical ? pos : zvbX + zvbW
+            const y2 = vertical ? zvbY + zvbH : pos
+            const hx = vertical ? pos : zvbX + zvbW * 0.5
+            const hy = vertical ? zvbY + zvbH * 0.12 : pos
+            return (
+              <g>
+                <line
+                  x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke="rgb(72, 168, 214)" strokeWidth={1.5 / zoom}
+                  strokeDasharray={`${8 / zoom},${6 / zoom}`}
+                  className="pointer-events-none"
+                />
+                <circle
+                  cx={hx} cy={hy} r={9 / zoom}
+                  fill="#1e293b" stroke="rgb(72, 168, 214)" strokeWidth={2 / zoom}
+                  className={vertical ? 'cursor-ew-resize' : 'cursor-ns-resize'}
+                  onMouseDown={onAxisMouseDown}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </g>
+            )
+          })()}
 
           {/* per-ring hit areas for fill-ring mode */}
           {editMode === 'fill-ring' && interiorRings?.map((ring, idx) => {

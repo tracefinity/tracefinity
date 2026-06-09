@@ -113,6 +113,18 @@ export function smoothEpsilon(level: number): number {
   return 0.3 + lv * 1.2
 }
 
+// RDP tolerance for the node-count slider. `accuracy` runs 1 (keep every vertex)
+// down to 0 (aggressive). Quadratic so the accurate end stays fine-grained while
+// the simple end decimates hard (up to ~6% of the bounding-box diagonal).
+export function simplifyEpsilon(points: Point[], accuracy: number): number {
+  if (accuracy >= 1) return 0
+  let mnX = Infinity, mnY = Infinity, mxX = -Infinity, mxY = -Infinity
+  for (const p of points) { mnX = Math.min(mnX, p.x); mnY = Math.min(mnY, p.y); mxX = Math.max(mxX, p.x); mxY = Math.max(mxY, p.y) }
+  const diag = Math.hypot(mxX - mnX, mxY - mnY)
+  const t = 1 - Math.max(0, accuracy)
+  return diag * 0.06 * t * t
+}
+
 export function snapToGrid(v: number, grid: number): number {
   return Math.round(v / grid) * grid
 }

@@ -3,9 +3,14 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { Plus, Circle, Disc, Square, RectangleHorizontal, Fingerprint, ImageIcon, Eye, EyeOff } from 'lucide-react'
 import type { Point, FingerHole, ToolImageContext, AffineMatrix } from '@/types'
-import { simplifyPolygon, smoothEpsilon, snapToGrid as snapToGridUtil } from '@/lib/svg'
+import { simplifyPolygon, smoothEpsilon, simplifyEpsilon, snapToGrid as snapToGridUtil } from '@/lib/svg'
 import { rotateAround, flipAround } from '@/lib/affine'
 import { rotateGeometry, centroidOf } from '@/lib/geometry'
+import {
+  symmetrize, reflectPoint, reflectHole, constrainToAxis, partnerIndex,
+  insertMirroredVertex, deleteMirroredVertex, findHolePartner, isHoleOnAxis,
+  type SymmetryAxis, type KeepSide,
+} from '@/lib/symmetry'
 import { DISPLAY_SCALE, SNAP_GRID, ZOOM_FACTOR } from '@/lib/constants'
 import { useHistory } from '@/hooks/useHistory'
 import { ToolEditorToolbar } from '@/components/ToolEditorToolbar'
@@ -37,11 +42,12 @@ const PADDING_MM = 20
 
 type DragState =
   | { type: 'vertex'; pointIdx: number }
-  | { type: 'hole'; holeId: string; startX: number; startY: number; origX: number; origY: number }
-  | { type: 'resize'; holeId: string; startX: number; startY: number; origRadius: number; origWidth?: number; origHeight?: number; centerX: number; centerY: number; anchorX?: number; anchorY?: number; rotation?: number }
-  | { type: 'rotate-hole'; holeId: string; centerX: number; centerY: number; startAngle: number; origRotation: number }
+  | { type: 'hole'; holeId: string; startX: number; startY: number; origX: number; origY: number; mirrorId?: string; onAxis?: boolean }
+  | { type: 'resize'; holeId: string; startX: number; startY: number; origRadius: number; origWidth?: number; origHeight?: number; centerX: number; centerY: number; anchorX?: number; anchorY?: number; rotation?: number; mirrorId?: string }
+  | { type: 'rotate-hole'; holeId: string; centerX: number; centerY: number; startAngle: number; origRotation: number; mirrorId?: string }
   | { type: 'rotate-polygon'; centerX: number; centerY: number; startAngle: number; origPoints: Point[]; origHoles: FingerHole[]; origRings: Point[][] }
   | { type: 'pan'; startClientX: number; startClientY: number; origPanX: number; origPanY: number; svgScale: number }
+  | { type: 'axis' }
   | null
 
 interface HistoryEntry {
@@ -59,11 +65,26 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   // would quantise corrections by up to ~3.5mm
   const [snapEnabled, setSnapEnabled] = useState(false)
   const [snapGrid, setSnapGrid] = useState(SNAP_GRID)
+  const [mirrorMode, setMirrorMode] = useState(false)
+  const [symmetryAxis, setSymmetryAxis] = useState<SymmetryAxis | null>(null)
+  const [keepSide, setKeepSide] = useState<KeepSide>('low')
+  const [mirrorNote, setMirrorNote] = useState<string | null>(null)
+  const [simplifyLevel, setSimplifyLevel] = useState(1)
+  const simplifyLevelRef = useRef(1)
+  // session-scoped "most accurate available" reference the slider re-derives from
+  const baseRef = useRef<Point[] | null>(null)
+  if (baseRef.current === null && points.length > 0) baseRef.current = points
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [cutoutOpen, setCutoutOpen] = useState(false)
   const spaceHeld = useRef(false)
   const didPanRef = useRef(false)
+  const mirrorModeRef = useRef(mirrorMode)
+  const axisRef = useRef(symmetryAxis)
+  const keepSideRef = useRef(keepSide)
+  useEffect(() => { mirrorModeRef.current = mirrorMode }, [mirrorMode])
+  useEffect(() => { axisRef.current = symmetryAxis }, [symmetryAxis])
+  useEffect(() => { keepSideRef.current = keepSide }, [keepSide])
 
   // undo/redo
   const historyOnChange = useCallback((entry: HistoryEntry) => {
@@ -250,6 +271,80 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const snapRef = useRef(snapToGrid)
   useEffect(() => { snapRef.current = snapToGrid }, [snapToGrid])
 
+  // ---- symmetric editing ----
+  const idCounter = useRef(0)
+  const newHoleId = useCallback((seed: string) => `${seed}-m${++idCounter.current}`, [])
+
+  // mirror one half onto the other, establishing the canonical symmetric order
+  const applySymmetrize = useCallback((axis: SymmetryAxis, keep: KeepSide): boolean => {
+    const result = symmetrize(pointsRef.current, holesRef.current, axis, keep, newHoleId)
+    if (!result) {
+      setMirrorNote('Outline crosses the axis more than twice — can’t mirror cleanly here.')
+      return false
+    }
+    setMirrorNote(null)
+    pushHistory({ points: result.points, fingerHoles: result.fingerHoles, interiorRings: currentRingsRef.current })
+    onPointsRef.current(result.points)
+    onHolesRef.current(result.fingerHoles)
+    return true
+  }, [newHoleId, pushHistory])
+
+  const applySymmetrizeRef = useRef(applySymmetrize)
+  useEffect(() => { applySymmetrizeRef.current = applySymmetrize }, [applySymmetrize])
+
+  // ---- node-count slider (simplify <-> accurate) ----
+  // Always re-derives from the session base, so it's lossless within a session.
+  const deriveSimplified = useCallback((level: number): Point[] | null => {
+    const base = baseRef.current
+    if (!base) return null
+    return level >= 1 ? [...base] : simplifyPolygon(base, simplifyEpsilon(base, level))
+  }, [])
+
+  const previewSimplify = useCallback((level: number) => {
+    simplifyLevelRef.current = level
+    setSimplifyLevel(level)
+    const next = deriveSimplified(level)
+    if (next) onPointsRef.current(next)
+  }, [deriveSimplified])
+
+  const commitSimplify = useCallback(() => {
+    const next = deriveSimplified(simplifyLevelRef.current)
+    if (!next) return
+    pushHistory({ points: next, fingerHoles: holesRef.current, interiorRings: currentRingsRef.current })
+    onPointsRef.current(next)
+  }, [deriveSimplified, pushHistory])
+
+  const toggleMirror = useCallback(() => {
+    if (mirrorMode) {
+      setMirrorMode(false)
+      setMirrorNote(null)
+      return
+    }
+    const pts = pointsRef.current
+    if (pts.length < 3) return
+    const c = centroidOf(pts)
+    const axis: SymmetryAxis = { orientation: 'vertical', pos: c.x }
+    if (applySymmetrize(axis, keepSide)) {
+      setSymmetryAxis(axis)
+      setMirrorMode(true)
+    }
+  }, [mirrorMode, keepSide, applySymmetrize])
+
+  // re-mirror when the user changes orientation or which half is kept
+  const setAxisOrientation = useCallback((orientation: SymmetryAxis['orientation']) => {
+    const pts = pointsRef.current
+    const c = centroidOf(pts)
+    const axis: SymmetryAxis = { orientation, pos: orientation === 'vertical' ? c.x : c.y }
+    if (applySymmetrize(axis, keepSide)) setSymmetryAxis(axis)
+  }, [keepSide, applySymmetrize])
+
+  const flipKeepSide = useCallback(() => {
+    const axis = axisRef.current
+    if (!axis) return
+    const next: KeepSide = keepSide === 'low' ? 'high' : 'low'
+    if (applySymmetrize(axis, next)) setKeepSide(next)
+  }, [keepSide, applySymmetrize])
+
   const centroid = (() => {
     if (displayPoints.length === 0) return { x: 0, y: 0 }
     const cx = displayPoints.reduce((s, p) => s + p.x, 0) / displayPoints.length
@@ -354,10 +449,36 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     }
   }
 
+  // add a cutout, mirroring it across the axis when symmetric editing is on
+  const commitCutout = (xMm: number, yMm: number) => {
+    const cutout = createCutout(xMm, yMm)
+    if (!cutout) return
+    const axis = axisRef.current
+    let updated: FingerHole[]
+    if (mirrorModeRef.current && axis) {
+      if (isHoleOnAxis(cutout, axis)) {
+        updated = [...fingerHoles, { ...cutout, ...constrainToAxis({ x: xMm, y: yMm }, axis) }]
+      } else {
+        updated = [...fingerHoles, cutout, reflectHole(cutout, axis, newHoleId(cutout.id))]
+      }
+    } else {
+      updated = [...fingerHoles, cutout]
+    }
+    pushHistory({ points, fingerHoles: updated, interiorRings: currentRings })
+    onFingerHolesChange(updated)
+  }
+
   // vertex interactions
   const handleVertexMouseDown = (pointIdx: number) => (e: React.MouseEvent) => {
     e.stopPropagation()
     if (editMode === 'delete-vertex') {
+      if (mirrorModeRef.current && axisRef.current) {
+        const updated = deleteMirroredVertex(points, pointIdx)
+        if (!updated) return
+        pushHistory({ points: updated, fingerHoles, interiorRings: currentRings })
+        onPointsChange(updated)
+        return
+      }
       if (points.length <= 3) return
       const updated = [...points]
       updated.splice(pointIdx, 1)
@@ -373,8 +494,10 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     e.stopPropagation()
     if (editMode !== 'add-vertex') return
     const pos = screenToMm(e.clientX, e.clientY)
-    const updated = [...points]
-    updated.splice(edgeIdx + 1, 0, pos)
+    const axis = axisRef.current
+    const updated = mirrorModeRef.current && axis
+      ? insertMirroredVertex(points, edgeIdx, pos, axis)
+      : (() => { const u = [...points]; u.splice(edgeIdx + 1, 0, pos); return u })()
     pushHistory({ points: updated, fingerHoles, interiorRings: currentRings })
     onPointsChange(updated)
   }
@@ -384,19 +507,17 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     e.stopPropagation()
     if (editMode !== 'select' && editMode !== 'fill-ring') {
       const pos = screenToMm(e.clientX, e.clientY)
-      const cutout = createCutout(pos.x, pos.y)
-      if (cutout) {
-        const updated = [...fingerHoles, cutout]
-        pushHistory({ points, fingerHoles: updated, interiorRings: currentRings })
-        onFingerHolesChange(updated)
-      }
+      commitCutout(pos.x, pos.y)
       return
     }
     const hole = fingerHoles.find(fh => fh.id === holeId)
     if (!hole) return
     setSelection({ type: 'hole', holeId })
     const pos = screenToMm(e.clientX, e.clientY)
-    setDragging({ type: 'hole', holeId, startX: pos.x, startY: pos.y, origX: hole.x, origY: hole.y })
+    const axis = axisRef.current
+    const mirror = mirrorModeRef.current && axis ? findHolePartner(hole, fingerHoles, axis) : undefined
+    const onAxis = !!(mirrorModeRef.current && axis && isHoleOnAxis(hole, axis))
+    setDragging({ type: 'hole', holeId, startX: pos.x, startY: pos.y, origX: hole.x, origY: hole.y, mirrorId: mirror?.id, onAxis })
   }
 
   const handleResizeMouseDown = (holeId: string, cornerIndex?: number) => (e: React.MouseEvent) => {
@@ -417,11 +538,13 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       anchorX = hole.x + lx * cosR - ly * sinR
       anchorY = hole.y + lx * sinR + ly * cosR
     }
+    const axisR = axisRef.current
+    const mirrorR = mirrorModeRef.current && axisR ? findHolePartner(hole, fingerHoles, axisR) : undefined
     setDragging({
       type: 'resize', holeId, startX: pos.x, startY: pos.y,
       origRadius: hole.radius, origWidth: hole.width, origHeight: hole.height,
       centerX: hole.x, centerY: hole.y,
-      anchorX, anchorY, rotation: hole.rotation,
+      anchorX, anchorY, rotation: hole.rotation, mirrorId: mirrorR?.id,
     })
   }
 
@@ -431,7 +554,9 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     if (!hole) return
     const pos = screenToMm(e.clientX, e.clientY)
     const startAngle = Math.atan2(pos.y - hole.y, pos.x - hole.x)
-    setDragging({ type: 'rotate-hole', holeId, centerX: hole.x, centerY: hole.y, startAngle, origRotation: hole.rotation || 0 })
+    const axisRo = axisRef.current
+    const mirrorRo = mirrorModeRef.current && axisRo ? findHolePartner(hole, fingerHoles, axisRo) : undefined
+    setDragging({ type: 'rotate-hole', holeId, centerX: hole.x, centerY: hole.y, startAngle, origRotation: hole.rotation || 0, mirrorId: mirrorRo?.id })
   }
 
   const handleBackgroundClick = (e: React.MouseEvent) => {
@@ -441,12 +566,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     }
     if (editMode === 'finger-hole' || editMode === 'circle' || editMode === 'cylinder' || editMode === 'square' || editMode === 'rectangle') {
       const pos = screenToMm(e.clientX, e.clientY)
-      const cutout = createCutout(snapToGrid(pos.x), snapToGrid(pos.y))
-      if (cutout) {
-        const updated = [...fingerHoles, cutout]
-        pushHistory({ points, fingerHoles: updated, interiorRings: currentRings })
-        onFingerHolesChange(updated)
-      }
+      commitCutout(snapToGrid(pos.x), snapToGrid(pos.y))
       return
     }
     setSelection(null)
@@ -481,20 +601,38 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     const currentPoints = dragPointsRef.current ?? pointsRef.current
     const currentHoles = dragHolesRef.current ?? holesRef.current
 
+    const axis = axisRef.current
+    const mirror = mirrorModeRef.current && axis
+
     if (dragging.type === 'vertex') {
       const updated = [...currentPoints]
-      updated[dragging.pointIdx] = { x: snap(pos.x), y: snap(pos.y) }
+      if (mirror && axis) {
+        const n = updated.length
+        const j = partnerIndex(dragging.pointIdx, n)
+        let np = { x: snap(pos.x), y: snap(pos.y) }
+        if (j === dragging.pointIdx) np = constrainToAxis(np, axis) // seam: stays on axis
+        updated[dragging.pointIdx] = np
+        if (j !== dragging.pointIdx) updated[j] = reflectPoint(np, axis)
+      } else {
+        updated[dragging.pointIdx] = { x: snap(pos.x), y: snap(pos.y) }
+      }
       setDragPoints(updated)
     } else if (dragging.type === 'hole') {
       const dx = pos.x - dragging.startX
       const dy = pos.y - dragging.startY
+      let nx = snap(dragging.origX + dx)
+      let ny = snap(dragging.origY + dy)
+      if (dragging.onAxis && axis) { const c = constrainToAxis({ x: nx, y: ny }, axis); nx = c.x; ny = c.y }
+      const twin = mirror && axis && dragging.mirrorId ? reflectPoint({ x: nx, y: ny }, axis) : null
       const updated = currentHoles.map(fh => {
-        if (fh.id !== dragging.holeId) return fh
-        return { ...fh, x: snap(dragging.origX + dx), y: snap(dragging.origY + dy) }
+        if (fh.id === dragging.holeId) return { ...fh, x: nx, y: ny }
+        if (twin && fh.id === dragging.mirrorId) return { ...fh, x: twin.x, y: twin.y }
+        return fh
       })
       setDragHoles(updated)
     } else if (dragging.type === 'resize') {
-      const updated = currentHoles.map(fh => {
+      let resized: FingerHole | null = null
+      let updated = currentHoles.map(fh => {
         if (fh.id !== dragging.holeId) return fh
         if (fh.shape === 'rectangle' && dragging.anchorX !== undefined && dragging.anchorY !== undefined) {
           // pinned corner resize: anchor stays fixed, dragged corner follows mouse
@@ -510,22 +648,36 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
           // new centre = midpoint of anchor and dragged corner
           const cx = (dragging.anchorX + pos.x) / 2
           const cy = (dragging.anchorY + pos.y) / 2
-          return { ...fh, x: snap(cx), y: snap(cy), width: newW, height: newH, radius: Math.max(newW, newH) / 2 }
+          resized = { ...fh, x: snap(cx), y: snap(cy), width: newW, height: newH, radius: Math.max(newW, newH) / 2 }
+          return resized
         }
         // circle / square: distance from centre
         const dx = pos.x - dragging.centerX
         const dy = pos.y - dragging.centerY
-        return { ...fh, radius: Math.max(5, Math.sqrt(dx * dx + dy * dy)) }
+        resized = { ...fh, radius: Math.max(5, Math.sqrt(dx * dx + dy * dy)) }
+        return resized
       })
+      if (mirror && axis && dragging.mirrorId && resized) {
+        const r = resized as FingerHole
+        const c = reflectPoint({ x: r.x, y: r.y }, axis)
+        updated = updated.map(fh => fh.id === dragging.mirrorId
+          ? { ...fh, x: c.x, y: c.y, radius: r.radius, width: r.width, height: r.height }
+          : fh)
+      }
       setDragHoles(updated)
     } else if (dragging.type === 'rotate-hole') {
       const currentAngle = Math.atan2(pos.y - dragging.centerY, pos.x - dragging.centerX)
       const deltaAngle = (currentAngle - dragging.startAngle) * (180 / Math.PI)
+      const newRot = (dragging.origRotation + deltaAngle) % 360
+      const mirrorRot = ((-newRot % 360) + 360) % 360
       const updated = currentHoles.map(fh => {
-        if (fh.id !== dragging.holeId) return fh
-        return { ...fh, rotation: (dragging.origRotation + deltaAngle) % 360 }
+        if (fh.id === dragging.holeId) return { ...fh, rotation: newRot }
+        if (mirror && fh.id === dragging.mirrorId) return { ...fh, rotation: mirrorRot }
+        return fh
       })
       setDragHoles(updated)
+    } else if (dragging.type === 'axis') {
+      if (axis) setSymmetryAxis({ ...axis, pos: axis.orientation === 'vertical' ? pos.x : pos.y })
     } else if (dragging.type === 'rotate-polygon') {
       const currentAngle = Math.atan2(pos.y - dragging.centerY, pos.x - dragging.centerX)
       const delta = currentAngle - dragging.startAngle
@@ -557,6 +709,12 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     if (dragging) {
       if (dragging.type === 'pan') {
         setDragging(null)
+        return
+      }
+      if (dragging.type === 'axis') {
+        setDragging(null)
+        const axis = axisRef.current
+        if (axis) applySymmetrizeRef.current(axis, keepSideRef.current)
         return
       }
       const finalPoints = dragPointsRef.current ?? pointsRef.current
@@ -596,10 +754,19 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
 
   const handleDeleteHole = () => {
     if (selection?.type !== 'hole') return
-    const updated = fingerHoles.filter(fh => fh.id !== selection.holeId)
+    const target = fingerHoles.find(fh => fh.id === selection.holeId)
+    const axis = axisRef.current
+    const partner = mirrorModeRef.current && axis && target ? findHolePartner(target, fingerHoles, axis) : undefined
+    const remove = new Set([selection.holeId, ...(partner ? [partner.id] : [])])
+    const updated = fingerHoles.filter(fh => !remove.has(fh.id))
     pushHistory({ points, fingerHoles: updated, interiorRings: currentRings })
     onFingerHolesChange(updated)
     setSelection(null)
+  }
+
+  const handleAxisMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDragging({ type: 'axis' })
   }
 
   const selectedHole = selection?.type === 'hole'
@@ -664,6 +831,8 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
         sourceImageContext={sourceImageContext}
         showSourceImage={showSourceImage}
         sourceImageOpacity={sourceImageOpacity}
+        symmetryAxis={mirrorMode ? symmetryAxis : null}
+        onAxisMouseDown={handleAxisMouseDown}
       />
 
       {/* floating toolbar: top centre */}
@@ -679,6 +848,17 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
           setSnapEnabled={setSnapEnabled}
           snapGrid={snapGrid}
           setSnapGrid={setSnapGrid}
+          mirrorMode={mirrorMode}
+          toggleMirror={toggleMirror}
+          axisOrientation={symmetryAxis?.orientation ?? 'vertical'}
+          setAxisOrientation={setAxisOrientation}
+          keepSide={keepSide}
+          flipKeepSide={flipKeepSide}
+          simplifyLevel={simplifyLevel}
+          onSimplifyPreview={previewSimplify}
+          onSimplifyCommit={commitSimplify}
+          simplifyDisabled={mirrorMode}
+          nodeCount={points.length}
           canUndo={canUndo}
           canRedo={canRedo}
           handleUndo={handleUndo}
@@ -699,6 +879,12 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
           hasInteriorRings={currentRings.length > 0}
         />
       </div>
+
+      {mirrorNote && (
+        <div className="absolute top-[58px] left-1/2 -translate-x-1/2 z-20 glass-toolbar px-3 py-1.5 text-[11px] text-amber-300 max-w-[320px] text-center pointer-events-none">
+          {mirrorNote}
+        </div>
+      )}
 
       {/* floating properties panel: right edge, shown when hole selected */}
       {selectedHole && (
