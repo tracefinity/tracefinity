@@ -5,6 +5,9 @@ export interface UserSettings {
   binDefaults?: Partial<BinDefaults>
 }
 
+export const BED_SIZE_MIN_MM = 150
+export const BED_SIZE_MAX_MM = 500
+
 const DEFAULTS: UserSettings = { bedSize: 256 }
 const KEY = 'tracefinity-settings'
 

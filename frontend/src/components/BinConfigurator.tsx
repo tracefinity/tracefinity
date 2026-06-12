@@ -3,6 +3,7 @@
 import { Info } from 'lucide-react'
 import type { BinConfig } from '@/types'
 import { NumericInput } from '@/components/NumericInput'
+import { BED_SIZE_MAX_MM, BED_SIZE_MIN_MM } from '@/lib/settings'
 
 const GF_HEIGHT_UNIT = 7.0
 const GF_BASE_HEIGHT = 4.75
@@ -308,8 +309,8 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
           label="Bed Size"
           help="Print bed size. Bins wider than this are automatically split into pieces."
           value={config.bed_size}
-          min={150}
-          max={400}
+          min={BED_SIZE_MIN_MM}
+          max={BED_SIZE_MAX_MM}
           step={1}
           unit="mm"
           onChange={(v) => update({ bed_size: v })}

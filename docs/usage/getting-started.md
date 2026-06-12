@@ -44,7 +44,7 @@ In-progress traces are saved automatically. If you close the browser or navigate
 
 ## Settings
 
-Click the gear icon in the top bar to open settings. Currently this lets you set your default printer bed size (150-400mm). Bins wider than this threshold are automatically split into printable pieces on export.
+Click the gear icon in the top bar to open settings. Currently this lets you set your default printer bed size (150-500mm). Bins wider than this threshold are automatically split into printable pieces on export.
 
 ## Collapsible sections
 
