@@ -11,7 +11,13 @@ import cv2
 import numpy as np
 
 from app.models.schemas import Polygon, Point
-from app.services.tracer_registry import GPU_REQUIRED_TRACERS, LOCAL_MODEL_LABELS, REMBG_MODELS
+from app.services.tracer_registry import (
+    GPU_REQUIRED_TRACERS,
+    LOCAL_MODEL_LABELS,
+    REMBG_MODELS,
+    REMOTE_TRACERS,
+    TRACER_LABELS,
+)
 
 
 # gemini-3-pro respects output dimensions precisely, so a direct
@@ -70,20 +76,27 @@ class AITracer:
         openrouter_key: str | None = None,
         openrouter_image_model: str | None = None,
         openrouter_label_model: str | None = None,
-        local_model: bool = False,
-        local_model_name: str = "inspyrenet",
+        saliency_tracer: str | None = None,
+        remote_model: str | None = None,
+        remote_token: str | None = None,
+        fal_operating_resolution: str = "1024x1024",
+        replicate_resolution: str | None = None,
     ):
         self.model = model
         self.label_model = label_model
         self.openrouter_key = openrouter_key
         self.openrouter_image_model = openrouter_image_model or f"google/{model}"
         self.openrouter_label_model = openrouter_label_model or f"google/{label_model}"
-        self.local_model = local_model
-        self.local_model_name = local_model_name
-        self._local_remover = None
+        self.saliency_tracer = saliency_tracer
+        self.remote_model = remote_model
+        self.remote_token = remote_token
+        self.fal_operating_resolution = fal_operating_resolution
+        self.replicate_resolution = replicate_resolution
+        self.uses_saliency = saliency_tracer is not None
+        self._saliency_backend = None
 
-        if local_model:
-            self._load_local_model()
+        if self.uses_saliency:
+            self._init_saliency_backend()
 
     def _mask_prompt(self, width: int, height: int) -> str:
         if self.model in _NEEDS_ALIGNMENT:
@@ -101,15 +114,15 @@ class AITracer:
         if os.environ.get("E2E_TEST_MODE"):
             return self._mock_trace(mask_output_path)
 
-        if self.local_model:
-            mask_path = await self._generate_mask_local(image_path, mask_output_path)
+        if self.uses_saliency:
+            mask_path = await self._generate_mask_saliency(image_path, mask_output_path)
         else:
             mask_path = await self._generate_mask_gemini(image_path, api_key, mask_output_path)
 
         if not mask_path:
             return [], None
 
-        align = not self.local_model and self.model in _NEEDS_ALIGNMENT
+        align = not self.uses_saliency and self.model in _NEEDS_ALIGNMENT
         contours = self._trace_mask(mask_path, image_path, align=align)
         if not contours:
             return [], mask_output_path
@@ -132,11 +145,23 @@ class AITracer:
 
         return polygons, mask_output_path
 
-    def _load_local_model(self):
-        """load local model weights when the tracer is first constructed."""
-        if self._local_remover is not None:
+    def _init_saliency_backend(self):
+        """prepare the saliency backend: load local weights, or build a remote
+        config (no heavy import on the remote path)."""
+        if self._saliency_backend is not None:
             return
-        name = self.local_model_name
+        name = self.saliency_tracer
+        if name in REMOTE_TRACERS:
+            from app.services.remote_saliency import RemoteSaliencyConfig
+            cfg = RemoteSaliencyConfig(
+                provider=name,
+                model=self.remote_model,
+                token=self.remote_token,
+                fal_operating_resolution=self.fal_operating_resolution,
+                replicate_resolution=self.replicate_resolution,
+            )
+            self._saliency_backend = (name, cfg)
+            return
         label = LOCAL_MODEL_LABELS.get(name, name)
         if name in REMBG_MODELS:
             from rembg import new_session
@@ -145,15 +170,15 @@ class AITracer:
             logging.info("loading %s via rembg with providers: %s", label, providers)
             session = new_session(REMBG_MODELS[name], providers=providers)
             logging.info("%s actual ONNX providers: %s", label, session.inner_session.get_providers())
-            self._local_remover = ("rembg", session)
+            self._saliency_backend = ("rembg", session)
         elif name == "inspyrenet":
             from transparent_background import Remover
             import torch
             device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
             logging.info("loading %s on %s", label, device)
-            self._local_remover = ("inspyrenet", Remover(mode="base", device=device))
+            self._saliency_backend = ("inspyrenet", Remover(mode="base", device=device))
         else:
-            raise ValueError(f"unsupported local tracer: {name}")
+            raise ValueError(f"unsupported saliency model: {name}")
 
     @staticmethod
     def _detect_paper_rect(img: np.ndarray) -> tuple[int, int, int, int] | None:
@@ -188,30 +213,41 @@ class AITracer:
             return None
         return best[1], best[2], best[3], best[4]
 
-    def _saliency_on_image(self, pil_img):
-        """run the configured local model, return foreground mask (fg=255)."""
-        backend, remover = self._local_remover
-        if backend == "rembg":
+    async def _saliency_on_image(self, pil_img):
+        """run the configured saliency backend, return foreground mask (fg=255)."""
+        kind, handle = self._saliency_backend
+        if kind in REMOTE_TRACERS:
+            return await self._saliency_remote(pil_img, handle)
+        if kind == "rembg":
             from rembg import remove
-            result = remove(pil_img, session=remover)
+            result = remove(pil_img, session=handle)
             alpha = np.array(result)[:, :, 3]
             _, binary = cv2.threshold(alpha, 127, 255, cv2.THRESH_BINARY)
             return binary
-        result = remover.process(pil_img, type="map")
+        result = handle.process(pil_img, type="map")
         mask_np = np.array(result.convert("L"))
         _, binary = cv2.threshold(mask_np, 127, 255, cv2.THRESH_BINARY)
         return binary
 
-    async def _generate_mask_local(self, image_path: str, output_path: str | None = None) -> str | None:
-        """generate a foreground mask using a local model (no API key).
+    async def _saliency_remote(self, pil_img, cfg):
+        """post the crop to a hosted model, return foreground mask (fg=255)."""
+        import io
+        from app.services.remote_saliency import remote_saliency_mask
+        buf = io.BytesIO()
+        pil_img.convert("RGB").save(buf, format="PNG")
+        logging.info("generating mask via %s (%s)", cfg.provider, cfg.model)
+        return await remote_saliency_mask(cfg, buf.getvalue(), pil_img.size)
+
+    async def _generate_mask_saliency(self, image_path: str, output_path: str | None = None) -> str | None:
+        """generate a foreground mask using a saliency model (local or remote).
 
         crop to the paper rect before running the model. saliency models pick
-        the most salient object — on the full corrected image that's the bright
+        the most salient object; on the full corrected image that is the bright
         paper, not the tool. cropped to the paper, the tool becomes salient."""
         from PIL import Image
 
-        label = LOCAL_MODEL_LABELS.get(self.local_model_name, self.local_model_name)
-        logging.info("generating mask with %s (local)", label)
+        label = TRACER_LABELS.get(self.saliency_tracer, self.saliency_tracer)
+        logging.info("generating mask with %s", label)
         pil_img = Image.open(image_path).convert("RGB")
         np_bgr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
 
@@ -220,12 +256,12 @@ class AITracer:
             x, y, rw, rh = rect
             logging.info("cropping to paper rect %dx%d at (%d,%d) before saliency", rw, rh, x, y)
             cropped = pil_img.crop((x, y, x + rw, y + rh))
-            inside = self._saliency_on_image(cropped)
+            inside = await self._saliency_on_image(cropped)
             full = np.zeros((np_bgr.shape[0], np_bgr.shape[1]), dtype=np.uint8)
             full[y:y + rh, x:x + rw] = inside
         else:
             logging.info("paper rect not detected; running saliency on full image")
-            full = self._saliency_on_image(pil_img)
+            full = await self._saliency_on_image(pil_img)
 
         # tool=BLACK, bg=WHITE
         mask_out = cv2.bitwise_not(full)

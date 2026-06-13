@@ -138,17 +138,25 @@ def _get_tracer(tracer_id: str | None = None) -> AITracer:
     """get or create a tracer for the given ID."""
     tid = tracer_id or settings.available_tracers[0]
     if tid not in _tracers:
-        if tid == "gemini":
+        kind = tracer_kind(tid)
+        if kind == "gemini":
             _tracers[tid] = AITracer(
                 model=settings.gemini_image_model,
                 openrouter_key=settings.openrouter_api_key,
                 openrouter_image_model=settings.openrouter_image_model,
             )
-        else:
+        elif kind == "remote":
+            token = settings.replicate_api_token if tid == "replicate" else settings.fal_key
+            model = settings.replicate_model if tid == "replicate" else settings.fal_model
             _tracers[tid] = AITracer(
-                local_model=True,
-                local_model_name=tid,
+                saliency_tracer=tid,
+                remote_model=model,
+                remote_token=token,
+                fal_operating_resolution=settings.fal_operating_resolution,
+                replicate_resolution=settings.replicate_resolution,
             )
+        else:
+            _tracers[tid] = AITracer(saliency_tracer=tid)
     return _tracers[tid]
 
 polygon_scaler = PolygonScaler()
