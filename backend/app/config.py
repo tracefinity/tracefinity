@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     proxy_secret: Optional[str] = None
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:4001"]
     tracers: Optional[str] = None
+    replicate_api_token: Optional[str] = None
+    fal_key: Optional[str] = None
+    replicate_model: str = "men1scus/birefnet"
+    fal_model: str = "fal-ai/birefnet/v2"
+    replicate_resolution: Optional[str] = None  # "WxH"; None => model default
+    fal_operating_resolution: str = "1024x1024"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
@@ -28,19 +34,34 @@ class Settings(BaseSettings):
         """list of tracer IDs available to users.
 
         set TRACERS env var to a comma-separated list, e.g. "birefnet-lite,isnet"
-        or "gemini,birefnet-lite". if not set, auto-detects from API keys.
+        or "gemini,birefnet-lite". if not set, auto-detects: an LLM key picks
+        gemini, else a remote token picks that provider, else local models.
         """
         if self.tracers:
             return validate_tracer_ids([t.strip() for t in self.tracers.split(",") if t.strip()])
-        # auto-detect
         if self.google_api_key or self.openrouter_api_key:
             return ["gemini"]
+        remote = []
+        if self.replicate_api_token:
+            remote.append("replicate")
+        if self.fal_key:
+            remote.append("fal")
+        if remote:
+            return remote
         return list(DEFAULT_LOCAL_TRACERS)
 
     @property
-    def use_local_model(self) -> bool:
-        """true when the primary tracer is a local model (not gemini)."""
-        return self.available_tracers[0] != "gemini" if self.available_tracers else True
+    def primary_tracer(self) -> str | None:
+        """the primary (first) available tracer id, or none."""
+        tracers = self.available_tracers
+        return tracers[0] if tracers else None
+
+    @property
+    def primary_is_saliency(self) -> bool:
+        """true when the primary tracer uses the saliency pipeline (local or
+        remote), not the gemini llm path."""
+        primary = self.primary_tracer
+        return primary is not None and primary != "gemini"
 
 
 settings = Settings()

@@ -73,7 +73,7 @@ from app.services.bin_store import BinStore
 from app.services.project_store import ProjectStore
 from app.services.bin_service import sync_placed_tools
 from app.services.image_service import generate_tool_thumbnail
-from app.services.tracer_registry import TRACER_LABELS, validate_tracer_ids
+from app.services.tracer_registry import TRACER_LABELS, tracer_kind, validate_tracer_ids
 from app.services.geometry import optimal_rotation_angle as _optimal_rotation_angle
 from app.services.project_service import (
     add_bin_to_project,
@@ -553,11 +553,12 @@ async def get_available_keys(request: Request):
     """return available tracers and provider info."""
     tracers = settings.available_tracers
     has_cloud = bool(settings.google_api_key) or bool(settings.openrouter_api_key)
-    has_local = settings.use_local_model
+    has_saliency = settings.primary_is_saliency
     primary = tracers[0] if tracers else None
     return {
-        "google": has_cloud or has_local,
-        "provider": "local" if has_local else "gemini" if has_cloud else None,
+        # google: server can trace without a user-supplied key (cloud env key, local, or remote)
+        "google": has_cloud or has_saliency,
+        "provider": tracer_kind(primary) if primary else None,
         "provider_label": TRACER_LABELS.get(primary, primary) if primary else None,
         "tracers": [
             {"id": t, "label": TRACER_LABELS.get(t, t)}
