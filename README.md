@@ -54,6 +54,72 @@ By default, Tracefinity uses [IS-Net](https://github.com/xuebinqin/DIS) for loca
 | `TRACEFINITY_ONNX_PROVIDER` | `auto` | Local ONNX provider: `auto`, `cuda`, or `cpu` |
 | `GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-image-preview` | Gemini model for mask generation (see below) |
 
+### Docker Compose
+
+```yaml
+services:
+  tracefinity:
+    image: ghcr.io/tracefinity/tracefinity
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/storage
+    environment:
+      GOOGLE_API_KEY: your-key  # optional, omit to use local model
+    restart: unless-stopped
+```
+
+```bash
+docker compose up -d
+```
+
+Open http://localhost:3000
+
+### Kubernetes (Helm)
+
+```bash
+helm registry login ghcr.io --username <your-github-username> --password <your-github-token>
+
+helm install tracefinity oci://ghcr.io/tracefinity/charts/tracefinity \
+  --namespace tracefinity \
+  --create-namespace \
+  --set persistence.enabled=true \
+  --set persistence.size=5Gi
+```
+
+To use Gemini instead of the local model:
+
+```bash
+helm install tracefinity oci://ghcr.io/tracefinity/charts/tracefinity \
+  --namespace tracefinity \
+  --create-namespace \
+  --set persistence.enabled=true \
+  --set persistence.size=5Gi \
+  --set extraEnv[0].name=GOOGLE_API_KEY \
+  --set extraEnv[0].value=your-key
+```
+
+Or with a `values.yaml`:
+
+```yaml
+persistence:
+  enabled: true
+  size: 5Gi
+
+extraEnv:
+  - name: GOOGLE_API_KEY
+    value: your-key  # optional
+```
+
+```bash
+helm install tracefinity oci://ghcr.io/tracefinity/charts/tracefinity \
+  --namespace tracefinity \
+  --create-namespace \
+  -f values.yaml
+```
+
+> **Note:** The local tracing models load at startup and require at least 2GB of memory. Set resource limits accordingly — see [Tracing Modes](#tracing-modes) for per-model RAM requirements.
+
 ### From Source
 
 Prerequisites: Python 3.11+, Node.js 20+, [pnpm](https://pnpm.io/installation)

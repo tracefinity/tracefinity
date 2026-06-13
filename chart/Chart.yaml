@@ -1,0 +1,13 @@
+apiVersion: v2
+name: tracefinity
+description: Helm chart for the Tracefinity application
+
+type: application
+
+# Chart version is bumped when chart defaults or templates change.
+# This value is set by GitHub Actions during release automation.
+version: 0.0.0
+
+# Application version for the deployed Tracefinity app.
+# This value is set by GitHub Actions during release automation.
+appVersion: "0.0.0"

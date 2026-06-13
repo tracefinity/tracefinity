@@ -1,0 +1,53 @@
+1. Tracefinity is now running! Generate custom Gridfinity bins from photos of your tools.
+
+   Get the application URL:
+{{- if .Values.httpRoute.enabled }}
+{{- if .Values.httpRoute.hostnames }}
+    export APP_URL=http://{{ .Values.httpRoute.hostnames | first }}
+{{- else }}
+    export APP_URL=http://$(kubectl get --namespace {{ (first .Values.httpRoute.parentRefs).namespace | default .Release.Namespace }} gateway/{{ (first .Values.httpRoute.parentRefs).name }} -o jsonpath="{.spec.listeners[0].hostname}")
+{{- end }}
+    echo "Tracefinity is available at: $APP_URL"
+{{- else if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "tracefinity.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "Tracefinity is available at: http://$NODE_IP:$NODE_PORT"
+{{- else if contains "LoadBalancer" .Values.service.type }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        Watch its status: kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "tracefinity.fullname" . }}
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "tracefinity.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo "Tracefinity is available at: http://$SERVICE_IP:{{ .Values.service.port }}"
+{{- else if contains "ClusterIP" .Values.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "tracefinity.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT &
+  echo "Tracefinity is available at: http://127.0.0.1:8080"
+{{- end }}
+
+2. Getting started:
+   - Place your tools on A4/Letter paper and take a photo from above
+   - Upload the photo and adjust the paper corners for scale calibration
+   - AI will trace the tool outlines automatically
+   - Save traced tools to your library and arrange them into bins
+   - Export STL/3MF files and print your custom Gridfinity bins
+
+3. Tracing modes:
+   - Local model (default, no API key needed): uses IS-Net, requires ~2GB RAM
+   - Gemini API: set GOOGLE_API_KEY for higher accuracy tracing
+   - Check your values with: kubectl get --namespace {{ .Release.Namespace }} deployment {{ include "tracefinity.fullname" . }} -o jsonpath="{.spec.template.spec.containers[0].env}"
+
+{{- if .Values.persistence.enabled }}
+4. Storage: tool library and project data is persisted to a PersistentVolumeClaim.
+   Check storage: kubectl get --namespace {{ .Release.Namespace }} pvc {{ include "tracefinity.fullname" . }}-storage
+{{- else }}
+4. WARNING: persistence is disabled. Your tool library and project data will be lost if the pod restarts.
+   Enable it with: --set persistence.enabled=true --set persistence.size=1Gi
+{{- end }}
+
+For docs and guides: https://github.com/tracefinity/tracefinity
