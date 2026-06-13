@@ -113,9 +113,8 @@ persistence:
   enabled: true
   size: 5Gi
 
-extraEnv:
-  - name: GOOGLE_API_KEY
-    value: your-key  # optional
+env:
+  GOOGLE_API_KEY: your-key
 ```
 
 ```bash
