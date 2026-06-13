@@ -134,6 +134,10 @@ image_processor = ImageProcessor()
 _tracers: dict[str, AITracer] = {}
 
 
+def _remote_token(tracer_id: str) -> str | None:
+    return settings.replicate_api_token if tracer_id == "replicate" else settings.fal_key
+
+
 def _get_tracer(tracer_id: str | None = None) -> AITracer:
     """get or create a tracer for the given ID."""
     tid = tracer_id or settings.available_tracers[0]
@@ -146,7 +150,7 @@ def _get_tracer(tracer_id: str | None = None) -> AITracer:
                 openrouter_image_model=settings.openrouter_image_model,
             )
         elif kind == "remote":
-            token = settings.replicate_api_token if tid == "replicate" else settings.fal_key
+            token = _remote_token(tid)
             model = settings.replicate_model if tid == "replicate" else settings.fal_model
             _tracers[tid] = AITracer(
                 saliency_tracer=tid,
@@ -589,6 +593,11 @@ async def trace_tools(request: Request, session_id: str, req: TraceRequest, user
     api_key = settings.google_api_key or req.api_key
     if tracer_id == "gemini" and not api_key and not settings.openrouter_api_key:
         raise HTTPException(status_code=400, detail="no api key provided")
+
+    if tracer_kind(tracer_id) == "remote":
+        if not _remote_token(tracer_id):
+            env = "REPLICATE_API_TOKEN" if tracer_id == "replicate" else "FAL_KEY"
+            raise HTTPException(status_code=400, detail=f"{tracer_id} token not set; set {env}")
 
     up = _user_path(user_id)
     mask_output_path = str(up / "processed" / f"{session_id}_mask.png")
