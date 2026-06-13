@@ -103,8 +103,7 @@ helm install tracefinity oci://ghcr.io/tracefinity/charts/tracefinity \
   --create-namespace \
   --set persistence.enabled=true \
   --set persistence.size=5Gi \
-  --set extraEnv[0].name=GOOGLE_API_KEY \
-  --set extraEnv[0].value=your-key
+  --set env.GOOGLE_API_KEY=your-key
 ```
 
 Or with a `values.yaml`:
