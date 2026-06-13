@@ -8,6 +8,8 @@ Reference for AI agents. Check here before suggesting new features or claiming s
 - Paper corner detection with draggable handles
 - Paper size presets (A4, Letter)
 - AI tracing (multiple tracer backends: IS-Net, BiRefNet, InSPyReNet)
+- Remote tracing via Replicate (`REPLICATE_API_TOKEN`, model `men1scus/birefnet` by default; `REPLICATE_RESOLUTION` optional)
+- Remote tracing via fal.ai (`FAL_KEY`, model `fal-ai/birefnet/v2` by default; `FAL_OPERATING_RESOLUTION` default `1024x1024`). Uses `sync_mode` so results are not stored in fal request history; Replicate predictions auto-purge after ~1h.
 - Manual mask upload
 - Corrected image download
 - Prompt copy to clipboard

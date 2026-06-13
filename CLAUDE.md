@@ -48,3 +48,15 @@ Tracers (configurable via `TRACERS` env var):
 - `isnet` (default) -- IS-Net, good quality, ~0.8s/image, min 2GB
 - `birefnet-lite` -- BiRefNet Lite, best quality, ~3.6s/image, min 8GB
 - `inspyrenet` -- InSPyReNet, ~2.8s/image, min 6GB
+
+Remote providers (hosted GPU, swap only the saliency step, all OpenCV stays
+local). Selected via `TRACERS` or auto-detected from a token when no `TRACERS`
+and no LLM key is set:
+- `replicate` -- runs `REPLICATE_MODEL` (default `men1scus/birefnet`) on
+  Replicate. Needs `REPLICATE_API_TOKEN`. API predictions auto-purge after ~1h.
+- `fal` -- runs `FAL_MODEL` (default `fal-ai/birefnet/v2`) on fal.ai. Needs
+  `FAL_KEY`. Uses `mask_only` + `sync_mode` (result not stored in history).
+
+Tuning: `FAL_OPERATING_RESOLUTION` (default `1024x1024`), `REPLICATE_RESOLUTION`
+(default model resolution). User photos transit the provider when a remote
+tracer is active.

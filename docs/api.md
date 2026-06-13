@@ -41,6 +41,15 @@
 - `GET /api/bin-projects/{id}/health` - report project/tool/bin link mismatches
 - `POST /api/bin-projects/{id}/repair` - repair safe project/tool/bin link mismatches
 
+## API Keys and tracer status
+- `GET /api-keys` - returns current provider and available tracers
+
+Response fields:
+- `google` (bool): true when the server can trace without a user-supplied key (cloud env key, local, or remote).
+- `provider` (string|null): one of `gemini` | `local` | `remote`.
+- `provider_label` (string|null): human label for the primary tracer, e.g. `Replicate`.
+- `tracers` (array): `{id, label}` entries. Remote tracers include `{"id":"replicate","label":"Replicate"}` and `{"id":"fal","label":"fal.ai"}` when the respective tokens are configured.
+
 ## File serving
 - `GET /api/files/{session_id}/bin.stl` - session STL
 - `GET /api/files/{session_id}/bin.3mf` - session 3MF

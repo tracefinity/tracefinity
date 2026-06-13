@@ -39,9 +39,17 @@ docker run -p 3000:3000 -v ./data:/app/storage ghcr.io/tracefinity/tracefinity
 # or with Gemini API
 docker run -p 3000:3000 -v ./data:/app/storage -e GOOGLE_API_KEY=your-key ghcr.io/tracefinity/tracefinity
 
+# remote saliency via fal.ai
+docker run -p 3000:3000 -v ./data:/app/storage -e FAL_KEY=your-key ghcr.io/tracefinity/tracefinity
+
+# remote saliency via Replicate
+docker run -p 3000:3000 -v ./data:/app/storage -e REPLICATE_API_TOKEN=your-token ghcr.io/tracefinity/tracefinity
+
 # run as your host user (files in ./data owned by you, not root)
 docker run -p 3000:3000 -v ./data:/app/storage --user "$(id -u):$(id -g)" ghcr.io/tracefinity/tracefinity
 ```
+
+With a remote provider the corrected paper crop is sent to that provider for masking. fal is called with `sync_mode`, so the result is not kept in request history; Replicate API predictions auto-purge after about an hour and the code also issues a best-effort delete.
 
 Open http://localhost:3000
 
