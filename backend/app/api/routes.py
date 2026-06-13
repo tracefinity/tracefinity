@@ -610,8 +610,9 @@ async def trace_tools(request: Request, session_id: str, req: TraceRequest, user
             mask_output_path,
         )
     except TimeoutError:
-        logging.warning("gemini timed out after 60s")
-        raise HTTPException(status_code=504, detail="Gemini timed out — the model may be overloaded. Try again shortly.")
+        label = TRACER_LABELS.get(tracer_id, tracer_id)
+        logging.warning("%s timed out", tracer_id)
+        raise HTTPException(status_code=504, detail=f"{label} timed out; the model may be overloaded. Try again shortly.")
     except Exception as e:
         error_msg = str(e)
         if "insufficient_quota" in error_msg or "exceeded" in error_msg.lower():
@@ -620,6 +621,10 @@ async def trace_tools(request: Request, session_id: str, req: TraceRequest, user
             raise HTTPException(status_code=401, detail="Invalid API key")
         if "rate_limit" in error_msg.lower():
             raise HTTPException(status_code=429, detail="Rate limited - try again shortly")
+        if tracer_kind(tracer_id) == "remote":
+            label = TRACER_LABELS.get(tracer_id, tracer_id)
+            logging.error("%s provider error: %s", tracer_id, error_msg[:500], exc_info=True)
+            raise HTTPException(status_code=502, detail=f"{label} provider error; try again shortly.")
         logging.error("ai tracing failed: %s", error_msg[:500], exc_info=True)
         detail = f"AI tracing failed ({type(e).__name__}: {error_msg[:200]})"
         raise HTTPException(status_code=500, detail=detail)
