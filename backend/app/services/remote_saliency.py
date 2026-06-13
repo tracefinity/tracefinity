@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import io
-import logging
 from dataclasses import dataclass
 
 import cv2
@@ -93,3 +92,58 @@ async def remote_saliency_mask(
         if owns:
             await client.aclose()
     return _to_binary(img_bytes, target_size)
+
+
+async def _poll_replicate(client: httpx.AsyncClient, cfg: RemoteSaliencyConfig, pred: dict, attempts: int = 30, delay: float = 2.0):
+    """if Prefer: wait did not reach a terminal state, poll urls.get."""
+    headers = {"Authorization": f"Bearer {cfg.token}"}
+    for _ in range(attempts):
+        status = pred.get("status")
+        if status == "succeeded":
+            return pred
+        if status in ("failed", "canceled"):
+            raise ValueError(f"replicate prediction {status}: {pred.get('error')}")
+        get_url = pred.get("urls", {}).get("get")
+        if not get_url:
+            raise ValueError("replicate prediction not terminal and no poll url")
+        await asyncio.sleep(delay)
+        resp = await client.get(get_url, headers=headers)
+        resp.raise_for_status()
+        pred = resp.json()
+    raise TimeoutError("replicate prediction did not finish in time")
+
+
+async def _best_effort_delete(client, cfg, pred) -> None:
+    """opportunistic purge; api predictions also auto-expire after ~1h."""
+    url = pred.get("urls", {}).get("get")
+    if not url:
+        return
+    try:
+        await client.delete(url, headers={"Authorization": f"Bearer {cfg.token}"})
+    except Exception:
+        pass
+
+
+async def _via_replicate(client: httpx.AsyncClient, cfg: RemoteSaliencyConfig, data_uri: str) -> bytes:
+    image_input = {"image": data_uri}
+    if cfg.replicate_resolution:
+        image_input["resolution"] = cfg.replicate_resolution
+    resp = await client.post(
+        f"{REPLICATE_BASE}/models/{cfg.model}/predictions",
+        json={"input": image_input},
+        headers={
+            "Authorization": f"Bearer {cfg.token}",
+            "Content-Type": "application/json",
+            "Prefer": "wait",
+        },
+    )
+    resp.raise_for_status()
+    pred = await _poll_replicate(client, cfg, resp.json())
+    output = pred.get("output")
+    if isinstance(output, list):
+        output = output[0] if output else None
+    if not output:
+        raise ValueError("replicate prediction returned no output")
+    img = await _fetch_image_bytes(client, output)
+    await _best_effort_delete(client, cfg, pred)
+    return img
