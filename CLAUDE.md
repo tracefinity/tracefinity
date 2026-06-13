@@ -53,7 +53,9 @@ Remote providers (hosted GPU, swap only the saliency step, all OpenCV stays
 local). Selected via `TRACERS` or auto-detected from a token when no `TRACERS`
 and no LLM key is set:
 - `replicate` -- runs `REPLICATE_MODEL` (default `men1scus/birefnet`) on
-  Replicate. Needs `REPLICATE_API_TOKEN`. API predictions auto-purge after ~1h.
+  Replicate. Needs `REPLICATE_API_TOKEN`. Resolves the model's latest version
+  (community models need a version); pin one with `owner/name:hash`. API
+  predictions auto-purge after ~1h.
 - `fal` -- runs `FAL_MODEL` (default `fal-ai/birefnet/v2`) on fal.ai. Needs
   `FAL_KEY`. Uses `mask_only` + `sync_mode` (result not stored in history).
 

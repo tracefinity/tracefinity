@@ -68,14 +68,20 @@ def test_fal_request_uses_mask_only_and_sync_mode():
     assert out.shape == (8, 8)
 
 
-def test_replicate_request_uses_prefer_wait_and_model_endpoint():
+def test_replicate_resolves_version_and_posts_prediction():
+    import app.services.remote_saliency as rs
+    rs._REPLICATE_VERSIONS.clear()
     seen = {}
     mask = np.full((8, 8), 255, np.uint8)
     mask_url = "https://replicate.delivery/mask.png"
 
     def handler(request):
+        url = str(request.url)
+        if request.method == "GET" and "/v1/models/" in url:
+            seen["model_url"] = url
+            return httpx.Response(200, json={"latest_version": {"id": "ver123"}})
         if request.method == "POST":
-            seen["url"] = str(request.url)
+            seen["post_url"] = url
             seen["prefer"] = request.headers.get("prefer")
             seen["auth"] = request.headers.get("authorization")
             seen["body"] = json.loads(request.content)
@@ -97,10 +103,46 @@ def test_replicate_request_uses_prefer_wait_and_model_endpoint():
     out = asyncio.run(remote_saliency_mask(cfg, _png(mask), (8, 8), client=client))
     asyncio.run(client.aclose())
 
-    assert seen["url"].endswith("/v1/models/men1scus/birefnet/predictions")
+    assert seen["model_url"].endswith("/v1/models/men1scus/birefnet")
+    assert seen["post_url"].endswith("/v1/predictions")
     assert seen["prefer"] == "wait"
     assert seen["auth"] == "Bearer r8_x"
+    assert seen["body"]["version"] == "ver123"
     assert seen["body"]["input"]["image"].startswith("data:image/png;base64,")
+    assert out.shape == (8, 8)
+
+
+def test_replicate_pinned_version_skips_lookup():
+    import app.services.remote_saliency as rs
+    rs._REPLICATE_VERSIONS.clear()
+    seen = {}
+    mask = np.full((8, 8), 255, np.uint8)
+
+    def handler(request):
+        if request.method == "GET" and "/v1/models/" in str(request.url):
+            seen["resolved"] = True  # must not happen for a pinned version
+            return httpx.Response(200, json={"latest_version": {"id": "nope"}})
+        if request.method == "POST":
+            seen["body"] = json.loads(request.content)
+            return httpx.Response(
+                201,
+                json={
+                    "status": "succeeded",
+                    "output": "https://replicate.delivery/m.png",
+                    "urls": {"get": "https://api.replicate.com/v1/predictions/abc"},
+                },
+            )
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        return httpx.Response(200, content=_png(mask), headers={"content-type": "image/png"})
+
+    cfg = RemoteSaliencyConfig(provider="replicate", model="men1scus/birefnet:pinned123", token="r8_x")
+    client = _client(handler)
+    out = asyncio.run(remote_saliency_mask(cfg, _png(mask), (8, 8), client=client))
+    asyncio.run(client.aclose())
+
+    assert "resolved" not in seen
+    assert seen["body"]["version"] == "pinned123"
     assert out.shape == (8, 8)
 
 

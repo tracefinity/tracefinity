@@ -13,6 +13,10 @@ from PIL import Image
 FAL_BASE = "https://fal.run"
 REPLICATE_BASE = "https://api.replicate.com/v1"
 
+# community models run via POST /v1/predictions with a version hash. cache the
+# resolved latest version per model slug for the process lifetime.
+_REPLICATE_VERSIONS: dict[str, str] = {}
+
 
 @dataclass(frozen=True)
 class RemoteSaliencyConfig:
@@ -124,13 +128,31 @@ async def _best_effort_delete(client, cfg, pred) -> None:
         pass
 
 
+async def _resolve_replicate_version(client: httpx.AsyncClient, cfg: RemoteSaliencyConfig) -> str:
+    """resolve the version hash to run. `owner/name:version` pins explicitly;
+    `owner/name` resolves (and caches) the model's latest version."""
+    if ":" in cfg.model:
+        return cfg.model.split(":", 1)[1]
+    if cfg.model in _REPLICATE_VERSIONS:
+        return _REPLICATE_VERSIONS[cfg.model]
+    resp = await client.get(
+        f"{REPLICATE_BASE}/models/{cfg.model}",
+        headers={"Authorization": f"Bearer {cfg.token}"},
+    )
+    resp.raise_for_status()
+    version = resp.json()["latest_version"]["id"]
+    _REPLICATE_VERSIONS[cfg.model] = version
+    return version
+
+
 async def _via_replicate(client: httpx.AsyncClient, cfg: RemoteSaliencyConfig, data_uri: str) -> bytes:
+    version = await _resolve_replicate_version(client, cfg)
     image_input = {"image": data_uri}
     if cfg.replicate_resolution:
         image_input["resolution"] = cfg.replicate_resolution
     resp = await client.post(
-        f"{REPLICATE_BASE}/models/{cfg.model}/predictions",
-        json={"input": image_input},
+        f"{REPLICATE_BASE}/predictions",
+        json={"version": version, "input": image_input},
         headers={
             "Authorization": f"Bearer {cfg.token}",
             "Content-Type": "application/json",
