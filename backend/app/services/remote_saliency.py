@@ -51,6 +51,24 @@ async def _fetch_image_bytes(client: httpx.AsyncClient, ref: str) -> bytes:
     return resp.content
 
 
+async def _via_fal(client: httpx.AsyncClient, cfg: RemoteSaliencyConfig, data_uri: str) -> bytes:
+    payload = {
+        "image_url": data_uri,
+        "mask_only": True,
+        "sync_mode": True,
+        "output_format": "png",
+        "operating_resolution": cfg.fal_operating_resolution,
+    }
+    resp = await client.post(
+        f"{FAL_BASE}/{cfg.model}",
+        json=payload,
+        headers={"Authorization": f"Key {cfg.token}", "Content-Type": "application/json"},
+    )
+    resp.raise_for_status()
+    ref = resp.json()["image"]["url"]
+    return await _fetch_image_bytes(client, ref)
+
+
 async def remote_saliency_mask(
     cfg: RemoteSaliencyConfig,
     image_png: bytes,
@@ -59,4 +77,19 @@ async def remote_saliency_mask(
     client: httpx.AsyncClient | None = None,
     timeout: float = 90.0,
 ) -> np.ndarray:
-    raise NotImplementedError
+    """run a hosted saliency model, return a binary fg mask (fg=255) at
+    target_size (w, h). raises on provider failure."""
+    data_uri = _data_uri(image_png)
+    owns = client is None
+    client = client or httpx.AsyncClient(timeout=timeout)
+    try:
+        if cfg.provider == "fal":
+            img_bytes = await asyncio.wait_for(_via_fal(client, cfg, data_uri), timeout=timeout)
+        elif cfg.provider == "replicate":
+            img_bytes = await asyncio.wait_for(_via_replicate(client, cfg, data_uri), timeout=timeout)
+        else:
+            raise ValueError(f"unknown remote provider: {cfg.provider}")
+    finally:
+        if owns:
+            await client.aclose()
+    return _to_binary(img_bytes, target_size)
