@@ -121,7 +121,11 @@ def get_project_store(user_id: str) -> ProjectStore:
 
 
 def _user_path(user_id: str) -> Path:
-    return settings.storage_path / user_id
+    # defence-in-depth: even if get_user_id is bypassed, block escaping storage root
+    result = (settings.storage_path / user_id).resolve()
+    if not result.is_relative_to(settings.storage_path.resolve()):
+        raise HTTPException(status_code=400, detail="invalid user path")
+    return result
 
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"}
