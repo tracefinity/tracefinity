@@ -173,7 +173,7 @@ stl_generator = ManifoldSTLGenerator()
 
 def _rel(abs_path: str | Path, user_path: Path) -> str:
     """store path relative to storage root (includes user_id prefix)"""
-    return str(Path(abs_path).relative_to(settings.storage_path.resolve()))
+    return str(Path(abs_path).resolve().relative_to(Path(settings.storage_path).resolve()))
 
 
 def _abs(rel_path: str | None) -> str | None:
