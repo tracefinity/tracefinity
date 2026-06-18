@@ -18,7 +18,7 @@ RAM figures are measured in Linux containers with both models loaded. Models loa
 
 Any modern x86-64 processor. All local models use ONNX Runtime on CPU by default. CUDA acceleration is available for NVIDIA GPUs (see README).
 
-ARM is supported: the Docker image ships linux/arm64 and linux/arm/v7 builds. Raspberry Pi 4/5 with 4GB+ RAM works (IS-Net or a remote tracer). Pi 3B+ (1GB) does not have enough memory.
+ARM is supported: the Docker image ships linux/arm64 builds. Raspberry Pi 4/5 with 4GB+ RAM works (IS-Net or a remote tracer).
 
 ## Disk
 
@@ -72,6 +72,5 @@ For BiRefNet Lite, request 8Gi with a limit of 10Gi. The 128Mi placeholder in ea
 |-|-|
 | linux/amd64 | Supported |
 | linux/arm64 | Supported (Apple Silicon via Docker Desktop, Pi 4/5) |
-| linux/arm/v7 | Supported (Pi 4 32-bit, other armv7 boards) |
 | macOS (from source) | Works on Intel and Apple Silicon |
 | Windows (from source) | Works via WSL2 or native Python/Node |
