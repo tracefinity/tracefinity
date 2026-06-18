@@ -177,6 +177,22 @@ Step-by-step usage guides covering each part of the workflow:
 
 [Gridfinity](https://gridfinity.xyz/) is a modular storage system designed by [Zack Freedman](https://www.youtube.com/watch?v=ra_9zU-mnl8). Bins snap into baseplates on a 42mm grid, making it easy to organise tools, components, and supplies. The system is open source and hugely popular in the 3D printing community.
 
+## Self-Hosted ARM64
+
+This fork publishes a multi-arch Docker image to GitHub Container Registry that supports both `linux/amd64` and `linux/arm64` (e.g. Raspberry Pi 4/5, Apple Silicon servers, AWS Graviton).
+
+Pull the image:
+
+```bash
+docker run -p 3000:3000 -v ./data:/app/storage ghcr.io/OWNER/tracefinity:latest
+```
+
+Replace `OWNER` with the GitHub username or organisation that owns this fork.
+
+> **First-time setup:** after the first successful build, go to **Settings → Packages** on GitHub, find the `tracefinity` package, and set its visibility to **Public** so the image can be pulled without authentication.
+
+The image is kept in sync with upstream releases automatically via a scheduled workflow that runs every 6 hours.
+
 ## Licence
 
 MIT
