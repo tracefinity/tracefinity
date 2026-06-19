@@ -66,6 +66,18 @@ resources:
 
 For BiRefNet Lite, request 8Gi with a limit of 10Gi. The 128Mi placeholder in early Helm values is not viable for any configuration.
 
+## Volume Permissions (Unraid / TrueNAS)
+
+The container runs as UID 1000 by default. On NAS platforms where the host volume is owned by a different user (e.g. `nobody:users` / 99:100 on Unraid), set `PUID` and `PGID` to match:
+
+```bash
+docker run -p 3000:3000 -e PUID=99 -e PGID=100 -v /mnt/user/appdata/tracefinity:/app/storage ghcr.io/tracefinity/tracefinity
+```
+
+When these variables are set, the entrypoint remaps the internal `tracefinity` user to the given UID/GID and chowns `/app/storage` before starting the application. When unset, behaviour is identical to previous releases (UID 1000:1000).
+
+The `--user` flag still works for platforms that support it directly.
+
 ## Platform Support
 
 | Platform | Status |

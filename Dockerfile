@@ -2,6 +2,7 @@
 # Build: docker build -t tracefinity .
 # Run: docker run -p 3000:3000 -v ./data:/app/storage tracefinity
 # Run as host user: docker run -p 3000:3000 -v ./data:/app/storage --user "$(id -u):$(id -g)" tracefinity
+# NAS (Unraid/TrueNAS): docker run -p 3000:3000 -e PUID=99 -e PGID=100 -v ./data:/app/storage tracefinity
 
 FROM node:20-slim AS frontend-build
 
@@ -28,6 +29,7 @@ RUN apt-get update && \
     nginx \
     supervisor \
     git \
+    gosu \
     && (apt-get install -y libglib2.0-0t64 2>/dev/null || apt-get install -y libglib2.0-0) \
     && rm -rf /var/lib/apt/lists/*
 
@@ -49,7 +51,7 @@ COPY --from=frontend-build /frontend/node_modules ./node_modules
 # storage directory
 RUN mkdir -p /app/storage/uploads /app/storage/processed /app/storage/outputs
 
-# non-root user (UID 1000). --user flag can override with any UID.
+# non-root user (UID 1000). PUID/PGID env vars or --user flag can override.
 RUN groupadd -r -g 1000 tracefinity && \
     useradd -r -u 1000 -g tracefinity -d /app -s /sbin/nologin tracefinity
 
@@ -138,9 +140,13 @@ RUN chmod -R 777 /app/storage /app/.u2net /app/.next && \
     chmod -R 777 /var/lib/nginx /var/log/nginx && \
     mkdir -p /tmp/nginx /tmp/supervisor && chmod 777 /tmp/nginx /tmp/supervisor
 
-# entrypoint handles directory creation for arbitrary UIDs
+# entrypoint handles directory creation and privilege drop
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# entrypoint tests (run with: docker run --rm --entrypoint sh <image> /app/tests/test_entrypoint.sh)
+COPY tests/test_entrypoint.sh /app/tests/
+RUN chmod +x /app/tests/test_entrypoint.sh
 
 EXPOSE 3000
 
@@ -149,8 +155,6 @@ ENV STORAGE_PATH=/app/storage
 ENV U2NET_HOME=/app/.u2net
 ENV NUMBA_CACHE_DIR=/tmp/numba_cache
 ENV HOME=/app
-
-USER tracefinity
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["supervisord", "-c", "/etc/supervisor/conf.d/tracefinity.conf"]
