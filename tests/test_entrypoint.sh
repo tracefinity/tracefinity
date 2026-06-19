@@ -51,12 +51,66 @@ reset_user() {
     groupmod -o -g 1000 tracefinity 2>/dev/null || true
 }
 
+# supervisor config tests run FIRST, before any entrypoint call mutates it
+echo "=== test: supervisor config ships without user= directives ==="
+SUPERVISOR_CONF="/etc/supervisor/conf.d/tracefinity.conf"
+if [ -f "$SUPERVISOR_CONF" ]; then
+    BEFORE_USER_COUNT=$(grep -c "^user=" "$SUPERVISOR_CONF" || true)
+    assert_eq "no user= directives in shipped config" "0" "$BEFORE_USER_COUNT"
+else
+    echo "  SKIP: supervisor config not found"
+fi
+
+echo "=== test: entrypoint injects supervisor user directives when root ==="
+if [ -f "$SUPERVISOR_CONF" ]; then
+    reset_user
+    unset PUID PGID
+    TESTDIR=$(mktemp -d)
+    export STORAGE_PATH="$TESTDIR"
+    chown -R tracefinity:tracefinity "$TESTDIR"
+
+    $ENTRYPOINT true 2>/dev/null
+
+    for prog in nginx backend frontend; do
+        HAS_USER=$(sed -n "/^\[program:$prog\]/,/^\[/p" "$SUPERVISOR_CONF" | grep -c "^user=tracefinity")
+        assert_eq "[program:$prog] has user=tracefinity" "1" "$HAS_USER"
+    done
+
+    HAS_ROOT=$(sed -n '/^\[supervisord\]/,/^\[/p' "$SUPERVISOR_CONF" | grep -c "^user=root")
+    assert_eq "[supervisord] has user=root" "1" "$HAS_ROOT"
+
+    ROOT_COUNT=$(grep -c "^user=root" "$SUPERVISOR_CONF")
+    assert_eq "user=root appears exactly once" "1" "$ROOT_COUNT"
+
+    rm -rf "$TESTDIR"
+    unset STORAGE_PATH
+fi
+
+echo "=== test: supervisor injection is idempotent ==="
+if [ -f "$SUPERVISOR_CONF" ]; then
+    reset_user
+    unset PUID PGID
+    TESTDIR=$(mktemp -d)
+    export STORAGE_PATH="$TESTDIR"
+    chown -R tracefinity:tracefinity "$TESTDIR"
+
+    # run entrypoint again on already-injected config
+    $ENTRYPOINT true 2>/dev/null
+
+    ROOT_COUNT=$(grep -c "^user=root" "$SUPERVISOR_CONF")
+    assert_eq "user=root still exactly once after re-run" "1" "$ROOT_COUNT"
+
+    TRACEFINITY_COUNT=$(grep -c "^user=tracefinity" "$SUPERVISOR_CONF")
+    assert_eq "user=tracefinity exactly 3 after re-run" "3" "$TRACEFINITY_COUNT"
+
+    rm -rf "$TESTDIR"
+    unset STORAGE_PATH
+fi
+
 echo "=== test: default mode (no PUID/PGID) ==="
 reset_user
 unset PUID PGID
 
-# entrypoint runs as root (supervisor handles per-child privilege drop).
-# verify the tracefinity user is correctly configured.
 OUTPUT=$(id -u tracefinity)
 assert_eq "default tracefinity UID is 1000" "1000" "$OUTPUT"
 
@@ -68,7 +122,6 @@ reset_user
 export PUID=99
 export PGID=100
 
-# run entrypoint with a no-op command to trigger remapping
 $ENTRYPOINT true 2>/dev/null
 
 OUTPUT=$(id -u tracefinity)

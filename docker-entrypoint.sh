@@ -61,13 +61,14 @@ if [ -d "$STORAGE_DIR" ]; then
     rm -f "$STORAGE_DIR/.write-check"
 fi
 
-# supervisord runs as root so it can open /dev/stdout for child log capture
-# (procfs fd permissions block non-root access to these paths).
-# each [program:] section uses user=tracefinity to drop privileges per-child.
-# suppress the "running as root" warning since this is intentional.
+# supervisord must run as root to open /dev/stdout for child log capture
+# (procfs fd permissions block non-root). inject user= directives so
+# supervisor drops privileges per-child. these are NOT baked into the
+# Dockerfile config because --user mode can't setuid at all.
 SUPERVISOR_CONF="/etc/supervisor/conf.d/tracefinity.conf"
-if [ -f "$SUPERVISOR_CONF" ]; then
-    sed -i '/^\[supervisord\]/a user=root' "$SUPERVISOR_CONF"
+if [ -f "$SUPERVISOR_CONF" ] && ! grep -q "^user=" "$SUPERVISOR_CONF"; then
+    sed -i '/^\[supervisord\]$/a user=root' "$SUPERVISOR_CONF"
+    sed -i '/^\[program:.*\]$/a user=tracefinity' "$SUPERVISOR_CONF"
 fi
 
 exec "$@"
