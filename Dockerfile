@@ -105,6 +105,7 @@ childlogdir=/tmp/supervisor
 
 [program:nginx]
 command=nginx -g "daemon off;"
+user=tracefinity
 autostart=true
 autorestart=true
 stdout_logfile=/dev/stdout
@@ -115,6 +116,7 @@ stderr_logfile_maxbytes=0
 [program:backend]
 command=uvicorn app.main:app --host 127.0.0.1 --port 8000
 directory=/app/backend
+user=tracefinity
 environment=STORAGE_PATH="/app/storage"
 autostart=true
 autorestart=true
@@ -126,6 +128,7 @@ stderr_logfile_maxbytes=0
 [program:frontend]
 command=node_modules/.bin/next start
 directory=/app
+user=tracefinity
 environment=PORT="3001",BACKEND_URL="http://127.0.0.1:8000"
 autostart=true
 autorestart=true

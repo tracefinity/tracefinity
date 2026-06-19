@@ -55,21 +55,26 @@ echo "=== test: default mode (no PUID/PGID) ==="
 reset_user
 unset PUID PGID
 
-OUTPUT=$($ENTRYPOINT id -u 2>/dev/null)
-assert_eq "default UID is 1000" "1000" "$OUTPUT"
+# entrypoint runs as root (supervisor handles per-child privilege drop).
+# verify the tracefinity user is correctly configured.
+OUTPUT=$(id -u tracefinity)
+assert_eq "default tracefinity UID is 1000" "1000" "$OUTPUT"
 
-OUTPUT=$($ENTRYPOINT id -g 2>/dev/null)
-assert_eq "default GID is 1000" "1000" "$OUTPUT"
+OUTPUT=$(id -g tracefinity)
+assert_eq "default tracefinity GID is 1000" "1000" "$OUTPUT"
 
 echo "=== test: PUID/PGID remapping ==="
 reset_user
 export PUID=99
 export PGID=100
 
-OUTPUT=$($ENTRYPOINT id -u 2>/dev/null)
+# run entrypoint with a no-op command to trigger remapping
+$ENTRYPOINT true 2>/dev/null
+
+OUTPUT=$(id -u tracefinity)
 assert_eq "remapped UID is 99" "99" "$OUTPUT"
 
-OUTPUT=$($ENTRYPOINT id -g 2>/dev/null)
+OUTPUT=$(id -g tracefinity)
 assert_eq "remapped GID is 100" "100" "$OUTPUT"
 
 echo "=== test: storage ownership ==="
@@ -100,9 +105,24 @@ reset_user
 export PUID=1000
 export PGID=1000
 
-OUTPUT=$($ENTRYPOINT id -u 2>/dev/null)
+$ENTRYPOINT true 2>/dev/null
+
+OUTPUT=$(id -u tracefinity)
 assert_eq "PUID=1000 stays 1000" "1000" "$OUTPUT"
 unset PUID PGID
+
+echo "=== test: gosu write-check uses target user ==="
+reset_user
+TESTDIR=$(mktemp -d)
+export STORAGE_PATH="$TESTDIR"
+chown -R tracefinity:tracefinity "$TESTDIR"
+unset PUID PGID
+
+$ENTRYPOINT true 2>/dev/null
+assert_eq "write-check passed for tracefinity" "0" "$?"
+
+rm -rf "$TESTDIR"
+unset STORAGE_PATH
 
 echo ""
 echo "results: $PASS passed, $FAIL failed"

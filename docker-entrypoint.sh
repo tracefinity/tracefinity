@@ -61,5 +61,13 @@ if [ -d "$STORAGE_DIR" ]; then
     rm -f "$STORAGE_DIR/.write-check"
 fi
 
-# drop to unprivileged user
-exec gosu tracefinity "$@"
+# supervisord runs as root so it can open /dev/stdout for child log capture
+# (procfs fd permissions block non-root access to these paths).
+# each [program:] section uses user=tracefinity to drop privileges per-child.
+# suppress the "running as root" warning since this is intentional.
+SUPERVISOR_CONF="/etc/supervisor/conf.d/tracefinity.conf"
+if [ -f "$SUPERVISOR_CONF" ]; then
+    sed -i '/^\[supervisord\]/a user=root' "$SUPERVISOR_CONF"
+fi
+
+exec "$@"
