@@ -34,6 +34,15 @@ export function projectNameMap(projects: BinProjectSummary[]) {
 
 export type ProjectToolFilter = 'all' | 'unplaced' | 'placed'
 
+export function getUniqueBinTools(
+  bin: BinSummary,
+  toolById: Map<string, ToolSummary>,
+) {
+  return Array.from(new Set(bin.tool_ids || []))
+    .map(toolId => toolById.get(toolId))
+    .filter(Boolean) as ToolSummary[]
+}
+
 export function getProjectCollections(
   project: BinProject | null,
   tools: ToolSummary[],
@@ -69,7 +78,7 @@ export function getProjectCollections(
 
   const toolBins = new Map<string, BinSummary[]>()
   for (const bin of projectBins) {
-    for (const toolId of bin.tool_ids || []) {
+    for (const toolId of new Set(bin.tool_ids || [])) {
       const current = toolBins.get(toolId) || []
       current.push(bin)
       toolBins.set(toolId, current)

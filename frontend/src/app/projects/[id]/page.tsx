@@ -28,6 +28,7 @@ import { binDefaultsFromConfig, buildBinConfig, getDefaultBinConfig, getDefaultB
 import { projectScopedHref } from '@/lib/projectNavigation'
 import {
   binLabel,
+  getUniqueBinTools,
   getProjectCollections,
   projectStatusLabels,
   projectNameMap,
@@ -800,7 +801,7 @@ export default function ProjectPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {projectBins.map(bin => {
                 const isExpanded = expandedBinIds.has(bin.id)
-                const binTools = (bin.tool_ids || []).map(toolId => toolById.get(toolId)).filter(Boolean) as ToolSummary[]
+                const binTools = getUniqueBinTools(bin, toolById)
                 const outsideTools = binTools.filter(tool => !projectToolIds.has(tool.id))
                 const projectToolsInBin = binTools.filter(tool => projectToolIds.has(tool.id))
                 const stillNeedsTools = projectTools.filter(tool => unplacedToolIds.has(tool.id))
