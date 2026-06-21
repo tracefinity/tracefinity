@@ -68,7 +68,9 @@ def get_onnx_providers(require_gpu: bool = False):
     - cuda: require CUDAExecutionProvider
     - cpu: CPUExecutionProvider only
     """
-    requested = os.getenv("TRACEFINITY_ONNX_PROVIDER", "auto").strip().lower()
+    from app.config import settings
+
+    requested = settings.tracefinity_onnx_provider.strip().lower()
     if requested not in {"auto", "cuda", "cpu"}:
         raise ValueError("TRACEFINITY_ONNX_PROVIDER must be one of: auto, cuda, cpu")
 
@@ -92,17 +94,18 @@ def get_onnx_providers(require_gpu: bool = False):
     _preload_onnxruntime_cuda_dlls()
     available = set(ort.get_available_providers())
     if "CUDAExecutionProvider" in available:
-        logger.info("using ONNX Runtime CUDAExecutionProvider for local models")
+        provider_options = {
+            "device_id": 0,
+            "cudnn_conv_algo_search": "DEFAULT",
+            "cudnn_conv_use_max_workspace": "1",
+            "do_copy_in_default_stream": "1",
+        }
+        logger.info(
+            "using ONNX Runtime CUDAExecutionProvider for local models with options: %s",
+            provider_options,
+        )
         return [
-            (
-                "CUDAExecutionProvider",
-                {
-                    "device_id": 0,
-                    "cudnn_conv_algo_search": "DEFAULT",
-                    "cudnn_conv_use_max_workspace": "1",
-                    "do_copy_in_default_stream": "1",
-                },
-            ),
+            ("CUDAExecutionProvider", provider_options),
             "CPUExecutionProvider",
         ]
 
