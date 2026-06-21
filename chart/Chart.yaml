@@ -1,6 +1,7 @@
 apiVersion: v2
 name: tracefinity
 description: Helm chart for the Tracefinity application
+icon: https://raw.githubusercontent.com/tracefinity/tracefinity/main/icon.svg
 
 type: application
 

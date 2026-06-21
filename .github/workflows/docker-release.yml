@@ -62,12 +62,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Lint Helm chart
+        run: |
+          helm lint chart
+
       - name: Prepare and package Helm chart
         run: |
           cp -r chart /tmp/chart
 
           # Package the chart
-          helm package --version "${{ github.ref_name }}" --app-version "${{ github.ref_name }}" -d /tmp/ /tmp/chart
+          VERSION="${GITHUB_REF_NAME#v}"
+          helm package --version "${VERSION}" --app-version "${VERSION}" -d /tmp/ /tmp/chart
 
       - name: Log in to Container Registry (Helm)
         run: |
@@ -78,4 +83,5 @@ jobs:
       - name: Publish Helm chart
         id: publish-helm-chart
         run: |
-          helm push /tmp/${{ github.event.repository.name }}-${{ github.ref_name }}.tgz oci://ghcr.io/$GITHUB_REPOSITORY_OWNER/charts
+          VERSION="${GITHUB_REF_NAME#v}"
+          helm push /tmp/${{ github.event.repository.name }}-${VERSION}.tgz oci://ghcr.io/$GITHUB_REPOSITORY_OWNER/charts
