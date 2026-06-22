@@ -2,7 +2,8 @@ from io import BytesIO
 
 from PIL import Image
 
-from app.api.routes import MAX_UPLOAD_DIM, _downscale_image
+from app.api.routes import MAX_UPLOAD_DIM
+from app.services.image_ingest import ingest_image
 
 
 def _png_bytes(size: tuple[int, int]) -> bytes:
@@ -13,7 +14,7 @@ def _png_bytes(size: tuple[int, int]) -> bytes:
 
 def test_downscale_returns_actual_integer_resize_ratio():
     original_width = 6041
-    content, ratio = _downscale_image(_png_bytes((original_width, 10)), ".png")
+    content, _, ratio = ingest_image(_png_bytes((original_width, 10)), ".png", MAX_UPLOAD_DIM)
     resized = Image.open(BytesIO(content))
 
     assert resized.width == MAX_UPLOAD_DIM
