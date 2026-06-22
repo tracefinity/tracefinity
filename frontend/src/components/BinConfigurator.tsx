@@ -253,7 +253,11 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
           checked={config.stacking_lip}
           onChange={(v) => {
             const newMax = calcMaxCutoutDepth(config.height_units, v)
-            update({ stacking_lip: v, cutout_depth: Math.min(config.cutout_depth, newMax) })
+            update({
+              stacking_lip: v,
+              rim_units: v ? config.rim_units : 0,
+              cutout_depth: Math.min(config.cutout_depth, newMax),
+            })
           }}
           label="Stacking lip"
           help="Raised rim at the top so bins can stack securely on top of each other."

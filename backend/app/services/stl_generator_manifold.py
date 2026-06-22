@@ -896,7 +896,7 @@ class ManifoldSTLGenerator:
         # protruding tool sits in the open volume inside the collar, and the
         # stacking lip (if enabled) rides on top so a stacked bin clears the
         # tool.  Cutouts still pocket down from wall_top_z, unaffected by the rim.
-        rim_units = getattr(config, "rim_units", 0) or 0
+        rim_units = (getattr(config, "rim_units", 0) or 0) if config.stacking_lip else 0
         rim_height = rim_units * GF_HEIGHT_UNIT
         lip_base_z = wall_top_z + rim_height
         # inner opening matches the stacking-lip inner opening so the collar wall

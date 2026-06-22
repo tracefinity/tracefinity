@@ -357,6 +357,7 @@ export default function BinPage() {
   const insertUrlWithVersion = insertStlUrl ? `${insertStlUrl}?v=${stlVersion}` : null
   const binW = config.grid_x * GRID_UNIT
   const binH = config.grid_y * GRID_UNIT
+  const effectiveRimUnits = config.stacking_lip ? config.rim_units : 0
   const hasExports = stlUrl || zipUrl || threemfUrl || insertStlUrl
 
   return (
@@ -403,7 +404,7 @@ export default function BinPage() {
             <div className="text-[11px] text-text-secondary space-y-0.5">
               <div className="flex justify-between"><span>Width</span><span>{binW} mm</span></div>
               <div className="flex justify-between"><span>Depth</span><span>{binH} mm</span></div>
-              <div className="flex justify-between"><span>Height</span><span>{(config.height_units * 7 + 5 + config.rim_units * 7 + (config.stacking_lip ? 4.4 : 0)).toFixed(1)} mm</span></div>
+              <div className="flex justify-between"><span>Height</span><span>{(config.height_units * 7 + 5 + effectiveRimUnits * 7 + (config.stacking_lip ? 4.4 : 0)).toFixed(1)} mm</span></div>
             </div>
           </div>
         </div>
