@@ -234,7 +234,7 @@ class ImageProcessor:
                 logger.debug("paper candidate rejected: fill_ratio=%.2f at thresh=%d", fill_ratio, thresh_val)
                 continue
 
-            # check aspect ratio is paper-like (A-series=0.707, Letter=0.77, Tabloid=0.65)
+            # check aspect ratio is paper-like (A4/A3=0.707, Letter=0.773, Tabloid=0.647)
             rect_w, rect_h = rect[1]
             if rect_w == 0 or rect_h == 0:
                 continue
