@@ -1041,7 +1041,10 @@ async def download_tool_svg(request: Request, tool_id: str, user_id: str = Depen
     return Response(
         content=svg,
         media_type="image/svg+xml",
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}.svg"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_name}.svg"',
+            "Cache-Control": "no-cache",
+        },
     )
 
 

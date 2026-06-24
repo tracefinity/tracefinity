@@ -62,7 +62,7 @@ export default function ToolPage() {
     load()
   }, [toolId])
 
-  const { saving, saved } = useDebouncedSave(
+  const { saving, saved, saveCount } = useDebouncedSave(
     async () => {
       if (!tool) return
       await updateTool(toolId, {
@@ -169,7 +169,7 @@ export default function ToolPage() {
           {saving ? 'Saving...' : saved ? 'Saved' : ''}
         </div>
         <a
-          href={getToolSvgUrl(toolId)}
+          href={`${getToolSvgUrl(toolId)}?v=${saveCount}`}
           download
           className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-accent-muted text-accent hover:bg-accent-muted/80 transition-colors inline-flex items-center gap-1.5"
         >
