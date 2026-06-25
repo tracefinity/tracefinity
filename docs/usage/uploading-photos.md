@@ -23,3 +23,7 @@ Images are automatically downscaled to a maximum of 2048px on the longest edge. 
 ## Paper size
 
 After uploading, select A4, Letter, A3, or Tabloid. Pick whichever you actually used. This determines the scale of everything downstream: tool outlines, bin dimensions, and exported STL geometry.
+
+## Webhooks (API only)
+
+If you're using the API directly, you can provide a `webhook_url` and optional `webhook_metadata` as form fields with the upload. Tracefinity will POST the generation result to that URL when a bin is successfully generated. See [the API docs](../api.md#webhooks) for the payload format and behaviour.

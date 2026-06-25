@@ -57,3 +57,91 @@ Response fields:
 - `GET /api/files/bins/{bin_id}/bin.stl` - bin STL
 - `GET /api/files/bins/{bin_id}/bin.3mf` - bin 3MF
 - `GET /api/files/bins/{bin_id}/bin_parts.zip` - bin split parts
+
+## Webhooks
+
+Tracefinity can POST a callback to an external URL when a bin is successfully
+generated. This lets external services kick off a session and receive the
+result automatically when generation finishes.
+
+### Setting up a webhook
+
+Provide `webhook_url` and optionally `webhook_metadata` as form fields when
+uploading an image:
+
+```
+POST /api/upload
+Content-Type: multipart/form-data
+
+image: <file>
+webhook_url: https://your-service.com/callbacks/tracefinity
+webhook_metadata: {"job_id": "abc-123"}
+```
+
+`webhook_metadata` must be a JSON object (string-encoded). It is echoed back
+in the webhook payload unchanged, making it a convenient place for an external
+service to store a job ID, customer reference, or routing key.
+
+The webhook can also be set or updated later via the session PATCH endpoint:
+
+```
+PATCH /api/sessions/{id}
+Content-Type: application/json
+
+{"webhook_url": "https://your-service.com/callbacks/updated"}
+```
+
+### Propagation to tools and bins
+
+When tools are saved from a session (`POST /api/sessions/{id}/save-tools`),
+the session's webhook config is copied to every library `Tool` that is
+created. When those tools are later used to create a bin (via `POST /api/bins`
+or `POST /api/bin-projects/{id}/create-bin`), the first tool's webhook is
+propagated to the resulting `BinModel`.
+
+This means a webhook set at upload time fires for generation on both paths:
+
+| Generation endpoint | When it fires |
+|---|---|
+| `POST /api/sessions/{id}/generate` | Immediately, if the session has a webhook URL |
+| `POST /api/bins/{id}/generate` | Immediately, if the bin has a webhook URL (inherited from its tools) |
+
+### Payload
+
+The webhook is delivered as a `POST` with `Content-Type: application/json`:
+
+```json
+{
+  "event": "bin_generated",
+  "session_id": "<session-id or null>",
+  "bin_id": "<bin-id or null>",
+  "webhook_metadata": { ... whatever was provided at upload ... },
+  "result": {
+    "stl_url": "/storage/default/outputs/<id>.stl",
+    "stl_urls": ["/storage/default/outputs/<id>_part0.stl", "..."],
+    "threemf_url": "/storage/default/outputs/<id>.3mf",
+    "split_count": 3,
+    "zip_url": "/storage/default/outputs/<id>_parts.zip",
+    "insert_stl_url": "/storage/default/outputs/<id>_insert.stl",
+    "warning": null
+  }
+}
+```
+
+- `session_id` — the originating trace session (null if unresolvable).
+- `bin_id` — null for session-based generation; the bin ID for bin-based generation.
+- `result` — mirrors the `GenerateResponse` returned by the generate endpoint that
+  triggered the webhook. File URLs are relative paths under `/storage/{user_id}/`.
+
+### Behaviour
+
+- **Fire-and-forget.** The webhook is dispatched in a background thread. The
+  generate response is returned to the caller without waiting for the webhook
+  to complete.
+- **No retries.** If the POST fails (network error, timeout, non-2xx response),
+  the error is logged and discarded. Tracefinity does not retry or queue.
+- **Timeout.** 30 seconds.
+- **Idempotency.** Calling generate again (e.g. after changing parameters)
+  fires the webhook again. There is no deduplication.
+- **Backward compatible.** Existing sessions, tools, and bins without webhook
+  fields deserialize with `webhook_url = null` and no webhook is fired.

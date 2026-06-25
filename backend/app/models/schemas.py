@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, field_validator
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from app.constants import PaperSize
 
@@ -195,6 +195,8 @@ class Session(BaseModel):
     polygons: list[Polygon] | None = None
     stl_path: str | None = None
     layout: Layout | None = None
+    webhook_url: str | None = None
+    webhook_metadata: dict[str, Any] | None = None
 
 
 class SessionSummary(BaseModel):
@@ -217,6 +219,8 @@ class SessionUpdateRequest(BaseModel):
     description: str | None = None
     tags: list[str] | None = None
     layout: Layout | None = None
+    webhook_url: str | None = None
+    webhook_metadata: dict[str, Any] | None = None
 
 
 class StatusResponse(BaseModel):
@@ -247,6 +251,8 @@ class Tool(BaseModel):
     needs_cleanup: bool = False
     thumbnail_path: str | None = None
     created_at: str | None = None
+    webhook_url: str | None = None
+    webhook_metadata: dict[str, Any] | None = None
 
 
 class ToolDetailResponse(Tool):
@@ -432,6 +438,8 @@ class BinModel(BaseModel):
     text_labels: list[TextLabel] = []
     stl_path: str | None = None
     created_at: str | None = None
+    webhook_url: str | None = None
+    webhook_metadata: dict[str, Any] | None = None
 
 
 class BinPreviewTool(BaseModel):

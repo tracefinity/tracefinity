@@ -9,7 +9,7 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, Form, UploadFile, HTTPException
 from fastapi.responses import FileResponse, Response
 from starlette.requests import Request
 from PIL import Image
@@ -87,6 +87,7 @@ from app.services.project_service import (
     remove_project_from_tools,
     repair_project_links,
 )
+from app.services.webhook_service import fire_webhook
 router = APIRouter()
 
 # Heuristic mismatch score combining a label penalty with bbox and point deltas measured in mm.
@@ -377,6 +378,16 @@ def _build_bin_from_tools(
             pt.finger_holes = _translate_finger_holes(pt.finger_holes, offset_x, offset_y)
             pt.interior_rings = [_translate_points(ring, offset_x, offset_y) for ring in pt.interior_rings]
 
+    # propagate the first tool's webhook (if any) to the bin
+    webhook_url = None
+    webhook_metadata = None
+    for pt in placed:
+        src_tool = user_tools.get(pt.tool_id)
+        if src_tool and src_tool.webhook_url:
+            webhook_url = src_tool.webhook_url
+            webhook_metadata = src_tool.webhook_metadata
+            break
+
     return BinModel(
         id=bin_id,
         name=name,
@@ -384,6 +395,8 @@ def _build_bin_from_tools(
         bin_config=bc,
         placed_tools=placed,
         created_at=_now_iso(),
+        webhook_url=webhook_url,
+        webhook_metadata=webhook_metadata,
     )
 
 
@@ -486,7 +499,13 @@ def _run_generate(
 
 
 @router.post("/upload", response_model=UploadResponse)
-async def upload_image(request: Request, image: UploadFile, user_id: str = Depends(get_user_id)):
+async def upload_image(
+    request: Request,
+    image: UploadFile,
+    user_id: str = Depends(get_user_id),
+    webhook_url: str | None = Form(None),
+    webhook_metadata: str | None = Form(None),
+):
     if not image.content_type or not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="file must be an image")
 
@@ -510,11 +529,22 @@ async def upload_image(request: Request, image: UploadFile, user_id: str = Depen
     corners = image_processor.detect_paper_corners(str(image_path))
     corner_points = [Point(x=c[0], y=c[1]) for c in corners] if corners else None
 
+    parsed_metadata: dict | None = None
+    if webhook_metadata:
+        try:
+            parsed_metadata = json.loads(webhook_metadata)
+            if not isinstance(parsed_metadata, dict):
+                raise HTTPException(status_code=400, detail="webhook_metadata must be a JSON object")
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="webhook_metadata must be valid JSON")
+
     user_sessions.set(session_id, Session(
         id=session_id,
         created_at=datetime.utcnow().isoformat(),
         original_image_path=_rel(image_path, up),
         corners=corner_points,
+        webhook_url=webhook_url,
+        webhook_metadata=parsed_metadata,
     ))
 
     return UploadResponse(
@@ -729,6 +759,15 @@ def generate_stl(request: Request, session_id: str, req: GenerateRequest, user_i
         fresh_session.stl_path = _rel(output_path, up)
         user_sessions.set(session_id, fresh_session)
 
+    if fresh_session and fresh_session.webhook_url:
+        fire_webhook(fresh_session.webhook_url, {
+            "event": "bin_generated",
+            "session_id": session_id,
+            "bin_id": None,
+            "webhook_metadata": fresh_session.webhook_metadata,
+            "result": response.model_dump(),
+        })
+
     return response
 
 
@@ -783,6 +822,10 @@ async def update_session(request: Request, session_id: str, req: SessionUpdateRe
         session.tags = req.tags
     if req.layout is not None:
         session.layout = req.layout
+    if req.webhook_url is not None:
+        session.webhook_url = req.webhook_url
+    if req.webhook_metadata is not None:
+        session.webhook_metadata = req.webhook_metadata
     user_sessions.set(session_id, session)
     return StatusResponse(status="ok")
 
@@ -1103,6 +1146,8 @@ async def save_tools_from_session(request: Request, session_id: str, body: SaveT
             ),
             thumbnail_path=thumbnail_path,
             created_at=datetime.utcnow().isoformat(),
+            webhook_url=session.webhook_url,
+            webhook_metadata=session.webhook_metadata,
         ))
         tool_ids.append(tool_id)
 
@@ -1583,6 +1628,23 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
     if fresh:
         fresh.stl_path = _rel(output_path, up)
         user_bins.set(bin_id, fresh)
+
+    if fresh and fresh.webhook_url:
+        # resolve the originating session_id from the first placed tool that has one
+        source_session_id = None
+        for pt in fresh.placed_tools:
+            src_tool = user_tools.get(pt.tool_id)
+            if src_tool and src_tool.source_session_id:
+                source_session_id = src_tool.source_session_id
+                break
+
+        fire_webhook(fresh.webhook_url, {
+            "event": "bin_generated",
+            "session_id": source_session_id,
+            "bin_id": bin_id,
+            "webhook_metadata": fresh.webhook_metadata,
+            "result": response.model_dump(),
+        })
 
     return response
 
