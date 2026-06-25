@@ -1,0 +1,205 @@
+from pathlib import Path
+
+from app.models.schemas import GenerateRequest
+from app.services.stl_generator_manifold import (
+    ManifoldSTLGenerator,
+    _cell_enabled,
+    _effective_grid_span,
+    _partial_cell_index,
+    _uses_partial_shell,
+)
+
+
+def _base_config(**overrides) -> GenerateRequest:
+    defaults = dict(
+        grid_x=2,
+        grid_y=2,
+        height_units=4,
+        magnets=False,
+        stacking_lip=False,
+        bed_size=0,
+    )
+    defaults.update(overrides)
+    return GenerateRequest(**defaults)
+
+
+def test_partial_cell_index_maps_ui_top_row_to_high_iy():
+    config = _base_config(grid_y=8)
+
+    assert _partial_cell_index(config, 0, 7) == 0
+    assert _partial_cell_index(config, 1, 7) == 1
+    assert _partial_cell_index(config, 0, 0) == 14
+    assert _partial_cell_index(config, 1, 0) == 15
+
+
+def test_cell_enabled_respects_ui_row_order():
+    config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, False, True],
+    )
+
+    assert _cell_enabled(config, 0, 1) is True
+    assert _cell_enabled(config, 1, 1) is False
+    assert _cell_enabled(config, 0, 0) is False
+    assert _cell_enabled(config, 1, 0) is True
+
+
+def test_disabling_second_top_left_targets_top_not_bottom():
+    values = [True] * 16
+    values[2] = False
+    config = _base_config(
+        grid_y=8,
+        partial_bins=True,
+        partial_bins_values=values,
+    )
+
+    assert _cell_enabled(config, 0, 6) is False
+    assert _cell_enabled(config, 0, 0) is True
+
+
+def test_partial_shell_uses_effective_span():
+    config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, False, False],
+    )
+
+    assert _uses_partial_shell(config) is True
+    assert _effective_grid_span(config) == (1, 1)
+
+
+def test_partial_bin_is_smaller_than_full_bin(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    full_config = _base_config()
+    partial_config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, False, False],
+    )
+
+    full_body, _ = generator.generate_bin([], full_config, str(tmp_path / "full.stl"))
+    partial_body, _ = generator.generate_bin([], partial_config, str(tmp_path / "partial.stl"))
+
+    assert partial_body.volume() < full_body.volume()
+
+
+def test_partial_bin_with_all_cells_matches_full_bin(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    full_config = _base_config()
+    partial_config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, True, True, True],
+    )
+
+    full_body, _ = generator.generate_bin([], full_config, str(tmp_path / "full.stl"))
+    partial_body, _ = generator.generate_bin([], partial_config, str(tmp_path / "partial.stl"))
+
+    assert abs(partial_body.volume() - full_body.volume()) < 1.0
+
+
+def test_partial_bin_adjacent_cells_stay_one_piece(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, True, True],
+    )
+
+    body, _ = generator.generate_bin([], config, str(tmp_path / "l.stl"))
+
+    assert len(body.decompose()) == 1
+
+
+def test_partial_bin_many_cells_stay_connected(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    # 2x6 grid, disable one cell in the left column (UI row 1)
+    values = [True] * 12
+    values[2] = False
+    config = _base_config(
+        grid_y=6,
+        stacking_lip=True,
+        partial_bins=True,
+        partial_bins_values=values,
+    )
+
+    body, _ = generator.generate_bin([], config, str(tmp_path / "grid.stl"))
+
+    assert len(body.decompose()) <= 2
+
+
+def test_partial_bins_connect_keeps_single_piece(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    values = [True, True, False, False, True, True, True, True]
+    cut_config = _base_config(
+        grid_y=4,
+        stacking_lip=True,
+        partial_bins=True,
+        partial_bins_values=values,
+        partial_bins_connect=False,
+    )
+    connect_config = cut_config.model_copy(update={"partial_bins_connect": True})
+
+    cut_body, _ = generator.generate_bin([], cut_config, str(tmp_path / "cut.stl"))
+    connect_body, _ = generator.generate_bin([], connect_config, str(tmp_path / "connect.stl"))
+
+    assert len(cut_body.decompose()) >= 2
+    assert generator.export_split_parts(connect_body, None, connect_config, 0, str(tmp_path), "connect") == []
+    assert connect_body.volume() > cut_body.volume()
+    assert connect_body.volume() < generator.generate_bin(
+        [],
+        _base_config(grid_y=4, stacking_lip=True),
+        str(tmp_path / "full.stl"),
+    )[0].volume()
+
+
+def test_partial_bin_split_uses_enabled_span(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, False, False],
+        bed_size=80,
+    )
+
+    body, _ = generator.generate_bin([], config, str(tmp_path / "partial.stl"))
+    parts = generator.split_bin(
+        body,
+        None,
+        config,
+        config.bed_size,
+        str(tmp_path),
+        "partial",
+    )
+
+    assert parts == []
+
+
+def test_partial_bins_cut_exports_separated_stls(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    values = [True, True, False, False, True, True, True, True]
+    config = _base_config(
+        grid_y=4,
+        partial_bins=True,
+        partial_bins_values=values,
+        partial_bins_connect=False,
+        bed_size=0,
+    )
+
+    body, _ = generator.generate_bin([], config, str(tmp_path / "full.stl"))
+    paths = generator.export_split_parts(body, None, config, 0, str(tmp_path), "partial")
+
+    assert len(paths) >= 2
+    assert all(Path(p).exists() for p in paths)
+
+
+def test_partial_bins_connect_skips_separated_export(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    values = [True, True, False, False, True, True, True, True]
+    config = _base_config(
+        grid_y=4,
+        partial_bins=True,
+        partial_bins_values=values,
+        partial_bins_connect=True,
+        bed_size=0,
+    )
+
+    body, _ = generator.generate_bin([], config, str(tmp_path / "full.stl"))
+    paths = generator.export_split_parts(body, None, config, 0, str(tmp_path), "partial")
+
+    assert paths == []
