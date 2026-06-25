@@ -92,6 +92,18 @@ class BinParams(BaseModel):
     insert_clearance: float = 0.2  # mm shaved off the insert so it fits the pocket
     cutout_chamfer: float = 0.0
     half_grid_base: bool = False  # use 21mm half-grid cells for the bottom baseplate
+    partial_bins: bool = False
+    partial_bins_values: list[bool] = []
+    partial_bins_connect: bool = False
+
+    @model_validator(mode="after")
+    def normalize_partial_bins_values(self) -> "BinParams":
+        import math
+
+        expected = math.ceil(self.grid_x) * math.ceil(self.grid_y)
+        if len(self.partial_bins_values) != expected:
+            self.partial_bins_values = [True] * expected
+        return self
 
     @field_validator("grid_x", "grid_y")
     @classmethod

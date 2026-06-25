@@ -1,5 +1,9 @@
-import type { BinConfig, BinDefaults } from '@/types'
-import { getSettings, saveSettings } from './settings'
+import type { BinConfig, BinDefaults } from "@/types";
+import { getSettings, saveSettings } from "./settings";
+
+export function createPartialBinsValues(gridX: number, gridY: number): boolean[] {
+  return Array(Math.ceil(gridX) * Math.ceil(gridY)).fill(true)
+}
 
 export const FACTORY_BIN_CONFIG: BinConfig = {
   grid_x: 2,
@@ -18,43 +22,51 @@ export const FACTORY_BIN_CONFIG: BinConfig = {
   insert_enabled: false,
   insert_height: 1.0,
   insert_clearance: 0.2,
-  bed_size: 256,
   half_grid_base: false,
+  partial_bins: false,
+  partial_bins_values: createPartialBinsValues(2, 2),
+  partial_bins_connect: false,
+  bed_size: 256,
   text_labels: [],
 }
 
 export function buildBinConfig(overrides: Partial<BinDefaults> | null = null): BinConfig {
-  return {
-    ...FACTORY_BIN_CONFIG,
-    ...(overrides || {}),
-    text_labels: [],
-  }
+    const merged = {
+        ...FACTORY_BIN_CONFIG,
+        ...(overrides || {}),
+        text_labels: [] as BinConfig["text_labels"],
+    };
+    const expectedLength = Math.ceil(merged.grid_x) * Math.ceil(merged.grid_y);
+    if (!merged.partial_bins_values || merged.partial_bins_values.length !== expectedLength) {
+        merged.partial_bins_values = createPartialBinsValues(merged.grid_x, merged.grid_y);
+    }
+    return merged;
 }
 
 export function binDefaultsFromConfig(config: Partial<BinConfig>): BinDefaults {
-  const { text_labels: _textLabels, ...defaults } = buildBinConfig(config)
-  return defaults
+    const { text_labels: _textLabels, ...defaults } = buildBinConfig(config);
+    return defaults;
 }
 
 export function getDefaultBinConfig(): BinConfig {
-  const settings = getSettings()
-  return buildBinConfig({
-    ...(settings.binDefaults || {}),
-    bed_size: settings.bedSize,
-  })
+    const settings = getSettings();
+    return buildBinConfig({
+        ...(settings.binDefaults || {}),
+        bed_size: settings.bedSize,
+    });
 }
 
 export function getDefaultBinDefaults(): BinDefaults {
-  return binDefaultsFromConfig(getDefaultBinConfig())
+    return binDefaultsFromConfig(getDefaultBinConfig());
 }
 
 export function saveDefaultBinConfig(config: BinConfig): BinDefaults {
-  const defaults = binDefaultsFromConfig(config)
-  saveSettings({ bedSize: defaults.bed_size, binDefaults: defaults })
-  return defaults
+    const defaults = binDefaultsFromConfig(config);
+    saveSettings({ bedSize: defaults.bed_size, binDefaults: defaults });
+    return defaults;
 }
 
 export function resetDefaultBinConfig(): BinConfig {
-  saveSettings({ bedSize: FACTORY_BIN_CONFIG.bed_size, binDefaults: undefined })
-  return buildBinConfig()
+    saveSettings({ bedSize: FACTORY_BIN_CONFIG.bed_size, binDefaults: undefined });
+    return buildBinConfig();
 }
