@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     fal_model: str = "fal-ai/birefnet/v2"
     replicate_resolution: Optional[str] = None  # "WxH"; None => model default
     fal_operating_resolution: str = "1024x1024"
+    tracefinity_onnx_provider: str = "auto"
+    tool_label_provider: str = "none"
+    tool_label_model: str = "qwen3-vl:4b"
+    tool_label_ollama_url: str = "http://localhost:11434"
+    tool_label_timeout_seconds: float = 30.0
+    tool_label_max_crop_px: int = 512
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

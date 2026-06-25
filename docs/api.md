@@ -12,6 +12,8 @@
 - `PATCH /api/sessions/{id}` - update session metadata
 - `DELETE /api/sessions/{id}` - delete session
 
+Trace and mask-trace responses include the final visible `Polygon.label` values for the trace result. When `TOOL_LABEL_PROVIDER=ollama`, the backend attempts optional naming before persisting the session; naming failures keep the generic `tool N` labels.
+
 ## Tools (library)
 - `GET /api/tools` - list tools
 - `GET /api/tools/{id}` - get tool

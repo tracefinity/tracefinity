@@ -63,6 +63,7 @@ By default, Tracefinity uses [IS-Net](https://github.com/xuebinqin/DIS) for loca
 | `TRACERS` | auto-detected | Comma-separated list of available tracers, e.g. `gemini,birefnet-lite,isnet` |
 | `TRACEFINITY_ONNX_PROVIDER` | `auto` | Local ONNX provider: `auto`, `cuda`, or `cpu` |
 | `GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-image-preview` | Gemini model for mask generation (see below) |
+| `TOOL_LABEL_PROVIDER` | `none` | Optional automatic tool naming. Set to `ollama` for local vision naming |
 
 ### From Source
 
@@ -114,6 +115,12 @@ This uses ONNX Runtime GPU for the `rembg` models (`isnet`, `birefnet-lite`,
 `birefnet-general`) and avoids PyTorch CUDA for those tracers.
 
 See [#21](https://github.com/tracefinity/tracefinity/issues/21) for the benchmark that led to this selection.
+
+### Automatic tool names
+
+Set `TOOL_LABEL_PROVIDER=ollama` to have a local Ollama vision model suggest names for traced polygons before you save them to the tool library. Naming is disabled by default and falls back to generic names whenever it is unavailable.
+
+See [Automatic Tool Naming](docs/tool-naming.md) for setup and configuration.
 
 ### Gemini API
 
@@ -172,6 +179,7 @@ Step-by-step usage guides covering each part of the workflow:
 - [Bin layout](docs/usage/bin-layout.md)
 - [Projects](docs/usage/projects.md)
 - [Exporting](docs/usage/exporting.md)
+- [Automatic tool naming](docs/tool-naming.md)
 - [Keyboard shortcuts](docs/usage/keyboard-shortcuts.md)
 - [Backup and restore](docs/usage/backups.md)
 
