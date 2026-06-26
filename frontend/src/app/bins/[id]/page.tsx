@@ -523,6 +523,8 @@ export default function BinPage() {
                                 onTextLabelsChange={setTextLabels}
                                 gridX={config.grid_x}
                                 gridY={config.grid_y}
+                                partialBins={config.partial_bins}
+                                partialBinsValues={config.partial_bins_values}
                                 wallThickness={config.wall_thickness}
                                 defaultCutoutDepth={config.cutout_depth}
                                 maxCutoutDepth={calcMaxCutoutDepth(config.height_units, config.stacking_lip)}

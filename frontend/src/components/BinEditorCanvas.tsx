@@ -20,6 +20,8 @@ interface Props {
   displayHeight: number
   gridX: number
   gridY: number
+  partialBins: boolean
+  partialBinsValues: boolean[]
   wallThickness: number
   placedTools: PlacedTool[]
   selection: Selection
@@ -66,6 +68,8 @@ export function BinEditorCanvas({
   displayHeight,
   gridX,
   gridY,
+  partialBins,
+  partialBinsValues,
   wallThickness,
   placedTools,
   selection,
@@ -149,6 +153,28 @@ export function BinEditorCanvas({
               />
             )
           })}
+
+          {/* disabled partial-bin cells */}
+          {partialBins && Array.from({ length: gridY }).map((_, iy) =>
+              Array.from({ length: gridX }).map((_, ix) => {
+                  const enabled = partialBinsValues[iy * gridX + ix] ?? true;
+                  if (enabled) return null;
+                  const cell = GRID_UNIT * DISPLAY_SCALE;
+                  return (
+                      <rect
+                          key={`partial-off-${ix}-${iy}`}
+                          x={ix * cell}
+                          y={iy * cell}
+                          width={cell}
+                          height={cell}
+                          fill="rgba(239, 68, 68, 0.22)"
+                          stroke="rgba(239, 68, 68, 0.1)"
+                          strokeWidth={1}
+                          className="pointer-events-none"
+                      />
+                  );
+              }),
+          )}
 
           {/* wall inset boundary */}
           {(() => {

@@ -14,6 +14,8 @@ interface Props {
   onTextLabelsChange: (labels: TextLabel[]) => void
   gridX: number
   gridY: number
+  partialBins: boolean
+  partialBinsValues: boolean[]
   wallThickness: number
   defaultCutoutDepth: number
   maxCutoutDepth: number
@@ -48,6 +50,8 @@ export function BinEditor({
   onTextLabelsChange,
   gridX,
   gridY,
+  partialBins,
+  partialBinsValues,
   wallThickness,
   defaultCutoutDepth,
   maxCutoutDepth,
@@ -541,6 +545,8 @@ export function BinEditor({
         displayHeight={displayHeight}
         gridX={gridX}
         gridY={gridY}
+        partialBins={partialBins}
+        partialBinsValues={partialBinsValues}
         wallThickness={wallThickness}
         placedTools={placedTools}
         selection={selection}
