@@ -218,6 +218,11 @@ def _partial_bins_connect_bases(config: GenerateRequest) -> bool:
     return getattr(config, "partial_bins_connect", False) and _uses_partial_shell(config)
 
 
+def _cell_retains_base(config: GenerateRequest, ix: int, iy: int) -> bool:
+    """Whether a grid cell still has base geometry (enabled, or connect-base disabled)."""
+    return _cell_enabled(config, ix, iy) or _partial_bins_connect_bases(config)
+
+
 def _exports_separated_partial_parts(config: GenerateRequest) -> bool:
     return _uses_partial_shell(config) and not _partial_bins_connect_bases(config)
 
@@ -599,9 +604,11 @@ def _make_magnet_holes(config: GenerateRequest):
     # outer bin corners for corners_only mode
     outer_corners = set()
     if corners_only:
+        grid_ix_max = math.ceil(config.grid_x) - 1
+        grid_iy_max = math.ceil(config.grid_y) - 1
         for ix, (cx, _) in enumerate([x_full[0], x_full[-1]]):
             for iy, (cy, _) in enumerate([y_full[0], y_full[-1]]):
-                if not _cell_enabled(config, ix if ix == 0 else math.ceil(config.grid_x) - 1, iy if iy == 0 else math.ceil(config.grid_y) - 1):
+                if not _cell_retains_base(config, ix if ix == 0 else grid_ix_max, iy if iy == 0 else grid_iy_max):
                     continue
                 for dx, dy in [(-13.0, -13.0), (13.0, -13.0), (13.0, 13.0), (-13.0, 13.0)]:
                     # only the corner nearest the bin edge
@@ -620,7 +627,7 @@ def _make_magnet_holes(config: GenerateRequest):
     grid_iy = math.ceil(config.grid_y)
     for iy in range(grid_iy):
         for ix in range(grid_ix):
-            if not _cell_enabled(config, ix, iy):
+            if not _cell_retains_base(config, ix, iy):
                 continue
             cx, cy = _cell_center(ix, iy, config.grid_x, config.grid_y)
             if not any(abs(cx - fx) < 0.01 for fx, _ in x_full):
