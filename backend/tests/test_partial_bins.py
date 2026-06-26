@@ -3,6 +3,7 @@ from pathlib import Path
 from app.models.schemas import GenerateRequest
 from app.services.stl_generator_manifold import (
     ManifoldSTLGenerator,
+    _cell_center,
     _cell_enabled,
     _effective_grid_span,
     _partial_cell_index,
@@ -203,3 +204,27 @@ def test_partial_bins_connect_skips_separated_export(tmp_path: Path):
     paths = generator.export_split_parts(body, None, config, 0, str(tmp_path), "partial")
 
     assert paths == []
+
+
+def test_connect_base_magnet_holes_in_disabled_cells(tmp_path: Path):
+    import manifold3d as mf
+
+    generator = ManifoldSTLGenerator()
+    values = [True, True, False, False, True, True, True, True]
+    config = _base_config(
+        grid_y=4,
+        stacking_lip=True,
+        partial_bins=True,
+        partial_bins_values=values,
+        partial_bins_connect=True,
+        magnets=True,
+    )
+
+    body, _ = generator.generate_bin([], config, str(tmp_path / "connect.stl"))
+
+    # iy=1 is a disabled row; magnet inset is 13 mm from cell centre
+    cx, cy = _cell_center(0, 1, 2, 4)
+    mx, my = cx - 13.0, cy - 13.0
+    probe = mf.Manifold.sphere(0.4, 12).translate((mx, my, 1.0))
+    overlap = (body ^ probe).volume()
+    assert overlap < probe.volume() * 0.25
