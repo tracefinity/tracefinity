@@ -362,10 +362,14 @@ def _build_bin_from_tools(
         needed_w = tool_width + 2 * clearance + 2 * wall + 0.5
         needed_h = tool_height + 2 * clearance + 2 * wall + 0.5
 
-        # snap to nearest 0.5 unit (21mm half-grid)
-        half = GF_GRID / 2
-        grid_x = max(1.0, math.ceil(needed_w / half) * 0.5)
-        grid_y = max(1.0, math.ceil(needed_h / half) * 0.5)
+        # snap to 0.5 units when half-grid is on, whole units otherwise
+        if bc.half_grid_base:
+            half = GF_GRID / 2
+            grid_x = max(1.0, math.ceil(needed_w / half) * 0.5)
+            grid_y = max(1.0, math.ceil(needed_h / half) * 0.5)
+        else:
+            grid_x = max(1.0, math.ceil(needed_w / GF_GRID))
+            grid_y = max(1.0, math.ceil(needed_h / GF_GRID))
         bc.grid_x = min(grid_x, 10.0)
         bc.grid_y = min(grid_y, 10.0)
 
@@ -1577,6 +1581,7 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
         cutout_chamfer=bc.cutout_chamfer,
         text_labels=bc.text_labels + bin_data.text_labels,
         bed_size=bc.bed_size,
+        half_grid_base=bc.half_grid_base,
     )
 
     response = _run_generate(scaled, gen_req, bin_id, up, input_hash, user_id)

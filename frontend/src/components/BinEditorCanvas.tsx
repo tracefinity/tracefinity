@@ -121,7 +121,7 @@ export function BinEditorCanvas({
             const pos = i * 0.5
             const isBoundary = pos === 0 || pos === gridX
             const isFullUnit = Number.isInteger(pos)
-            if (!isFullUnit && !halfGridBase) return null
+            if (!isBoundary && !isFullUnit && !halfGridBase) return null
             return (
               <line
                 key={`v${i}`}
@@ -137,7 +137,7 @@ export function BinEditorCanvas({
             const pos = i * 0.5
             const isBoundary = pos === 0 || pos === gridY
             const isFullUnit = Number.isInteger(pos)
-            if (!isFullUnit && !halfGridBase) return null
+            if (!isBoundary && !isFullUnit && !halfGridBase) return null
             return (
               <line
                 key={`h${i}`}

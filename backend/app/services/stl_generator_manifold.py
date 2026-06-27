@@ -160,7 +160,7 @@ def _base_cell_layout(grid_units: float, cell_size: float) -> list[tuple[float, 
     returns list of (centre_offset, cell_width) tuples.
     """
     total = grid_units * GF_GRID
-    n_cells = round(total / cell_size)
+    n_cells = math.ceil(total / cell_size - 1e-9)
     cells: list[tuple[float, float]] = []
     for i in range(n_cells):
         w = min(cell_size, total - i * cell_size)
@@ -299,12 +299,17 @@ def _make_filleted_rectangle_cutter(
 
 
 def _make_magnet_holes(config: GenerateRequest):
-    """Batch union of all magnet hole cylinders (4 per full grid cell, or corners only).
+    """Batch union of all magnet hole cylinders (4 per cell, or corners only).
 
-    Magnets are placed per full 42mm cell. For fractional grid sizes (e.g. 3.5)
-    only the full cells get magnet holes.
+    Magnets are always placed on full 42mm grid cells regardless of
+    half_grid_base -- a 21mm cell is only 10.25mm from centre to edge
+    (after 0.5mm clearance), so the 13mm magnet offset would extend
+    beyond the cell boundary.
     """
     import manifold3d as mf
+
+    if getattr(config, "half_grid_base", False):
+        return mf.Manifold()
 
     diameter = getattr(config, "magnet_diameter", MAGNET_DIAMETER)
     depth = getattr(config, "magnet_depth", MAGNET_DEPTH)
@@ -313,34 +318,39 @@ def _make_magnet_holes(config: GenerateRequest):
     r = diameter / 2
     mag = mf.Manifold.cylinder(depth + 0.01, r, circular_segments=ROUND_SEGS)
 
-    # magnets on full 42mm cells only
-    full_x = int(config.grid_x)
-    full_y = int(config.grid_y)
-    if full_x < 1 or full_y < 1:
+    x_cells = _base_cell_layout(config.grid_x, GF_GRID)
+    y_cells = _base_cell_layout(config.grid_y, GF_GRID)
+
+    if not x_cells or not y_cells:
         return mf.Manifold()
 
-    # corners that sit on the outer bin boundary
+    # skip partial cells (width < 42mm) -- magnets only on full cells
+    x_full = [(cx, cw) for cx, cw in x_cells if abs(cw - GF_GRID) < 0.01]
+    y_full = [(cy, ch) for cy, ch in y_cells if abs(ch - GF_GRID) < 0.01]
+
+    if not x_full or not y_full:
+        return mf.Manifold()
+
+    # outer bin corners for corners_only mode
     outer_corners = set()
     if corners_only:
-        for ix, iy, dx, dy in [
-            (0, 0, -13.0, -13.0),
-            (full_x - 1, 0, 13.0, -13.0),
-            (full_x - 1, full_y - 1, 13.0, 13.0),
-            (0, full_y - 1, -13.0, 13.0),
-        ]:
-            cx = (ix - (full_x - 1) / 2.0) * GF_GRID
-            cy = (iy - (full_y - 1) / 2.0) * GF_GRID
-            outer_corners.add((round(cx + dx, 4), round(cy + dy, 4)))
-
-    # offset full-cell grid centre to account for partial trailing cell
-    x_offset = (config.grid_x * GF_GRID - full_x * GF_GRID) / 2.0
-    y_offset = (config.grid_y * GF_GRID - full_y * GF_GRID) / 2.0
+        for cx, _ in [x_full[0], x_full[-1]]:
+            for cy, _ in [y_full[0], y_full[-1]]:
+                for dx, dy in [(-13.0, -13.0), (13.0, -13.0), (13.0, 13.0), (-13.0, 13.0)]:
+                    # only the corner nearest the bin edge
+                    if cx == x_full[0][0] and dx > 0 and len(x_full) > 1:
+                        continue
+                    if cx == x_full[-1][0] and dx < 0 and len(x_full) > 1:
+                        continue
+                    if cy == y_full[0][0] and dy > 0 and len(y_full) > 1:
+                        continue
+                    if cy == y_full[-1][0] and dy < 0 and len(y_full) > 1:
+                        continue
+                    outer_corners.add((round(cx + dx, 4), round(cy + dy, 4)))
 
     holes = []
-    for iy in range(full_y):
-        for ix in range(full_x):
-            cx = (ix - (full_x - 1) / 2.0) * GF_GRID - x_offset
-            cy = (iy - (full_y - 1) / 2.0) * GF_GRID - y_offset
+    for cy, _ in y_full:
+        for cx, _ in x_full:
             for dx, dy in [(-13.0, -13.0), (13.0, -13.0), (13.0, 13.0), (-13.0, 13.0)]:
                 pos = (round(cx + dx, 4), round(cy + dy, 4))
                 if corners_only and pos not in outer_corners:
@@ -981,7 +991,7 @@ class ManifoldSTLGenerator:
         # subtract them in one pass to avoid sequential z-plane imprecision
         cutters: list = []
 
-        if config.magnets:
+        if config.magnets and not config.half_grid_base:
             cutters.append(_make_magnet_holes(config))
 
         pocket_depth = 5

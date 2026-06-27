@@ -215,9 +215,10 @@ export default function BinPage() {
     const halfMargin = config.wall_thickness + config.cutout_clearance + 0.25
     const toolW = maxX - minX
     const toolH = maxY - minY
-    const halfUnit = GRID_UNIT / 2
-    const needX = Math.max(1, Math.ceil((toolW + 2 * halfMargin) / halfUnit) * 0.5)
-    const needY = Math.max(1, Math.ceil((toolH + 2 * halfMargin) / halfUnit) * 0.5)
+    const snap = config.half_grid_base ? 0.5 : 1.0
+    const snapUnit = GRID_UNIT * snap
+    const needX = Math.max(1, Math.ceil((toolW + 2 * halfMargin) / snapUnit) * snap)
+    const needY = Math.max(1, Math.ceil((toolH + 2 * halfMargin) / snapUnit) * snap)
 
     const gridChanged = config.grid_x !== needX || config.grid_y !== needY
     if (gridChanged) {
@@ -241,7 +242,7 @@ export default function BinPage() {
         ),
       })))
     }
-  }, [autoSize, isDragging, placedTools, config.grid_x, config.grid_y, config.wall_thickness, config.cutout_clearance])
+  }, [autoSize, isDragging, placedTools, config.grid_x, config.grid_y, config.wall_thickness, config.cutout_clearance, config.half_grid_base])
 
   const handleToggleSmoothed = useCallback(async (toolId: string, smoothed: boolean) => {
     try {
@@ -275,9 +276,10 @@ export default function BinPage() {
     const toolH = maxY - minY
 
     const margin = 2 * config.wall_thickness + 2 * config.cutout_clearance + 0.5
-    const halfUnit = GRID_UNIT / 2
-    const needX = Math.max(config.grid_x, Math.ceil((toolW + margin) / halfUnit) * 0.5)
-    const needY = Math.max(config.grid_y, Math.ceil((toolH + margin) / halfUnit) * 0.5)
+    const snap = config.half_grid_base ? 0.5 : 1.0
+    const snapUnit = GRID_UNIT * snap
+    const needX = Math.max(config.grid_x, Math.ceil((toolW + margin) / snapUnit) * snap)
+    const needY = Math.max(config.grid_y, Math.ceil((toolH + margin) / snapUnit) * snap)
 
     if (needX !== config.grid_x || needY !== config.grid_y) {
       setConfig(prev => ({ ...prev, grid_x: needX, grid_y: needY }))

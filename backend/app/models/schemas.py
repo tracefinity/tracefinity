@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from app.constants import PaperSize
 
@@ -158,6 +158,12 @@ class BinParams(BaseModel):
         if v < 0.4 or v > 5:
             raise ValueError("wall thickness must be between 0.4 and 5mm")
         return v
+
+    @model_validator(mode="after")
+    def half_grid_disables_magnets(self) -> "BinParams":
+        if self.half_grid_base:
+            self.magnets = False
+        return self
 
 
 class BinDefaults(BinParams):

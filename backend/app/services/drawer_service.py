@@ -20,13 +20,18 @@ from app.services.tool_store import ToolStore
 def _min_grid_for_size(
     width_mm: float, height_mm: float,
     clearance: float = 2.0, wall: float = 1.6,
+    half_grid_base: bool = False,
 ) -> tuple[float, float]:
-    """minimum gridfinity grid units for a given size in mm (0.5 increments)."""
+    """minimum gridfinity grid units for a given size in mm."""
     needed_w = width_mm + 2 * clearance + 2 * wall + 0.5
     needed_h = height_mm + 2 * clearance + 2 * wall + 0.5
-    half = GF_GRID / 2
-    gx = max(1.0, math.ceil(needed_w / half) * 0.5)
-    gy = max(1.0, math.ceil(needed_h / half) * 0.5)
+    if half_grid_base:
+        half = GF_GRID / 2
+        gx = max(1.0, math.ceil(needed_w / half) * 0.5)
+        gy = max(1.0, math.ceil(needed_h / half) * 0.5)
+    else:
+        gx = max(1.0, math.ceil(needed_w / GF_GRID))
+        gy = max(1.0, math.ceil(needed_h / GF_GRID))
     return min(gx, 10.0), min(gy, 10.0)
 
 

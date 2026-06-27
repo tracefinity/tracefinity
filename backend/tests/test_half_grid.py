@@ -11,6 +11,7 @@ from app.services.stl_generator_manifold import (
     GF_HALF_GRID,
     ManifoldSTLGenerator,
     _base_cell_layout,
+    _make_magnet_holes,
 )
 
 # ── validation ───────────────────────────────────────────────────────────────
@@ -56,6 +57,14 @@ def test_cell_layout_fractional_full_grid():
     assert len(cells) == 4
     widths = [w for _, w in cells]
     # 3 full cells + 1 half cell
+    assert abs(widths[-1] - GF_HALF_GRID) < 0.01
+
+
+@pytest.mark.parametrize("grid_units", [2.5, 4.5, 6.5, 8.5])
+def test_cell_layout_fractional_full_grid_even_half_units(grid_units: float):
+    cells = _base_cell_layout(grid_units, GF_GRID)
+    widths = [w for _, w in cells]
+    assert abs(sum(widths) - grid_units * GF_GRID) < 0.01
     assert abs(widths[-1] - GF_HALF_GRID) < 0.01
 
 
@@ -145,6 +154,63 @@ def test_magnets_on_half_unit_bin(tmp_path: Path):
     gen = ManifoldSTLGenerator()
     body, _ = gen.generate_bin([], config, str(tmp_path / "mag.stl"))
     assert body.volume() > 0
+
+
+def test_half_grid_base_skips_magnets(tmp_path: Path):
+    """half_grid_base disables magnet holes -- 21mm cells can't fit the 13mm offset."""
+
+    standard = GenerateRequest(
+        grid_x=2, grid_y=2,
+        height_units=3, magnets=True, stacking_lip=False,
+        half_grid_base=False, bed_size=0,
+    )
+    # model_copy bypasses validators, so magnets stays True -- tests the
+    # defence-in-depth early return inside _make_magnet_holes itself
+    half = standard.model_copy(update={"half_grid_base": True})
+
+    s_holes = _make_magnet_holes(standard)
+    h_holes = _make_magnet_holes(half)
+
+    assert s_holes.volume() > 0
+    assert h_holes.is_empty()
+
+
+def test_half_grid_base_model_validator_forces_magnets_off():
+    """model_validator on BinParams forces magnets=False when half_grid_base=True.
+    this is the primary fix -- it changes the serialised config, invalidating
+    any cached STL that was generated before the fix."""
+    from app.models.schemas import BinConfig, BinParams
+
+    bp = BinParams(magnets=True, half_grid_base=True)
+    assert bp.magnets is False
+
+    req = GenerateRequest(
+        grid_x=2, grid_y=2, height_units=3,
+        magnets=True, half_grid_base=True, bed_size=0,
+    )
+    assert req.magnets is False
+
+    bc = BinConfig(magnets=True, half_grid_base=True)
+    assert bc.magnets is False
+
+
+def test_half_grid_base_full_generate_no_magnet_holes(tmp_path: Path):
+    """end-to-end: generate_bin with half_grid_base produces identical volume
+    regardless of the magnets flag (validator forces it off)."""
+    gen = ManifoldSTLGenerator()
+    with_flag = GenerateRequest(
+        grid_x=2, grid_y=2, height_units=3,
+        magnets=True, stacking_lip=False,
+        half_grid_base=True, bed_size=0,
+    )
+    without_flag = GenerateRequest(
+        grid_x=2, grid_y=2, height_units=3,
+        magnets=False, stacking_lip=False,
+        half_grid_base=True, bed_size=0,
+    )
+    body_w, _ = gen.generate_bin([], with_flag, str(tmp_path / "w.stl"))
+    body_wo, _ = gen.generate_bin([], without_flag, str(tmp_path / "wo.stl"))
+    assert abs(body_w.volume() - body_wo.volume()) < 0.01
 
 
 def test_stacking_lip_on_half_unit_bin(tmp_path: Path):
