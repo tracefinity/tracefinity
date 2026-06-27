@@ -259,3 +259,31 @@ def test_partial_bins_retain_wall_disabled_without_connect():
         partial_bins_retain_wall=True,
     )
     assert config.partial_bins_retain_wall is False
+
+
+def test_partial_bins_rejects_all_cells_disabled():
+    import pytest
+
+    with pytest.raises(ValueError, match="at least one grid cell"):
+        _base_config(
+            partial_bins=True,
+            partial_bins_values=[False, False, False, False],
+        )
+
+
+def test_connect_mode_split_uses_full_grid_footprint(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    values = [True] + [False] * 8
+    config = _base_config(
+        grid_x=3,
+        grid_y=3,
+        partial_bins=True,
+        partial_bins_values=values,
+        partial_bins_connect=True,
+        bed_size=80,
+    )
+
+    body, _ = generator.generate_bin([], config, str(tmp_path / "connect.stl"))
+    parts = generator.split_bin(body, None, config, config.bed_size, str(tmp_path), "connect")
+
+    assert parts != []
