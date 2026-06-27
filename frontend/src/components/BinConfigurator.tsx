@@ -137,7 +137,10 @@ function RadioMatrix({ sizeX, sizeY, values, onChange }: { sizeX: number; sizeY:
             {values.map((value, index) => (
                 <button
                     key={index}
-                    onClick={() => onChange(values.map((v, i) => (i === index ? !v : v)))}
+                    onClick={() => {
+                        if (value && values.filter(Boolean).length <= 1) return;
+                        onChange(values.map((v, i) => (i === index ? !v : v)));
+                    }}
                     className={cn("w-full border-2 aspect-square border-muted min-w-3", value ? "bg-accent border-accent" : "bg-elevated border-muted", sizeX > 4 ? "rounded-[2px]" : "rounded-sm")}
                 ></button>
             ))}
