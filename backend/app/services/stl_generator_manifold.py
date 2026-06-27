@@ -161,16 +161,14 @@ def _base_cell_layout(grid_units: float, cell_size: float) -> list[tuple[float, 
     returns list of (centre_offset, cell_width) tuples.
     """
     total = grid_units * GF_GRID
+    n_cells = round(total / cell_size)
     cells: list[tuple[float, float]] = []
-    pos = 0.0
-    while pos < total - 0.01:
-        w = min(cell_size, total - pos)
-        # sub-mm rounding guard
+    for i in range(n_cells):
+        w = min(cell_size, total - i * cell_size)
         if w < 1.0:
             break
-        cx = pos + w / 2.0 - total / 2.0
+        cx = i * cell_size + w / 2.0 - total / 2.0
         cells.append((cx, w))
-        pos += w
     return cells
 
 

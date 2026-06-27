@@ -326,12 +326,23 @@ class BinProject(BaseModel):
     status: ProjectStatus = "active"
     tool_ids: list[str] = []
     bin_ids: list[str] = []
-    target_grid_x: int | None = None
-    target_grid_y: int | None = None
+    target_grid_x: float | None = None
+    target_grid_y: float | None = None
     default_bin_config: BinDefaults | None = None
     notes: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
+
+    @field_validator("target_grid_x", "target_grid_y")
+    @classmethod
+    def validate_target_grid(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if v < 1 or v > 10:
+            raise ValueError("grid size must be between 1 and 10")
+        if v * 2 != int(v * 2):
+            raise ValueError("grid size must be a multiple of 0.5")
+        return v
 
 class BinProjectDetail(BinProject):
     placed_tool_ids: list[str] = []
@@ -347,8 +358,8 @@ class BinProjectSummary(BaseModel):
     bin_count: int = 0
     placed_count: int = 0
     unplaced_count: int = 0
-    target_grid_x: int | None = None
-    target_grid_y: int | None = None
+    target_grid_x: float | None = None
+    target_grid_y: float | None = None
     created_at: str | None = None
     updated_at: str | None = None
 
@@ -361,21 +372,43 @@ class BinProjectCreateRequest(BaseModel):
     name: str
     description: str | None = None
     status: ProjectStatus = "active"
-    target_grid_x: int | None = None
-    target_grid_y: int | None = None
+    target_grid_x: float | None = None
+    target_grid_y: float | None = None
     default_bin_config: BinDefaults | None = None
     notes: str | None = None
     tool_ids: list[str] = []
+
+    @field_validator("target_grid_x", "target_grid_y")
+    @classmethod
+    def validate_target_grid(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if v < 1 or v > 10:
+            raise ValueError("grid size must be between 1 and 10")
+        if v * 2 != int(v * 2):
+            raise ValueError("grid size must be a multiple of 0.5")
+        return v
 
 
 class BinProjectUpdateRequest(BaseModel):
     name: str | None = None
     description: str | None = None
     status: ProjectStatus | None = None
-    target_grid_x: int | None = None
-    target_grid_y: int | None = None
+    target_grid_x: float | None = None
+    target_grid_y: float | None = None
     default_bin_config: BinDefaults | None = None
     notes: str | None = None
+
+    @field_validator("target_grid_x", "target_grid_y")
+    @classmethod
+    def validate_target_grid(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if v < 1 or v > 10:
+            raise ValueError("grid size must be between 1 and 10")
+        if v * 2 != int(v * 2):
+            raise ValueError("grid size must be a multiple of 0.5")
+        return v
 
 
 class BinProjectToolsRequest(BaseModel):
