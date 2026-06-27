@@ -306,12 +306,17 @@ PARTIAL_BIN_CONNECT_PLATE_MM = 6.0 - PARTIAL_BIN_CONNECT_PLATE_Z_INSET
 PARTIAL_BIN_RETAIN_WALL_PRESERVE_MM = LIP_D0 + LIP_D2
 
 
+def _grid_cell_counts(config: GenerateRequest) -> tuple[int, int]:
+    return math.ceil(config.grid_x), math.ceil(config.grid_y)
+
+
 def _find_disabled_components(config: GenerateRequest) -> list[list[tuple[int, int]]]:
     components: list[list[tuple[int, int]]] = []
     visited: set[tuple[int, int]] = set()
+    grid_x, grid_y = _grid_cell_counts(config)
 
-    for iy in range(config.grid_y):
-        for ix in range(config.grid_x):
+    for iy in range(grid_y):
+        for ix in range(grid_x):
             if _cell_enabled(config, ix, iy) or (ix, iy) in visited:
                 continue
             cells: list[tuple[int, int]] = []
@@ -324,7 +329,7 @@ def _find_disabled_components(config: GenerateRequest) -> list[list[tuple[int, i
                 cells.append((x, y))
                 for dx, dy in ((0, 1), (0, -1), (1, 0), (-1, 0)):
                     nx, ny = x + dx, y + dy
-                    if 0 <= nx < config.grid_x and 0 <= ny < config.grid_y:
+                    if 0 <= nx < grid_x and 0 <= ny < grid_y:
                         stack.append((nx, ny))
             components.append(cells)
 
@@ -355,9 +360,10 @@ def _make_connect_mode_cell_cutters(config: GenerateRequest, top_z: float):
     bin_hh = (config.grid_y * GF_GRID - 0.5) / 2.0
     half = GF_GRID / 2.0
     preserve = PARTIAL_BIN_RETAIN_WALL_PRESERVE_MM
+    grid_x, grid_y = _grid_cell_counts(config)
 
-    for iy in range(config.grid_y):
-        for ix in range(config.grid_x):
+    for iy in range(grid_y):
+        for ix in range(grid_x):
             if _cell_enabled(config, ix, iy):
                 continue
             cx, cy = _cell_center(ix, iy, config.grid_x, config.grid_y)
@@ -366,11 +372,11 @@ def _make_connect_mode_cell_cutters(config: GenerateRequest, top_z: float):
                 y0, y1 = cy - half, cy + half
                 if ix == 0:
                     x0 = max(x0, -bin_hw + preserve)
-                if ix == config.grid_x - 1:
+                if ix == grid_x - 1:
                     x1 = min(x1, bin_hw - preserve)
                 if iy == 0:
                     y0 = max(y0, -bin_hh + preserve)
-                if iy == config.grid_y - 1:
+                if iy == grid_y - 1:
                     y1 = min(y1, bin_hh - preserve)
                 w, h = x1 - x0, y1 - y0
                 if w <= 0.1 or h <= 0.1:
@@ -401,6 +407,7 @@ def _make_connect_mode_stability_plates(config: GenerateRequest):
     outer_h = config.grid_y * GF_GRID - 0.5
     bin_hw = outer_w / 2.0
     bin_hh = outer_h / 2.0
+    grid_x, grid_y = _grid_cell_counts(config)
 
     for cells in _find_disabled_components(config):
         min_x, min_y, max_x, max_y = _component_world_bbox(config, cells)
@@ -408,7 +415,7 @@ def _make_connect_mode_stability_plates(config: GenerateRequest):
         for ix, iy in cells:
             for dx, dy in ((0, 1), (0, -1), (1, 0), (-1, 0)):
                 nx, ny = ix + dx, iy + dy
-                if not (0 <= nx < config.grid_x and 0 <= ny < config.grid_y):
+                if not (0 <= nx < grid_x and 0 <= ny < grid_y):
                     continue
                 if not _cell_enabled(config, nx, ny):
                     continue
@@ -446,9 +453,10 @@ def _make_disabled_cell_cutters(config: GenerateRequest, top_z: float):
     import manifold3d as mf
 
     cutters = []
+    grid_x, grid_y = _grid_cell_counts(config)
 
-    for iy in range(config.grid_y):
-        for ix in range(config.grid_x):
+    for iy in range(grid_y):
+        for ix in range(grid_x):
             if _cell_enabled(config, ix, iy):
                 continue
             cx, cy = _cell_center(ix, iy, config.grid_x, config.grid_y)
