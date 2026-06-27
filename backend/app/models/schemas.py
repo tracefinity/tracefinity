@@ -106,6 +106,8 @@ class BinParams(BaseModel):
             self.partial_bins_values = [True] * expected
         if not self.partial_bins_connect:
             self.partial_bins_retain_wall = False
+        if self.partial_bins and not any(self.partial_bins_values):
+            raise ValueError("at least one grid cell must remain enabled when partial bins is on")
         return self
 
     @field_validator("grid_x", "grid_y")
