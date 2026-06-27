@@ -1386,7 +1386,8 @@ class ManifoldSTLGenerator:
                     cutters.append(fh_chamfers)
                 logger.info("chamfer cutouts: %.2fs", time.monotonic() - t1)
 
-        # text labels (recessed cutters + embossed body additions)
+        # text labels (recessed cutters + embossed body additions).
+        # Labels in disabled partial-bin cells are not clipped and may float in the STL.
         text_body = None
         if config.text_labels:
             t1 = time.monotonic()
@@ -1529,7 +1530,11 @@ class ManifoldSTLGenerator:
         """Split completed bin into bed-sized pieces. Returns list of output paths."""
         import math
 
-        span_x, span_y = _effective_grid_span(config)
+        span_x, span_y = (
+            (config.grid_x, config.grid_y)
+            if _partial_bins_connect_bases(config)
+            else _effective_grid_span(config)
+        )
         bin_width = span_x * GF_GRID
         bin_depth = span_y * GF_GRID
 
