@@ -3,10 +3,10 @@ import pytest
 
 from app.models.schemas import GenerateRequest
 from app.services.stl_generator_manifold import (
-    _interior_clip_rect,
     GF_GRID,
     LIP_D0,
     LIP_D2,
+    _interior_clip_rect,
 )
 
 
