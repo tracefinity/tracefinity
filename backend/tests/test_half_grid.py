@@ -5,14 +5,13 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from app.constants import GF_GRID
 from app.models.schemas import BinParams, GenerateRequest
 from app.services.stl_generator_manifold import (
+    GF_HALF_GRID,
     ManifoldSTLGenerator,
     _base_cell_layout,
-    GF_HALF_GRID,
 )
-from app.constants import GF_GRID
-
 
 # ── validation ───────────────────────────────────────────────────────────────
 

@@ -13,6 +13,7 @@ def _clear_proxy_env(monkeypatch):
 def app(_clear_proxy_env):
     """import fresh app with no auth secret configured."""
     import importlib
+
     import app.main as main_mod
 
     importlib.reload(main_mod)
@@ -42,6 +43,7 @@ def test_rejects_bad_secret_when_configured(monkeypatch):
     monkeypatch.setenv("PROXY_SECRET", "real-secret")
 
     import importlib
+
     import app.config as config_mod
     import app.main as main_mod
 
@@ -61,6 +63,7 @@ def test_accepts_correct_secret_when_configured(monkeypatch):
     monkeypatch.setenv("PROXY_SECRET", "real-secret")
 
     import importlib
+
     import app.config as config_mod
     import app.main as main_mod
 

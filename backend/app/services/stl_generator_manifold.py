@@ -6,7 +6,6 @@ import logging
 import math
 import os
 import time
-from pathlib import Path
 
 import numpy as np
 
@@ -364,7 +363,8 @@ def _shapely_to_cross_sections(shifted_pts: list[tuple], interior_rings: list[li
        edges that Clipper2's integer rounding would otherwise bridge — these
        pass Shapely's validity check but still trigger the Clipper2 chord artifact.
     """
-    from shapely.geometry import Polygon as _SPoly, MultiPolygon as _SMPoly
+    from shapely.geometry import MultiPolygon as _SMPoly
+    from shapely.geometry import Polygon as _SPoly
 
     holes = interior_rings if interior_rings else []
     sp = _SPoly(shifted_pts, holes=holes)
@@ -1158,7 +1158,6 @@ class ManifoldSTLGenerator:
         session_id: str,
     ) -> list[str]:
         """Split completed bin into bed-sized pieces. Returns list of output paths."""
-        import manifold3d as mf
         import math
 
         bin_width = config.grid_x * GF_GRID

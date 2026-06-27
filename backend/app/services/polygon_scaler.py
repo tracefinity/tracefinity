@@ -1,8 +1,9 @@
 import logging
+
 from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.validation import make_valid
 
-from app.models.schemas import Polygon, Point, FingerHole
+from app.models.schemas import FingerHole, Point, Polygon
 
 logger = logging.getLogger(__name__)
 

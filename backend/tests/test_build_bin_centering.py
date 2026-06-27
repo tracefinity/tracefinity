@@ -11,8 +11,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.models.schemas import Point, FingerHole, Tool
 from app.constants import GF_GRID
+from app.models.schemas import FingerHole, Point, Tool
 
 
 def _make_tool(points_mm, finger_holes=None, interior_rings=None):

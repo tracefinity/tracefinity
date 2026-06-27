@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import cv2
 import logging
 import math
-import numpy as np
 from pathlib import Path
+
+import cv2
+import numpy as np
 
 from app.constants import PAPER_SIZES, PaperSize
 
@@ -108,14 +109,15 @@ def pick_paper_orientation(
 class ImageProcessor:
     def __init__(self):
         from rembg import new_session
+
         from app.services.ort_runtime import get_onnx_providers
         logger.info("loading U2-Net Portable for paper detection")
         self._tool_mask_session = new_session("u2netp", providers=get_onnx_providers())
 
     def _get_tool_mask(self, image_path: str) -> np.ndarray:
         """get a rough tool mask via U2-Net Portable for paper detection."""
-        from rembg import remove
         from PIL import Image
+        from rembg import remove
 
         img = Image.open(image_path).convert("RGB")
         result = remove(img, session=self._tool_mask_session)

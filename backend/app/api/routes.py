@@ -9,72 +9,67 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
-from starlette.requests import Request
 from PIL import Image
+from starlette.requests import Request
 
 logger = logging.getLogger(__name__)
 
-from app.config import settings, ensure_user_dirs
 from app.auth import get_user_id
+from app.config import ensure_user_dirs, settings
+from app.constants import GF_GRID
 from app.models.schemas import (
-    UploadResponse,
-    CornersRequest,
-    CornersResponse,
-    TraceRequest,
-    TraceResponse,
-    PolygonsRequest,
-    GenerateRequest,
-    GenerateResponse,
-    Session,
-    SessionSummary,
-    SessionListResponse,
-    SessionUpdateRequest,
-    StatusResponse,
-    Point,
-    Polygon,
-    FingerHole,
-    Tool,
-    ToolDetailResponse,
-    ToolSummary,
-    ToolListResponse,
-    ToolUpdateRequest,
-    SaveToolsRequest,
-    SaveToolsResponse,
+    BinConfig,
+    BinDefaults,
+    BinListResponse,
+    BinModel,
+    BinPreviewTool,
     BinProject,
+    BinProjectBinsRequest,
+    BinProjectCreateBinRequest,
+    BinProjectCreateRequest,
     BinProjectDetail,
     BinProjectListResponse,
-    BinProjectCreateRequest,
-    BinProjectUpdateRequest,
     BinProjectToolsRequest,
-    BinProjectCreateBinRequest,
-    BinProjectBinsRequest,
-    BinDefaults,
-    ProjectHealthResponse,
-    PlacedTool,
-    BinModel,
-    BinConfig,
+    BinProjectUpdateRequest,
     BinSummary,
-    BinPreviewTool,
-    BinListResponse,
     BinUpdateRequest,
+    CornersRequest,
+    CornersResponse,
     CreateBinRequest,
+    FingerHole,
+    GenerateRequest,
+    GenerateResponse,
+    PlacedTool,
+    Point,
+    Polygon,
+    PolygonsRequest,
+    ProjectHealthResponse,
+    SaveToolsRequest,
+    SaveToolsResponse,
+    Session,
+    SessionListResponse,
+    SessionSummary,
+    SessionUpdateRequest,
+    StatusResponse,
+    Tool,
+    ToolDetailResponse,
+    ToolListResponse,
+    ToolSummary,
+    ToolUpdateRequest,
+    TraceRequest,
+    TraceResponse,
+    UploadResponse,
 )
-from app.constants import GF_GRID
+from app.services.ai_tracer import AITracer
+from app.services.bin_service import sync_placed_tools
+from app.services.bin_store import BinStore
+from app.services.geometry import optimal_rotation_angle as _optimal_rotation_angle
 from app.services.image_ingest import ingest_image
 from app.services.image_processor import ImageProcessor
-from app.services.ai_tracer import AITracer
-from app.services.polygon_scaler import PolygonScaler, ScaledPolygon, ScaledFingerHole
-from app.services.stl_generator_manifold import ManifoldSTLGenerator
-from app.services.session_store import SessionStore
-from app.services.tool_store import ToolStore
-from app.services.bin_store import BinStore
-from app.services.project_store import ProjectStore
-from app.services.bin_service import sync_placed_tools
 from app.services.image_service import generate_tool_thumbnail
-from app.services.tracer_registry import TRACER_LABELS, tracer_kind, validate_tracer_ids
-from app.services.geometry import optimal_rotation_angle as _optimal_rotation_angle
+from app.services.polygon_scaler import PolygonScaler, ScaledFingerHole, ScaledPolygon
 from app.services.project_service import (
     add_bin_to_project,
     add_project_to_tools,
@@ -87,6 +82,12 @@ from app.services.project_service import (
     remove_project_from_tools,
     repair_project_links,
 )
+from app.services.project_store import ProjectStore
+from app.services.session_store import SessionStore
+from app.services.stl_generator_manifold import ManifoldSTLGenerator
+from app.services.tool_store import ToolStore
+from app.services.tracer_registry import TRACER_LABELS, tracer_kind, validate_tracer_ids
+
 router = APIRouter()
 
 # Heuristic mismatch score combining a label penalty with bbox and point deltas measured in mm.

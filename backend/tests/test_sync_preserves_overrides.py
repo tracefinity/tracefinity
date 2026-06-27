@@ -4,7 +4,7 @@ Regression: GET /bins/{id} runs sync_placed_tools, which rebuilt finger_holes
 from the source tool and dropped depth_override; the diff check then wrote
 the cleared bin back to disk, permanently losing user overrides.
 """
-from app.models.schemas import FingerHole, PlacedTool, Point, Tool, BinModel, BinConfig
+from app.models.schemas import BinConfig, BinModel, FingerHole, PlacedTool, Point, Tool
 from app.services.bin_service import sync_placed_tools
 
 

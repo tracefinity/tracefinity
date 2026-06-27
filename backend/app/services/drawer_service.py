@@ -13,7 +13,6 @@ from app.models.schemas import (
     FingerHole,
     PlacedTool,
     Point,
-    ToolGroup,
 )
 from app.services.tool_store import ToolStore
 

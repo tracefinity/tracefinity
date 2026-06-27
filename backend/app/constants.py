@@ -1,6 +1,5 @@
 from typing import Literal
 
-
 GF_GRID = 42.0
 
 PaperSize = Literal["a4", "letter", "a3", "tabloid"]

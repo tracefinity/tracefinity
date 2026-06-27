@@ -1,5 +1,6 @@
 import math
-from app.models.schemas import Point, FingerHole
+
+from app.models.schemas import FingerHole, Point
 
 
 def sync_placed_tools(bin_data, user_tools) -> bool:
