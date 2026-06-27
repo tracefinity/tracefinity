@@ -228,3 +228,34 @@ def test_connect_base_magnet_holes_in_disabled_cells(tmp_path: Path):
     probe = mf.Manifold.sphere(0.4, 12).translate((mx, my, 1.0))
     overlap = (body ^ probe).volume()
     assert overlap < probe.volume() * 0.25
+
+
+def test_partial_bins_retain_wall_adds_perimeter_material(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    values = [True, True, False, False, True, True, True, True]
+    base = _base_config(
+        grid_y=4,
+        stacking_lip=True,
+        partial_bins=True,
+        partial_bins_values=values,
+        partial_bins_connect=True,
+    )
+    connect_body, _ = generator.generate_bin([], base, str(tmp_path / "connect.stl"))
+    retain_body, _ = generator.generate_bin(
+        [],
+        base.model_copy(update={"partial_bins_retain_wall": True}),
+        str(tmp_path / "retain.stl"),
+    )
+
+    assert retain_body.volume() > connect_body.volume()
+    assert generator.export_split_parts(retain_body, None, base.model_copy(update={"partial_bins_retain_wall": True}), 0, str(tmp_path), "retain") == []
+
+
+def test_partial_bins_retain_wall_disabled_without_connect():
+    config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, True, True],
+        partial_bins_connect=False,
+        partial_bins_retain_wall=True,
+    )
+    assert config.partial_bins_retain_wall is False
