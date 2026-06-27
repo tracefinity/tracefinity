@@ -409,6 +409,58 @@ def _shapely_to_cross_sections(shifted_pts: list[tuple], interior_rings: list[li
     return rings
 
 
+def _clip_to_interior(
+    shifted: list[tuple],
+    shifted_holes: list[list[tuple]],
+    interior_rect,
+) -> tuple[list[tuple], list[list[tuple]]]:
+    """clip a shifted polygon (+ holes) to the bin interior boundary.
+
+    returns (clipped_exterior, clipped_holes). if the polygon is entirely
+    outside the interior, returns empty lists.
+    """
+    from shapely.geometry import MultiPolygon as _SMPoly
+    from shapely.geometry import Polygon as _SPoly
+
+    poly = _SPoly(shifted, holes=shifted_holes if shifted_holes else [])
+    if not poly.is_valid:
+        poly = poly.buffer(0)
+    clipped = poly.intersection(interior_rect)
+    if clipped.is_empty:
+        return [], []
+
+    # intersection can return LineString/Point/GeometryCollection when
+    # a polygon only touches the clip rect at an edge or corner
+    if not isinstance(clipped, (_SPoly, _SMPoly)):
+        return [], []
+
+    # intersection can produce MultiPolygon; take the largest piece
+    if isinstance(clipped, _SMPoly):
+        clipped = max(clipped.geoms, key=lambda g: g.area)
+
+    ext = list(clipped.exterior.coords[:-1])
+    holes = [list(ring.coords[:-1]) for ring in clipped.interiors if len(ring.coords) >= 4]
+    return ext, holes
+
+
+def _interior_clip_rect(config):
+    """clip boundary for the bin interior in manifold coordinates (centred at origin).
+
+    when the stacking lip is enabled its inner profile protrudes inward by
+    LIP_D0+LIP_D2 (2.6mm) from the outer wall -- wider than typical wall_thickness.
+    use the larger of the two so cutouts never breach the lip zone.
+    """
+    from shapely.geometry import Polygon as _SPoly
+
+    outer_w = config.grid_x * GF_GRID - 0.5
+    outer_h = config.grid_y * GF_GRID - 0.5
+    lip_inset = (LIP_D0 + LIP_D2) if getattr(config, "stacking_lip", False) else 0.0
+    inset = max(config.wall_thickness, lip_inset)
+    hw = outer_w / 2 - inset
+    hh = outer_h / 2 - inset
+    return _SPoly([(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)])
+
+
 def _make_polygon_cutouts(
     polygons: list[ScaledPolygon],
     config: GenerateRequest,
@@ -419,6 +471,8 @@ def _make_polygon_cutouts(
 ):
     """Batch union of all polygon cutout extrusions."""
     import manifold3d as mf
+
+    interior_rect = _interior_clip_rect(config)
 
     cutters = []
     for poly in polygons:
@@ -437,13 +491,19 @@ def _make_polygon_cutouts(
             ]
             if len(shifted_hole) >= 3:
                 shifted_holes.append(shifted_hole)
+
+        # clip to bin interior so oversized tools don't breach walls
+        shifted, shifted_holes = _clip_to_interior(shifted, shifted_holes, interior_rect)
+        if len(shifted) < 3:
+            continue
+
         try:
             rings = _shapely_to_cross_sections(shifted, shifted_holes)
             if not rings:
                 continue
             has_holes = len(rings) > 1
             if has_holes:
-                # use EvenOdd to handle holes — same pattern as text labels
+                # use EvenOdd to handle holes -- same pattern as text labels
                 cs = mf.CrossSection(rings, mf.FillRule.EvenOdd)
             else:
                 cs = mf.CrossSection(rings)
@@ -483,6 +543,8 @@ def _make_chamfer_cutouts(
     """
     import manifold3d as mf
 
+    interior_rect = _interior_clip_rect(config)
+
     cutters = []
     for poly in polygons:
         shifted = [
@@ -496,6 +558,11 @@ def _make_chamfer_cutouts(
             sh = [(p[0] + offset_x, -(p[1] + offset_y)) for p in hole]
             if len(sh) >= 3:
                 shifted_holes.append(sh)
+
+        # clip to bin interior so oversized tools don't breach walls
+        shifted, shifted_holes = _clip_to_interior(shifted, shifted_holes, interior_rect)
+        if len(shifted) < 3:
+            continue
 
         pocket_depth = _resolve_pocket_depth(poly.depth_override, config, max_depth)
         eff_chamfer = min(chamfer_size, max(0.0, pocket_depth - 1))
