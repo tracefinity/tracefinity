@@ -19,6 +19,7 @@ export const FACTORY_BIN_CONFIG: BinConfig = {
   insert_height: 1.0,
   insert_clearance: 0.2,
   bed_size: 256,
+  half_grid_base: false,
   text_labels: [],
 }
 

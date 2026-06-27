@@ -74,15 +74,15 @@ class PolygonsRequest(BaseModel):
 
 
 class BinParams(BaseModel):
-    grid_x: int = 2
-    grid_y: int = 2
+    grid_x: float = 2
+    grid_y: float = 2
     height_units: int = 4
     magnets: bool = True
     magnet_diameter: float = 6.0
     magnet_depth: float = 2.4
     magnet_corners_only: bool = False
     stacking_lip: bool = True
-    rim_units: int = 0  # extra height units (×7mm) the wall/lip rises above the floor face
+    rim_units: int = 0  # extra height units (x7mm) the wall/lip rises above the floor face
     wall_thickness: float = 1.6
     cutout_depth: float = 20.0
     cutout_clearance: float = 1.0
@@ -90,12 +90,16 @@ class BinParams(BaseModel):
     insert_height: float = 1.0
     insert_clearance: float = 0.2  # mm shaved off the insert so it fits the pocket
     cutout_chamfer: float = 0.0
+    half_grid_base: bool = False  # use 21mm half-grid cells for the bottom baseplate
 
     @field_validator("grid_x", "grid_y")
     @classmethod
-    def validate_grid(cls, v: int) -> int:
+    def validate_grid(cls, v: float) -> float:
         if v < 1 or v > 10:
             raise ValueError("grid size must be between 1 and 10")
+        # must be a multiple of 0.5
+        if v * 2 != int(v * 2):
+            raise ValueError("grid size must be a multiple of 0.5")
         return v
 
     @field_validator("height_units")
@@ -446,8 +450,8 @@ class BinSummary(BaseModel):
     tool_ids: list[str] = []
     tool_count: int
     has_stl: bool
-    grid_x: int = 2
-    grid_y: int = 2
+    grid_x: float = 2
+    grid_y: float = 2
     preview_tools: list[BinPreviewTool] = []
 
 

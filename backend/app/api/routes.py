@@ -361,10 +361,12 @@ def _build_bin_from_tools(
         needed_w = tool_width + 2 * clearance + 2 * wall + 0.5
         needed_h = tool_height + 2 * clearance + 2 * wall + 0.5
 
-        grid_x = max(1, int((needed_w + GF_GRID - 1) // GF_GRID))
-        grid_y = max(1, int((needed_h + GF_GRID - 1) // GF_GRID))
-        bc.grid_x = min(grid_x, 10)
-        bc.grid_y = min(grid_y, 10)
+        # snap to nearest 0.5 unit (21mm half-grid)
+        half = GF_GRID / 2
+        grid_x = max(1.0, math.ceil(needed_w / half) * 0.5)
+        grid_y = max(1.0, math.ceil(needed_h / half) * 0.5)
+        bc.grid_x = min(grid_x, 10.0)
+        bc.grid_y = min(grid_y, 10.0)
 
         bin_w = bc.grid_x * GF_GRID
         bin_h = bc.grid_y * GF_GRID
@@ -1592,7 +1594,9 @@ def _bin_stem(bin_data) -> str:
     bc = bin_data.bin_config
     raw = (bin_data.name or "bin").strip()
     safe = re.sub(r"[^\w\-]", "_", raw).strip("_") or "bin"
-    return f"{safe}_{bc.grid_x}u{bc.grid_y}u{bc.height_units}u_{int(bc.cutout_depth)}mm-tracefinity"
+    gx = f"{bc.grid_x:g}"
+    gy = f"{bc.grid_y:g}"
+    return f"{safe}_{gx}u{gy}u{bc.height_units}u_{int(bc.cutout_depth)}mm-tracefinity"
 
 
 # bin file downloads

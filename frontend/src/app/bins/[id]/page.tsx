@@ -215,8 +215,9 @@ export default function BinPage() {
     const halfMargin = config.wall_thickness + config.cutout_clearance + 0.25
     const toolW = maxX - minX
     const toolH = maxY - minY
-    const needX = Math.max(1, Math.ceil((toolW + 2 * halfMargin) / GRID_UNIT))
-    const needY = Math.max(1, Math.ceil((toolH + 2 * halfMargin) / GRID_UNIT))
+    const halfUnit = GRID_UNIT / 2
+    const needX = Math.max(1, Math.ceil((toolW + 2 * halfMargin) / halfUnit) * 0.5)
+    const needY = Math.max(1, Math.ceil((toolH + 2 * halfMargin) / halfUnit) * 0.5)
 
     const gridChanged = config.grid_x !== needX || config.grid_y !== needY
     if (gridChanged) {
@@ -274,8 +275,9 @@ export default function BinPage() {
     const toolH = maxY - minY
 
     const margin = 2 * config.wall_thickness + 2 * config.cutout_clearance + 0.5
-    const needX = Math.max(config.grid_x, Math.ceil((toolW + margin) / GRID_UNIT))
-    const needY = Math.max(config.grid_y, Math.ceil((toolH + margin) / GRID_UNIT))
+    const halfUnit = GRID_UNIT / 2
+    const needX = Math.max(config.grid_x, Math.ceil((toolW + margin) / halfUnit) * 0.5)
+    const needY = Math.max(config.grid_y, Math.ceil((toolH + margin) / halfUnit) * 0.5)
 
     if (needX !== config.grid_x || needY !== config.grid_y) {
       setConfig(prev => ({ ...prev, grid_x: needX, grid_y: needY }))
@@ -502,6 +504,7 @@ export default function BinPage() {
                 wallThickness={config.wall_thickness}
                 defaultCutoutDepth={config.cutout_depth}
                 maxCutoutDepth={calcMaxCutoutDepth(config.height_units, config.stacking_lip)}
+                halfGridBase={config.half_grid_base}
                 onEditTool={(toolId) => router.push(projectSource.scopedHref(`/tools/${toolId}`))}
                 smoothedToolIds={smoothedToolIds}
                 onToggleSmoothed={handleToggleSmoothed}

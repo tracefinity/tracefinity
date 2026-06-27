@@ -17,6 +17,7 @@ interface Props {
   wallThickness: number
   defaultCutoutDepth: number
   maxCutoutDepth: number
+  halfGridBase?: boolean
   onEditTool?: (toolId: string) => void
   smoothedToolIds?: Set<string>
   onToggleSmoothed?: (toolId: string, smoothed: boolean) => void
@@ -50,6 +51,7 @@ export function BinEditor({
   wallThickness,
   defaultCutoutDepth,
   maxCutoutDepth,
+  halfGridBase,
   onEditTool,
   smoothedToolIds,
   onToggleSmoothed,
@@ -554,6 +556,7 @@ export function BinEditor({
         binWidthMm={binWidthMm}
         binHeightMm={binHeightMm}
         defaultCutoutDepth={defaultCutoutDepth}
+        halfGridBase={halfGridBase}
         handleR={handleR}
         handleStroke={handleStroke}
         handleOffset={handleOffset}

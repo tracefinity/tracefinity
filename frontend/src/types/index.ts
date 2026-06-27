@@ -116,6 +116,7 @@ export interface BinDefaults {
   insert_height: number
   insert_clearance: number
   bed_size: number
+  half_grid_base: boolean
 }
 
 export interface BinConfig extends BinDefaults {

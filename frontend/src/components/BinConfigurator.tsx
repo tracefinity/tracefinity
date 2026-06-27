@@ -149,10 +149,11 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
 
       <SliderRow
         label="Grid Width"
-        help="Bin width in gridfinity units. Each unit is 42mm."
+        help="Bin width in gridfinity units (42mm each). Half-unit increments (21mm) supported."
         value={config.grid_x}
         min={1}
         max={10}
+        step={0.5}
         unit="u"
         onChange={(v) => update({ grid_x: v })}
         disabled={autoSize}
@@ -160,10 +161,11 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
 
       <SliderRow
         label="Grid Depth"
-        help="Bin depth in gridfinity units. Each unit is 42mm."
+        help="Bin depth in gridfinity units (42mm each). Half-unit increments (21mm) supported."
         value={config.grid_y}
         min={1}
         max={10}
+        step={0.5}
         unit="u"
         onChange={(v) => update({ grid_y: v })}
         disabled={autoSize}
@@ -216,6 +218,12 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
       />
 
       <div className="border-t border-border mt-2 pt-1">
+        <Toggle
+          checked={config.half_grid_base}
+          onChange={(v) => update({ half_grid_base: v })}
+          label="Half-grid base"
+          help="Use 21mm half-grid cells on the baseplate instead of standard 42mm. Gives finer positioning on the baseplate."
+        />
         <Toggle
           checked={config.magnets}
           onChange={(v) => update({ magnets: v })}

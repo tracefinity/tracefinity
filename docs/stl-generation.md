@@ -17,6 +17,7 @@ STL generation uses manifold3d (mesh booleans, 10-100x faster than OCCT B-rep). 
 
 ```
 GRID_UNIT = 42.0mm
+HALF_GRID_UNIT = 21.0mm
 HEIGHT_UNIT = 7.0mm
 BASE_HEIGHT = 4.75mm (three tapered layers: 2.15 + 1.8 + 0.8)
 STACKING_LIP = 4.4mm (above wall top: 1.9 + 1.8 + 0.7)
@@ -25,6 +26,10 @@ MAGNET_DIAMETER = 6.0mm
 MAGNET_DEPTH = 2.4mm
 MAGNET_SPACING = 26mm (centre-to-centre, 4 per cell)
 ```
+
+## Half-grid support
+
+Bin dimensions accept 0.5-unit increments (e.g. 3.5x2.5 = 147x105mm). Half-unit trailing cells use 21mm base units. `half_grid_base` generates all base cells at 21mm for finer baseplate positioning. Magnets are placed only on full 42mm cells.
 
 ## Base geometry (per cell, reverse-engineered from gridfinity-build123d)
 

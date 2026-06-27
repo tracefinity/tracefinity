@@ -117,14 +117,14 @@ function BinPreview({ gridX, gridY, tools }: { gridX: number; gridY: number; too
       preserveAspectRatio="xMidYMid meet"
     >
       <rect x={0} y={0} width={binW} height={binH} fill="var(--color-bin-preview-fill)" rx={2} />
-      {Array.from({ length: gridX + 1 }).map((_, i) => (
+      {Array.from({ length: Math.floor(gridX) + 1 }).map((_, i) => (
         <line
           key={`v${i}`}
           x1={i * GRID_UNIT} y1={0} x2={i * GRID_UNIT} y2={binH}
           stroke="var(--color-bin-preview-grid)" strokeWidth={0.5}
         />
       ))}
-      {Array.from({ length: gridY + 1 }).map((_, i) => (
+      {Array.from({ length: Math.floor(gridY) + 1 }).map((_, i) => (
         <line
           key={`h${i}`}
           x1={0} y1={i * GRID_UNIT} x2={binW} y2={i * GRID_UNIT}

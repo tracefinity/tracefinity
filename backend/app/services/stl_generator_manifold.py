@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 from app.constants import GF_GRID
 
+GF_HALF_GRID = GF_GRID / 2  # 21mm
 GF_HEIGHT_UNIT = 7.0
 GF_BASE_HEIGHT = 4.75
 GF_CORNER_R = 3.75     # 4.0 - 0.25 inset
@@ -152,6 +153,27 @@ def _build_stacking_lip_notch(outer_w: float, outer_h: float):
     return mf.Manifold.batch_boolean([l0, l1, l2, l3, l4], mf.OpType.Add)
 
 
+def _base_cell_layout(grid_units: float, cell_size: float) -> list[tuple[float, float]]:
+    """cell centres and widths along one axis for the baseplate.
+
+    for integer grid sizes every cell is cell_size wide. for fractional
+    sizes (e.g. 3.5) the last cell is a half-width partial cell.
+    returns list of (centre_offset, cell_width) tuples.
+    """
+    total = grid_units * GF_GRID
+    cells: list[tuple[float, float]] = []
+    pos = 0.0
+    while pos < total - 0.01:
+        w = min(cell_size, total - pos)
+        # sub-mm rounding guard
+        if w < 1.0:
+            break
+        cx = pos + w / 2.0 - total / 2.0
+        cells.append((cx, w))
+        pos += w
+    return cells
+
+
 def _build_shell(config: GenerateRequest):
     """Solid bin shell: base units + wall body to wall_top_z.
 
@@ -159,6 +181,9 @@ def _build_shell(config: GenerateRequest):
     separately in generate_bin and added on top, matching the original
     gf.Bin + StackingLip structure so the groove is only visible above
     wall_top_z and the large top-floor face is preserved.
+
+    When half_grid_base is enabled, uses 21mm cells for the baseplate
+    instead of 42mm cells, giving finer positioning on the baseplate.
     """
     import manifold3d as mf
 
@@ -168,12 +193,16 @@ def _build_shell(config: GenerateRequest):
     outer_h = grid_y * GF_GRID - 0.5
     r = GF_CORNER_R
 
+    half_grid = getattr(config, "half_grid_base", False)
+    cell_size = GF_HALF_GRID if half_grid else GF_GRID
+
+    x_cells = _base_cell_layout(grid_x, cell_size)
+    y_cells = _base_cell_layout(grid_y, cell_size)
+
     base_units = []
-    for iy in range(grid_y):
-        for ix in range(grid_x):
-            cx = (ix - (grid_x - 1) / 2.0) * GF_GRID
-            cy = (iy - (grid_y - 1) / 2.0) * GF_GRID
-            unit = _build_base_unit(GF_GRID - 0.5, GF_GRID - 0.5)
+    for cy, ch in y_cells:
+        for cx, cw in x_cells:
+            unit = _build_base_unit(cw - 0.5, ch - 0.5)
             base_units.append(unit.translate((cx, cy, 0.0)))
 
     cs_wall = _cs(_rounded_rect_pts(outer_w, outer_h, r))
@@ -273,7 +302,11 @@ def _make_filleted_rectangle_cutter(
 
 
 def _make_magnet_holes(config: GenerateRequest):
-    """Batch union of all magnet hole cylinders (4 per grid cell, or corners only)."""
+    """Batch union of all magnet hole cylinders (4 per full grid cell, or corners only).
+
+    Magnets are placed per full 42mm cell. For fractional grid sizes (e.g. 3.5)
+    only the full cells get magnet holes.
+    """
     import manifold3d as mf
 
     diameter = getattr(config, "magnet_diameter", MAGNET_DIAMETER)
@@ -283,30 +316,42 @@ def _make_magnet_holes(config: GenerateRequest):
     r = diameter / 2
     mag = mf.Manifold.cylinder(depth + 0.01, r, circular_segments=ROUND_SEGS)
 
+    # magnets on full 42mm cells only
+    full_x = int(config.grid_x)
+    full_y = int(config.grid_y)
+    if full_x < 1 or full_y < 1:
+        return mf.Manifold()
+
     # corners that sit on the outer bin boundary
     outer_corners = set()
     if corners_only:
         for ix, iy, dx, dy in [
             (0, 0, -13.0, -13.0),
-            (config.grid_x - 1, 0, 13.0, -13.0),
-            (config.grid_x - 1, config.grid_y - 1, 13.0, 13.0),
-            (0, config.grid_y - 1, -13.0, 13.0),
+            (full_x - 1, 0, 13.0, -13.0),
+            (full_x - 1, full_y - 1, 13.0, 13.0),
+            (0, full_y - 1, -13.0, 13.0),
         ]:
-            cx = (ix - (config.grid_x - 1) / 2.0) * GF_GRID
-            cy = (iy - (config.grid_y - 1) / 2.0) * GF_GRID
+            cx = (ix - (full_x - 1) / 2.0) * GF_GRID
+            cy = (iy - (full_y - 1) / 2.0) * GF_GRID
             outer_corners.add((round(cx + dx, 4), round(cy + dy, 4)))
 
+    # offset full-cell grid centre to account for partial trailing cell
+    x_offset = (config.grid_x * GF_GRID - full_x * GF_GRID) / 2.0
+    y_offset = (config.grid_y * GF_GRID - full_y * GF_GRID) / 2.0
+
     holes = []
-    for iy in range(config.grid_y):
-        for ix in range(config.grid_x):
-            cx = (ix - (config.grid_x - 1) / 2.0) * GF_GRID
-            cy = (iy - (config.grid_y - 1) / 2.0) * GF_GRID
+    for iy in range(full_y):
+        for ix in range(full_x):
+            cx = (ix - (full_x - 1) / 2.0) * GF_GRID - x_offset
+            cy = (iy - (full_y - 1) / 2.0) * GF_GRID - y_offset
             for dx, dy in [(-13.0, -13.0), (13.0, -13.0), (13.0, 13.0), (-13.0, 13.0)]:
                 pos = (round(cx + dx, 4), round(cy + dy, 4))
                 if corners_only and pos not in outer_corners:
                     continue
                 holes.append(mag.translate((pos[0], pos[1], 0.0)))
 
+    if not holes:
+        return mf.Manifold()
     return mf.Manifold.batch_boolean(holes, mf.OpType.Add)
 
 
@@ -1083,20 +1128,25 @@ class ManifoldSTLGenerator:
         return True
 
     @staticmethod
-    def _compute_split_points(total_mm: float, grid_count: int, bed_size: float) -> list[float]:
-        """Split points relative to bin centre for one axis."""
+    def _compute_split_points(total_mm: float, grid_count: float, bed_size: float) -> list[float]:
+        """Split points relative to bin centre for one axis.
+
+        Uses half-grid (21mm) granularity so fractional bins split cleanly.
+        """
         if bed_size <= 0 or total_mm <= bed_size:
             return []
-        max_units = max(1, int(bed_size // GF_GRID))
         import math as _m
-        num_pieces = _m.ceil(grid_count / max_units)
-        base = grid_count // num_pieces
-        extra = grid_count % num_pieces
+        # work in half-units for split granularity
+        half_units = int(grid_count * 2)
+        max_halves = max(1, int(bed_size // GF_HALF_GRID))
+        num_pieces = _m.ceil(half_units / max_halves)
+        base = half_units // num_pieces
+        extra = half_units % num_pieces
         sizes = [base + (1 if i < extra else 0) for i in range(num_pieces)]
         points = []
         pos = -total_mm / 2
         for s in sizes[:-1]:
-            pos += s * GF_GRID
+            pos += s * GF_HALF_GRID
             points.append(pos)
         return points
 

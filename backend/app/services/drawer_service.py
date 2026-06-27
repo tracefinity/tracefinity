@@ -21,20 +21,21 @@ from app.services.tool_store import ToolStore
 def _min_grid_for_size(
     width_mm: float, height_mm: float,
     clearance: float = 2.0, wall: float = 1.6,
-) -> tuple[int, int]:
-    """minimum gridfinity grid units for a given size in mm."""
+) -> tuple[float, float]:
+    """minimum gridfinity grid units for a given size in mm (0.5 increments)."""
     needed_w = width_mm + 2 * clearance + 2 * wall + 0.5
     needed_h = height_mm + 2 * clearance + 2 * wall + 0.5
-    gx = max(1, math.ceil(needed_w / GF_GRID))
-    gy = max(1, math.ceil(needed_h / GF_GRID))
-    return min(gx, 10), min(gy, 10)
+    half = GF_GRID / 2
+    gx = max(1.0, math.ceil(needed_w / half) * 0.5)
+    gy = max(1.0, math.ceil(needed_h / half) * 0.5)
+    return min(gx, 10.0), min(gy, 10.0)
 
 
 def _min_grid_bbox(
     points: list[tuple[float, float]],
     clearance: float = 2.0,
     wall: float = 1.6,
-) -> tuple[float, int, int]:
+) -> tuple[float, float, float]:
     """find rotation angle that minimises gridfinity grid units.
 
     sweeps 0-180 in 0.5 deg steps then refines +/-1 deg in 0.1 deg steps.
@@ -67,7 +68,7 @@ def _min_grid_bbox(
     step = math.radians(0.5)
     best_angle = 0.0
     best_score = float('inf')
-    best_gx, best_gy = 1, 1
+    best_gx, best_gy = 1.0, 1.0
     a = 0.0
     while a < math.pi:
         score, gx, gy = _score(a)

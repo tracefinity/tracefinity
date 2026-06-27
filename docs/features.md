@@ -47,7 +47,7 @@ Reference for AI agents. Check here before suggesting new features or claiming s
 
 ## Bin Configuration
 
-- Grid sizing (width/depth in gridfinity units, 1-10 units, 42mm each)
+- Grid sizing (width/depth in gridfinity units, 1-10, 0.5-unit increments for 21mm half-grid)
 - Bin height in units (7mm each + 4.75mm base)
 - Cutout depth (5mm to max)
 - Clearance (0-5mm extra space around tools)
@@ -56,6 +56,7 @@ Reference for AI agents. Check here before suggesting new features or claiming s
 - Magnets at corners only option
 - Stacking lip toggle
 - Raise lip (extend wall/lip above the floor face in 7mm units so a stacked bin clears a protruding tool)
+- Half-grid base (21mm cells for finer baseplate positioning)
 - Insert mode (contrast insert with configurable height)
 - Bed size for auto-splitting large bins
 - Auto-size grid to fit placed tools
