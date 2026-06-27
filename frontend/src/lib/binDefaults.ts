@@ -26,6 +26,7 @@ export const FACTORY_BIN_CONFIG: BinConfig = {
   partial_bins: false,
   partial_bins_values: createPartialBinsValues(2, 2),
   partial_bins_connect: false,
+  partial_bins_retain_wall: false,
   bed_size: 256,
   text_labels: [],
 }

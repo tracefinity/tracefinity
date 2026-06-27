@@ -1584,6 +1584,7 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
         partial_bins=bc.partial_bins,
         partial_bins_values=bc.partial_bins_values,
         partial_bins_connect=bc.partial_bins_connect,
+        partial_bins_retain_wall=bc.partial_bins_retain_wall,
         text_labels=bc.text_labels + bin_data.text_labels,
         bed_size=bc.bed_size,
         half_grid_base=bc.half_grid_base,

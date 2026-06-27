@@ -119,6 +119,7 @@ export interface BinDefaults {
   partial_bins: boolean
   partial_bins_values: boolean[]
   partial_bins_connect: boolean
+  partial_bins_retain_wall: boolean
   bed_size: number
 }
 

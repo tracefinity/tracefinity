@@ -218,6 +218,10 @@ def _partial_bins_connect_bases(config: GenerateRequest) -> bool:
     return getattr(config, "partial_bins_connect", False) and _uses_partial_shell(config)
 
 
+def _partial_bins_retain_wall(config: GenerateRequest) -> bool:
+    return getattr(config, "partial_bins_retain_wall", False) and _partial_bins_connect_bases(config)
+
+
 def _cell_retains_base(config: GenerateRequest, ix: int, iy: int) -> bool:
     """Whether a grid cell still has base geometry (enabled, or connect-base disabled)."""
     return _cell_enabled(config, ix, iy) or _partial_bins_connect_bases(config)
@@ -299,6 +303,7 @@ def _bin_top_z(config: GenerateRequest, wall_top_z: float) -> float:
 
 PARTIAL_BIN_CONNECT_PLATE_Z_INSET = 0.2
 PARTIAL_BIN_CONNECT_PLATE_MM = 6.0 - PARTIAL_BIN_CONNECT_PLATE_Z_INSET
+PARTIAL_BIN_RETAIN_WALL_PRESERVE_MM = LIP_D0 + LIP_D2
 
 
 def _find_disabled_components(config: GenerateRequest) -> list[list[tuple[int, int]]]:
@@ -340,21 +345,46 @@ def _component_world_bbox(config: GenerateRequest, cells: list[tuple[int, int]])
 
 
 def _make_connect_mode_cell_cutters(config: GenerateRequest, top_z: float):
-    """Remove all walls/lip above the base in disabled cells."""
+    """Remove walls/lip above the base in disabled cells."""
     import manifold3d as mf
 
     cutters = []
     cut_height = top_z - GF_BASE_HEIGHT + 0.2
+    retain_wall = _partial_bins_retain_wall(config)
+    bin_hw = (config.grid_x * GF_GRID - 0.5) / 2.0
+    bin_hh = (config.grid_y * GF_GRID - 0.5) / 2.0
+    half = GF_GRID / 2.0
+    preserve = PARTIAL_BIN_RETAIN_WALL_PRESERVE_MM
 
     for iy in range(config.grid_y):
         for ix in range(config.grid_x):
             if _cell_enabled(config, ix, iy):
                 continue
             cx, cy = _cell_center(ix, iy, config.grid_x, config.grid_y)
-            cs = _cs(_sharp_rect_pts(GF_GRID, GF_GRID))
-            cutters.append(
-                mf.Manifold.extrude(cs, cut_height).translate((cx, cy, GF_BASE_HEIGHT - 0.1))
-            )
+            if retain_wall:
+                x0, x1 = cx - half, cx + half
+                y0, y1 = cy - half, cy + half
+                if ix == 0:
+                    x0 = max(x0, -bin_hw + preserve)
+                if ix == config.grid_x - 1:
+                    x1 = min(x1, bin_hw - preserve)
+                if iy == 0:
+                    y0 = max(y0, -bin_hh + preserve)
+                if iy == config.grid_y - 1:
+                    y1 = min(y1, bin_hh - preserve)
+                w, h = x1 - x0, y1 - y0
+                if w <= 0.1 or h <= 0.1:
+                    continue
+                ccx, ccy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+                cs = _cs(_sharp_rect_pts(w, h))
+                cutters.append(
+                    mf.Manifold.extrude(cs, cut_height).translate((ccx, ccy, GF_BASE_HEIGHT - 0.1))
+                )
+            else:
+                cs = _cs(_sharp_rect_pts(GF_GRID, GF_GRID))
+                cutters.append(
+                    mf.Manifold.extrude(cs, cut_height).translate((cx, cy, GF_BASE_HEIGHT - 0.1))
+                )
 
     if not cutters:
         return None

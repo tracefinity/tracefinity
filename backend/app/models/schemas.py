@@ -95,6 +95,7 @@ class BinParams(BaseModel):
     partial_bins: bool = False
     partial_bins_values: list[bool] = []
     partial_bins_connect: bool = False
+    partial_bins_retain_wall: bool = False
 
     @model_validator(mode="after")
     def normalize_partial_bins_values(self) -> "BinParams":
@@ -103,6 +104,8 @@ class BinParams(BaseModel):
         expected = math.ceil(self.grid_x) * math.ceil(self.grid_y)
         if len(self.partial_bins_values) != expected:
             self.partial_bins_values = [True] * expected
+        if not self.partial_bins_connect:
+            self.partial_bins_retain_wall = False
         return self
 
     @field_validator("grid_x", "grid_y")

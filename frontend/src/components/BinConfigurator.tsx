@@ -359,7 +359,7 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
                     onChange={(v) =>
                         update({
                             partial_bins: v,
-                            ...(!v ? { partial_bins_connect: false } : {}),
+                            ...(!v ? { partial_bins_connect: false, partial_bins_retain_wall: false } : {}),
                         })
                     }
                     label="Partial Bins"
@@ -375,10 +375,23 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
                         />
                         <Toggle
                             checked={config.partial_bins_connect}
-                            onChange={(v) => update({ partial_bins_connect: v })}
+                            onChange={(v) =>
+                                update({
+                                    partial_bins_connect: v,
+                                    ...(!v ? { partial_bins_retain_wall: false } : {}),
+                                })
+                            }
                             label="Connect base"
                             help="Remove walls in disabled cells, bridge them with a thin base plate, and keep one connected print."
                         />
+                        {config.partial_bins_connect && (
+                            <Toggle
+                                checked={config.partial_bins_retain_wall}
+                                onChange={(v) => update({ partial_bins_retain_wall: v })}
+                                label="Retain outer wall"
+                                help="Keep the bin perimeter wall through disabled cells while still connecting them on the base."
+                            />
+                        )}
                         {exportsSeparateParts && (
                             <div className="text-[11px] text-amber-400 mt-1 leading-tight">
                                 Disconnected pieces {"\u2014"} export includes a ZIP with one STL per part
