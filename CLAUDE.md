@@ -30,6 +30,17 @@ cd frontend && pnpm install
 make dev  # starts backend (:8000) and frontend (:4001) concurrently
 ```
 
+## Linting
+
+```bash
+make lint           # run all linters
+make lint-backend   # ruff only
+make lint-frontend  # eslint + tsc --noEmit
+make lint-fix       # auto-fix where possible
+```
+
+Backend: ruff, configured in `pyproject.toml` (rules E/F/W/I, ignores E402/E501). Frontend: eslint (flat config in `frontend/eslint.config.mjs`) + `tsc --noEmit`. CI runs on PRs and pushes to main (`.github/workflows/lint.yml`).
+
 ## Principles
 
 - Coordinate systems differ across layers (see docs/gotchas.md). SVG/layout Y is down; manifold3d Y is up. Always negate Y when crossing that boundary.
