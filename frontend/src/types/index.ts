@@ -115,8 +115,12 @@ export interface BinDefaults {
   insert_enabled: boolean
   insert_height: number
   insert_clearance: number
-  bed_size: number
   half_grid_base: boolean
+  partial_bins: boolean
+  partial_bins_values: boolean[]
+  partial_bins_connect: boolean
+  partial_bins_retain_wall: boolean
+  bed_size: number
 }
 
 export interface BinConfig extends BinDefaults {

@@ -7,7 +7,7 @@ import { BinConfigurator, calcMaxCutoutDepth } from '@/components/BinConfigurato
 import { BinPreview3D } from '@/components/BinPreview3D'
 import { ToolBrowser } from '@/components/ToolBrowser'
 import { getBin, updateBin, generateBinStl, getBinStlUrl, getBinZipUrl, getBinThreemfUrl, getBinInsertUrl, getImageUrl, listTools, updateTool } from '@/lib/api'
-import { getDefaultBinConfig, resetDefaultBinConfig, saveDefaultBinConfig } from '@/lib/binDefaults'
+import { buildBinConfig, createPartialBinsValues, getDefaultBinConfig, resetDefaultBinConfig, saveDefaultBinConfig } from '@/lib/binDefaults'
 import type { BinConfig, BinData, PlacedTool, TextLabel } from '@/types'
 import { Download, Loader2, Package, ChevronDown, Check } from 'lucide-react'
 import { Breadcrumb } from '@/components/Breadcrumb'
@@ -100,7 +100,7 @@ export default function BinPage() {
         setPlacedTools(synced)
         setTextLabels(data.text_labels)
         setName(data.name || '')
-        setConfig(data.bin_config)
+        setConfig(buildBinConfig(data.bin_config));
         setSmoothedToolIds(new Set(tools.filter(t => t.smoothed).map(t => t.id)))
         setSmoothLevels(new Map(tools.map(t => [t.id, t.smooth_level])))
       } catch {
@@ -215,14 +215,19 @@ export default function BinPage() {
     const halfMargin = config.wall_thickness + config.cutout_clearance + 0.25
     const toolW = maxX - minX
     const toolH = maxY - minY
-    const snap = config.half_grid_base ? 0.5 : 1.0
-    const snapUnit = GRID_UNIT * snap
-    const needX = Math.max(1, Math.ceil((toolW + 2 * halfMargin) / snapUnit) * snap)
-    const needY = Math.max(1, Math.ceil((toolH + 2 * halfMargin) / snapUnit) * snap)
+    const snap = config.half_grid_base ? 0.5 : 1.0;
+    const snapUnit = GRID_UNIT * snap;
+    const needX = Math.max(1, Math.ceil((toolW + 2 * halfMargin) / snapUnit) * snap);
+    const needY = Math.max(1, Math.ceil((toolH + 2 * halfMargin) / snapUnit) * snap);
 
     const gridChanged = config.grid_x !== needX || config.grid_y !== needY
     if (gridChanged) {
-      setConfig(prev => ({ ...prev, grid_x: needX, grid_y: needY }))
+        setConfig((prev) => ({
+            ...prev,
+            grid_x: needX,
+            grid_y: needY,
+            partial_bins_values: createPartialBinsValues(needX, needY),
+        }));
     }
 
     // recentre tools if grid changed or tools are off-centre
@@ -275,14 +280,19 @@ export default function BinPage() {
     const toolW = maxX - minX
     const toolH = maxY - minY
 
-    const margin = 2 * config.wall_thickness + 2 * config.cutout_clearance + 0.5
-    const snap = config.half_grid_base ? 0.5 : 1.0
-    const snapUnit = GRID_UNIT * snap
-    const needX = Math.max(config.grid_x, Math.ceil((toolW + margin) / snapUnit) * snap)
-    const needY = Math.max(config.grid_y, Math.ceil((toolH + margin) / snapUnit) * snap)
+    const margin = 2 * config.wall_thickness + 2 * config.cutout_clearance + 0.5;
+    const snap = config.half_grid_base ? 0.5 : 1.0;
+    const snapUnit = GRID_UNIT * snap;
+    const needX = Math.max(config.grid_x, Math.ceil((toolW + margin) / snapUnit) * snap);
+    const needY = Math.max(config.grid_y, Math.ceil((toolH + margin) / snapUnit) * snap);
 
     if (needX !== config.grid_x || needY !== config.grid_y) {
-      setConfig(prev => ({ ...prev, grid_x: needX, grid_y: needY }))
+        setConfig((prev) => ({
+            ...prev,
+            grid_x: needX,
+            grid_y: needY,
+            partial_bins_values: createPartialBinsValues(needX, needY),
+        }));
     }
 
     // always centre the tool in the bin
@@ -302,7 +312,7 @@ export default function BinPage() {
     }
 
     setPlacedTools(prev => [...prev, placed])
-  }, [config.grid_x, config.grid_y])
+  }, [config.grid_x, config.grid_y, config.wall_thickness, config.cutout_clearance, config.half_grid_base])
 
   function handleDownload() {
     window.open(getBinStlUrl(binId), '_blank')
@@ -503,6 +513,8 @@ export default function BinPage() {
                 onTextLabelsChange={setTextLabels}
                 gridX={config.grid_x}
                 gridY={config.grid_y}
+                partialBins={config.partial_bins}
+                partialBinsValues={config.partial_bins_values}
                 wallThickness={config.wall_thickness}
                 defaultCutoutDepth={config.cutout_depth}
                 maxCutoutDepth={calcMaxCutoutDepth(config.height_units, config.stacking_lip)}

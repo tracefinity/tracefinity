@@ -372,6 +372,7 @@ def _build_bin_from_tools(
             grid_y = max(1.0, math.ceil(needed_h / GF_GRID))
         bc.grid_x = min(grid_x, 10.0)
         bc.grid_y = min(grid_y, 10.0)
+        bc.partial_bins_values = [True] * (math.ceil(bc.grid_x) * math.ceil(bc.grid_y))
 
         bin_w = bc.grid_x * GF_GRID
         bin_h = bc.grid_y * GF_GRID
@@ -439,16 +440,17 @@ def _run_generate(
 
     stl_urls: list[str] = []
     zip_url = None
-    if gen_req.bed_size > 0:
-        output_dir = str(user_path / "outputs")
-        part_paths = stl_generator.split_bin(bin_body, text_body, gen_req, gen_req.bed_size, output_dir, entity_id)
-        if part_paths:
-            stl_urls = [f"/storage/{user_id}/outputs/{Path(p).name}" for p in part_paths]
-            part_bytes = [(Path(p).name, Path(p).read_bytes()) for p in part_paths]
-            with zipfile.ZipFile(str(zip_path), 'w', zipfile.ZIP_DEFLATED) as zf:
-                for fname, data in part_bytes:
-                    zf.writestr(fname, data)
-            zip_url = f"/storage/{user_id}/outputs/{entity_id}_parts.zip"
+    output_dir = str(user_path / "outputs")
+    part_paths = stl_generator.export_split_parts(
+        bin_body, text_body, gen_req, gen_req.bed_size, output_dir, entity_id
+    )
+    if part_paths:
+        stl_urls = [f"/storage/{user_id}/outputs/{Path(p).name}" for p in part_paths]
+        part_bytes = [(Path(p).name, Path(p).read_bytes()) for p in part_paths]
+        with zipfile.ZipFile(str(zip_path), 'w', zipfile.ZIP_DEFLATED) as zf:
+            for fname, data in part_bytes:
+                zf.writestr(fname, data)
+        zip_url = f"/storage/{user_id}/outputs/{entity_id}_parts.zip"
 
     insert_stl_url = None
     warning = None
@@ -1579,6 +1581,10 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
         insert_height=bc.insert_height,
         insert_clearance=bc.insert_clearance,
         cutout_chamfer=bc.cutout_chamfer,
+        partial_bins=bc.partial_bins,
+        partial_bins_values=bc.partial_bins_values,
+        partial_bins_connect=bc.partial_bins_connect,
+        partial_bins_retain_wall=bc.partial_bins_retain_wall,
         text_labels=bc.text_labels + bin_data.text_labels,
         bed_size=bc.bed_size,
         half_grid_base=bc.half_grid_base,
