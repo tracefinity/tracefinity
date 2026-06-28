@@ -247,7 +247,7 @@ export default function BinPage() {
         ),
       })))
     }
-    }, [autoSize, isDragging, placedTools, config.grid_x, config.grid_y, config.wall_thickness, config.cutout_clearance, config.half_grid_base]);
+  }, [autoSize, isDragging, placedTools, config.grid_x, config.grid_y, config.wall_thickness, config.cutout_clearance, config.half_grid_base])
 
   const handleToggleSmoothed = useCallback(async (toolId: string, smoothed: boolean) => {
     try {

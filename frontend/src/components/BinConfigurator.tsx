@@ -39,16 +39,18 @@ function HelpTip({ text }: { text: string }) {
 
 function Toggle({ checked, onChange, label, help, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; help?: string; disabled?: boolean }) {
   return (
-    <div className={`relative flex items-center justify-between py-2 ${disabled ? "opacity-40 pointer-events-none" : ""}`}>
+    <div className={`relative flex items-center justify-between py-2 ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
       <span className="text-xs text-text-primary tracking-[0.3px]">
         {label}
         {help && <HelpTip text={help} />}
       </span>
       <button
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(!checked)}
-          className={`relative inline-flex h-5 w-9 items-center rounded transition-colors ${checked ? "bg-accent" : "bg-elevated"}`}
+        type="button"
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-5 w-9 items-center rounded transition-colors ${
+          checked ? "bg-accent" : "bg-elevated"
+        }`}
       >
         <span
           className={`inline-block h-3.5 w-3.5 rounded-sm transition-transform ${
@@ -253,47 +255,51 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
       />
 
       <div className="border-t border-border mt-2 pt-1">
-          <Toggle
-              checked={config.half_grid_base}
-              onChange={(v) => update({ half_grid_base: v, ...(v ? { magnets: false } : {}) })}
-              label="Half-grid base"
-              help="Use 21mm half-grid cells on the baseplate instead of standard 42mm. Gives finer positioning on the baseplate."
-          />
-          <Toggle
-              checked={config.magnets && !config.half_grid_base}
-              onChange={(v) => update({ magnets: v })}
-              label="Magnet holes"
-              help="Holes in the base for magnets. Keeps bins locked to the baseplate."
-              disabled={config.half_grid_base}
-          />
-          {config.half_grid_base && <p className="text-[11px] text-text-muted mt-0.5 leading-tight pl-0.5">Magnet holes are not compatible with half-grid base cells</p>}
-          {config.magnets && !config.half_grid_base && (
-              <div className="pl-3 border-l border-border-subtle ml-1 space-y-0">
-                <SliderRow
-                  label="Diameter"
-                  value={config.magnet_diameter}
-                  min={3}
-                  max={10}
-                  step={0.5}
-                  unit="mm"
-                  onChange={(v) => update({ magnet_diameter: v })}
-                />
-                <SliderRow
-                  label="Depth"
-                  value={config.magnet_depth}
-                  min={1}
-                  max={5}
-                  step={0.1}
-                  unit="mm"
-                  onChange={(v) => update({ magnet_depth: v })}
-                />
-                <Toggle
-                  checked={config.magnet_corners_only}
-                  onChange={(v) => update({ magnet_corners_only: v })}
-                  label="Corners only"
-                  help="Only place magnet holes at the 4 outer corners of the bin."
-                />
-              </div>
+        <Toggle
+          checked={config.half_grid_base}
+          onChange={(v) => update({ half_grid_base: v, ...(v ? { magnets: false } : {}) })}
+          label="Half-grid base"
+          help="Use 21mm half-grid cells on the baseplate instead of standard 42mm. Gives finer positioning on the baseplate."
+        />
+        <Toggle
+          checked={config.magnets && !config.half_grid_base}
+          onChange={(v) => update({ magnets: v })}
+          label="Magnet holes"
+          help="Holes in the base for magnets. Keeps bins locked to the baseplate."
+          disabled={config.half_grid_base}
+        />
+        {config.half_grid_base && ( 
+          <p className="text-[11px] text-text-muted mt-0.5 leading-tight pl-0.5">
+            Magnet holes are not compatible with half-grid base cells
+          </p>
+        )}
+        {config.magnets && !config.half_grid_base && (
+          <div className="pl-3 border-l border-border-subtle ml-1 space-y-0">
+            <SliderRow
+              label="Diameter"
+              value={config.magnet_diameter}
+              min={3}
+              max={10}
+              step={0.5}
+              unit="mm"
+              onChange={(v) => update({ magnet_diameter: v })}
+            />
+            <SliderRow
+              label="Depth"
+              value={config.magnet_depth}
+              min={1}
+              max={5}
+              step={0.1}
+              unit="mm"
+              onChange={(v) => update({ magnet_depth: v })}
+            />
+            <Toggle
+              checked={config.magnet_corners_only}
+              onChange={(v) => update({ magnet_corners_only: v })}
+              label="Corners only"
+              help="Only place magnet holes at the 4 outer corners of the bin."
+            />
+          </div>
         )}
         <Toggle
           checked={config.stacking_lip}
