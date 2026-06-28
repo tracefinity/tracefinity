@@ -49,7 +49,7 @@ function Toggle({ checked, onChange, label, help, disabled }: { checked: boolean
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={`relative inline-flex h-5 w-9 items-center rounded transition-colors ${
-          checked ? "bg-accent" : "bg-elevated"
+          checked ? 'bg-accent' : 'bg-elevated'
         }`}
       >
         <span
@@ -268,7 +268,7 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
           help="Holes in the base for magnets. Keeps bins locked to the baseplate."
           disabled={config.half_grid_base}
         />
-        {config.half_grid_base && ( 
+        {config.half_grid_base && (
           <p className="text-[11px] text-text-muted mt-0.5 leading-tight pl-0.5">
             Magnet holes are not compatible with half-grid base cells
           </p>
