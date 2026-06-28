@@ -529,8 +529,6 @@ export default function BinPage() {
                                 defaultCutoutDepth={config.cutout_depth}
                                 maxCutoutDepth={calcMaxCutoutDepth(config.height_units, config.stacking_lip)}
                                 halfGridBase={config.half_grid_base}
-                                partialBins={config.partial_bins}
-                                partialBinsValues={config.partial_bins_values}
                                 onEditTool={(toolId) => router.push(projectSource.scopedHref(`/tools/${toolId}`))}
                                 smoothedToolIds={smoothedToolIds}
                                 onToggleSmoothed={handleToggleSmoothed}
