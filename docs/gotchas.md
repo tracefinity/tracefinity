@@ -47,6 +47,12 @@ Boolean operations (add, subtract) are single-threaded in OCCT. More cores don't
 - Undo/redo uses the `useHistory` hook (deep-clone, Cmd+Z handling). The `set()` method pushes to history; `undo()`/`redo()` call the `onChange` callback.
 - ToolEditor and BinEditor are split into orchestrator + toolbar + canvas sub-components. `CutoutOverlay` renders finger holes in both.
 
+## AVX / ONNX requirement
+
+U2-Net paper detection and all local tracers (`isnet`, `birefnet-lite`, `inspyrenet`) require ONNX Runtime, which needs AVX CPU instructions. On non-AVX CPUs (some older VMs, Atoms), ONNX is disabled at startup and paper detection falls back to OpenCV-only brightness thresholding -- less accurate, may need manual corner adjustment. Local tracers won't load; use a remote tracer (`gemini`, `replicate`, `fal`).
+
+Detection is two-tier: CPU flag check (`/proc/cpuinfo` on Linux, `sysctl` on macOS), then a subprocess probe that catches SIGILL without killing the main process. Result is cached for the process lifetime.
+
 ## Paper corner detection
 
 Uses a two-stage approach: U2-Net Portable generates a rough tool mask (~0.17s), tool pixels are blacked out, then OpenCV brightness thresholding finds the paper rectangle in the cleaned image. This prevents tools (especially dark ones on white paper) from fragmenting the paper region during detection.

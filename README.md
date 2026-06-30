@@ -97,7 +97,7 @@ When no API key is configured, Tracefinity runs a local salient object detection
 | [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) | ~3.6s | 8GB | Best | Handles reflections and shiny surfaces well |
 | [InSPyReNet](https://github.com/plemeri/InSPyReNet) | ~2.8s | 6GB | Good | Apple Silicon (MPS) support |
 
-Paper corner detection runs [U2-Net Portable](https://github.com/xuebinqin/U-2-Net) alongside the tracer. RAM figures include both models. All models load at startup.
+Paper corner detection runs [U2-Net Portable](https://github.com/xuebinqin/U-2-Net) alongside the tracer. RAM figures include both models. All models load at startup. All local models require ONNX Runtime, which needs **AVX** CPU instructions. On non-AVX CPUs (some older VMs, Atoms), U2-Net is skipped (paper detection falls back to OpenCV-only, less accurate) and local tracers are unavailable. Remote tracers (Gemini, Replicate, fal) work regardless.
 
 **Minimum RAM: 2GB** (IS-Net). BiRefNet Lite needs **8GB**. See [Resource Requirements](docs/resource-requirements.md) for full details including Docker memory limits and platform support.
 
