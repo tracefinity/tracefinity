@@ -163,6 +163,12 @@ class AITracer:
             return
         label = LOCAL_MODEL_LABELS.get(name, name)
         if name in REMBG_MODELS:
+            from app.services.onnx_check import is_onnx_available
+            if not is_onnx_available():
+                raise RuntimeError(
+                    f"local tracer '{name}' requires ONNX runtime but this CPU "
+                    "lacks AVX support. Use a remote tracer (gemini/replicate/fal) instead."
+                )
             from rembg import new_session
 
             from app.services.ort_runtime import get_onnx_providers

@@ -108,11 +108,17 @@ def pick_paper_orientation(
 
 class ImageProcessor:
     def __init__(self):
-        from rembg import new_session
+        from app.services.onnx_check import is_onnx_available
 
-        from app.services.ort_runtime import get_onnx_providers
-        logger.info("loading U2-Net Portable for paper detection")
-        self._tool_mask_session = new_session("u2netp", providers=get_onnx_providers())
+        if is_onnx_available():
+            from rembg import new_session
+
+            from app.services.ort_runtime import get_onnx_providers
+            logger.info("loading U2-Net Portable for paper detection")
+            self._tool_mask_session = new_session("u2netp", providers=get_onnx_providers())
+        else:
+            logger.warning("U2-Net unavailable (no ONNX runtime), paper detection using OpenCV-only")
+            self._tool_mask_session = None
 
     def _get_tool_mask(self, image_path: str) -> np.ndarray:
         """get a rough tool mask via U2-Net Portable for paper detection."""
@@ -126,13 +132,14 @@ class ImageProcessor:
         return mask
 
     def detect_paper_corners(self, image_path: str) -> list[tuple[float, float]] | None:
-        """detect paper corners by masking out tools first."""
+        """detect paper corners, masking out tools when U2-Net is available."""
         img = cv2.imread(image_path)
         if img is None:
             return None
 
-        tool_mask = self._get_tool_mask(image_path)
-        img[tool_mask > 0] = [0, 0, 0]
+        if self._tool_mask_session is not None:
+            tool_mask = self._get_tool_mask(image_path)
+            img[tool_mask > 0] = [0, 0, 0]
 
         return self._detect_paper(img)
 
