@@ -16,10 +16,10 @@ env:
   TRACEFINITY_ONNX_PROVIDER: "" # Local ONNX provider: auto, cuda, or cpu
   GEMINI_IMAGE_MODEL: "" # Gemini model for mask generation
 
-# Can be utilized to set environment variables from a ConfigMap or Secret. 
-envFrom: 
-  - secretRef:
-      name: existing-secret
+# envFrom can reference existing Secrets or ConfigMaps
+envFrom: []
+  # - secretRef:
+  #     name: existing-secret
   # - configMapRef:
   #     name: existing-config
 

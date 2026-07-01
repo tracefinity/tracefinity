@@ -6,6 +6,8 @@ metadata:
     {{- include "tracefinity.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "tracefinity.selectorLabels" . | nindent 6 }}
@@ -30,8 +32,6 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      strategy:
-        type: Recreate
       containers:
         - name: {{ .Chart.Name }}
           {{- with .Values.securityContext }}
