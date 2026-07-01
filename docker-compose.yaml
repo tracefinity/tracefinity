@@ -1,0 +1,12 @@
+services:
+  tracefinity:
+    image: ghcr.io/tracefinity/tracefinity
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/storage
+    restart: unless-stopped
+    # environment:
+    #   GOOGLE_API_KEY: your-key
+    #   PUID: 1000  # optional: run as your host user
+    #   PGID: 1000
