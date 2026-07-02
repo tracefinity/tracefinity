@@ -65,7 +65,15 @@ Bed splitting uses the **full** `grid_x` / `grid_y` footprint when connect mode 
 1. **Disconnected partial bins** (partial bins on, connect off, at least one disabled cell): `export_separated_parts` decomposes the finished manifold into one STL per connected volume, packaged as a ZIP alongside the merged STL.
 2. **Bed-size split** (otherwise, when `bed_size > 0` and the diagonal-fit check fails): `split_bin` cuts along grid planes as for a normal oversized bin.
 
-The 3D preview receives split URLs for both cases.
+### Text labels
+
+Embossed labels are intersected with valid floor regions in three layers when needed:
+
+1. **Bin floor** (`wall_top_z`) - enabled partial-bin cells (or full interior) minus tool cutout openings.
+2. **Cutout floors** - each tool pocket at its own `cutout_floor_z`.
+3. **Connect-base bridges** (`GF_BASE_HEIGHT`) - disabled partial-bin regions when connect mode is on.
+
+Text spanning a pocket edge or an enabled/disabled cell boundary is split across the matching surfaces. With connect mode off, disabled cells are omitted entirely. Recessed labels still pick a single floor from the label centre.
 
 ## Base geometry (per cell, reverse-engineered from gridfinity-build123d)
 
