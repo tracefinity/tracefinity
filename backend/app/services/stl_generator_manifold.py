@@ -952,6 +952,17 @@ def _make_surface_emboss_clip_volume(
     return base - footprint_union
 
 
+def _connect_base_emboss_z() -> float:
+    return GF_BASE_HEIGHT + PARTIAL_BIN_CONNECT_PLATE_MM
+
+
+def _cutout_reaches_connect_plate(
+    wall_top_z: float, pocket_depth: float
+) -> bool:
+    """True when a pocket floor is at or below the connect-base plate top."""
+    return (wall_top_z - pocket_depth) <= _connect_base_emboss_z()
+
+
 def _make_cutout_emboss_clip_volume(
     poly: ScaledPolygon,
     config: GenerateRequest,
@@ -973,16 +984,22 @@ def _make_cutout_emboss_clip_volume(
     pocket_depth = _resolve_pocket_depth(poly.depth_override, config, max_depth)
     cutout_floor = wall_top_z - pocket_depth
     clip = _extrude_clip_slab(cs, cutout_floor, label_depth)
-    retains = _make_cell_retains_base_clip_volume(
-        config, cutout_floor, label_depth, offset_x, offset_y
+
+    plate_top = _connect_base_emboss_z()
+
+    def _cutout_text_cell(c, ix, iy) -> bool:
+        if _cell_enabled(c, ix, iy):
+            return True
+        if not _partial_bins_connect_bases(c):
+            return False
+        return cutout_floor <= plate_top
+
+    valid_cells = _make_partial_cell_clip_volume(
+        config, cutout_floor, label_depth, offset_x, offset_y, _cutout_text_cell
     )
-    if retains is not None:
-        clip = mf.Manifold.batch_boolean([clip, retains], mf.OpType.Intersect)
+    if valid_cells is not None:
+        clip = mf.Manifold.batch_boolean([clip, valid_cells], mf.OpType.Intersect)
     return clip
-
-
-def _connect_base_emboss_z() -> float:
-    return GF_BASE_HEIGHT + PARTIAL_BIN_CONNECT_PLATE_MM
 
 
 def _make_connect_base_emboss_clip_volume(
@@ -1017,6 +1034,9 @@ def _make_connect_base_emboss_clip_volume(
     interior_rect = _interior_clip_rect(config)
     footprints = []
     for poly in polygons:
+        pocket_depth = _resolve_pocket_depth(poly.depth_override, config, max_depth)
+        if not _cutout_reaches_connect_plate(wall_top_z, pocket_depth):
+            continue
         cs = _scaled_polygon_to_cross_section(poly, offset_x, offset_y, interior_rect)
         if cs is not None:
             footprints.append(_extrude_clip_slab(cs, plate_top, label_depth))
