@@ -1,11 +1,14 @@
 from pathlib import Path
 
-from app.models.schemas import GenerateRequest
+from app.models.schemas import GenerateRequest, TextLabel
 from app.services.stl_generator_manifold import (
     ManifoldSTLGenerator,
     _cell_center,
     _cell_enabled,
     _effective_grid_span,
+    _label_in_enabled_cell,
+    _label_layout_cell,
+    _make_text_labels,
     _partial_cell_index,
     _uses_partial_shell,
 )
@@ -287,3 +290,99 @@ def test_connect_mode_split_uses_full_grid_footprint(tmp_path: Path):
     parts = generator.split_bin(body, None, config, config.bed_size, str(tmp_path), "connect")
 
     assert parts != []
+
+
+def test_label_layout_cell_maps_top_left():
+    config = _base_config()
+    assert _label_layout_cell(config, 21, 21) == (0, 1)
+
+
+def test_label_in_enabled_cell_respects_partial_mask():
+    config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, False, True],
+    )
+    assert _label_in_enabled_cell(config, 21, 21) is True
+    assert _label_in_enabled_cell(config, 63, 21) is False
+
+
+def test_text_label_in_disabled_cell_excluded_from_stl(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, False, True],
+        text_labels=[
+            TextLabel(id="off", text="HELLO", x=63, y=21, emboss=True),
+        ],
+    )
+    _, text_body = generator.generate_bin([], config, str(tmp_path / "off.stl"))
+    assert text_body is None
+
+    enabled_config = config.model_copy(
+        update={"text_labels": [TextLabel(id="on", text="HELLO", x=21, y=21, emboss=True)]}
+    )
+    _, text_enabled = generator.generate_bin([], enabled_config, str(tmp_path / "on.stl"))
+    assert text_enabled is not None and not text_enabled.is_empty()
+
+    span_config = config.model_copy(
+        update={"text_labels": [TextLabel(id="span", text="HELLO", x=42, y=21, emboss=True)]}
+    )
+    _, text_span = generator.generate_bin([], span_config, str(tmp_path / "span.stl"))
+    assert text_span is not None and not text_span.is_empty()
+    assert text_span.volume() < text_enabled.volume()
+
+
+def test_emboss_in_disabled_cell_with_connect_base(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, False, True],
+        partial_bins_connect=True,
+        text_labels=[TextLabel(id="off", text="HELLO", x=63, y=21, emboss=True)],
+    )
+    _, text_body = generator.generate_bin([], config, str(tmp_path / "connect.stl"))
+    assert text_body is not None and not text_body.is_empty()
+
+
+def test_emboss_spanning_partial_cells_with_connect_base(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, False, True],
+        partial_bins_connect=True,
+        text_labels=[TextLabel(id="span", text="TOOLNAME", x=42, y=21, emboss=True)],
+    )
+    _, text_span = generator.generate_bin([], config, str(tmp_path / "span.stl"))
+    assert text_span is not None and not text_span.is_empty()
+
+    cut_config = config.model_copy(update={"partial_bins_connect": False})
+    _, text_cut = generator.generate_bin([], cut_config, str(tmp_path / "cut.stl"))
+    assert text_span.volume() > text_cut.volume()
+
+
+def test_recessed_text_label_in_disabled_cell_excluded_without_connect():
+    config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, False, True],
+        text_labels=[
+            TextLabel(id="off", text="X", x=63, y=21, emboss=False),
+        ],
+    )
+    recessed, embossed = _make_text_labels(config, 28.0, False, -42.0, -42.0)
+    assert recessed is None
+    assert embossed is None
+
+
+def test_recessed_text_label_in_disabled_cell_with_connect_base():
+    config = _base_config(
+        partial_bins=True,
+        partial_bins_values=[True, False, False, True],
+        partial_bins_connect=True,
+        text_labels=[
+            TextLabel(id="off", text="HELLO", x=63, y=21, emboss=False),
+        ],
+    )
+    recessed, embossed = _make_text_labels(config, 28.0, False, -42.0, -42.0)
+    assert recessed is not None and not recessed.is_empty()
+    assert embossed is None
+
