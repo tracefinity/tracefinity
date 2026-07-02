@@ -3,13 +3,9 @@
 from pathlib import Path
 
 from app.models.schemas import GenerateRequest, TextLabel
-from app.services.polygon_scaler import ScaledPolygon
 from app.services import stl_generator_manifold as sg
-from app.services.stl_generator_manifold import (
-    GF_GRID,
-    ManifoldSTLGenerator,
-    _make_text_labels,
-)
+from app.services.polygon_scaler import ScaledPolygon
+from app.services.stl_generator_manifold import GF_GRID, ManifoldSTLGenerator, _make_text_labels
 
 
 def _config(**overrides) -> GenerateRequest:
