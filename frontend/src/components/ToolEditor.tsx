@@ -12,7 +12,7 @@ import {
   type SymmetryAxis, type KeepSide,
 } from '@/lib/symmetry'
 import { DISPLAY_SCALE, SNAP_GRID, ZOOM_FACTOR } from '@/lib/constants'
-import { cutoutShapeLabel, isRectangularCutout } from '@/lib/cutouts'
+import { cutoutShapeLabel, isRectangularCutout, resizeRectCutout, resizeRoundCutout } from '@/lib/cutouts'
 import { useHistory } from '@/hooks/useHistory'
 import { ToolEditorToolbar } from '@/components/ToolEditorToolbar'
 import { ToolEditorCanvas } from '@/components/ToolEditorCanvas'
@@ -650,26 +650,11 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       let updated = currentHoles.map(fh => {
         if (fh.id !== dragging.holeId) return fh
         if (isRectangularCutout(fh.shape) && dragging.anchorX !== undefined && dragging.anchorY !== undefined) {
-          // pinned corner resize: anchor stays fixed, dragged corner follows mouse
-          const rot = (dragging.rotation || 0) * Math.PI / 180
-          const cosR = Math.cos(rot), sinR = Math.sin(rot)
-          // vector from anchor to mouse in local space
-          const gdx = pos.x - dragging.anchorX
-          const gdy = pos.y - dragging.anchorY
-          const localW = gdx * cosR + gdy * sinR
-          const localH = -gdx * sinR + gdy * cosR
-          const newW = Math.max(10, Math.abs(localW))
-          const newH = Math.max(10, Math.abs(localH))
-          // new centre = midpoint of anchor and dragged corner
-          const cx = (dragging.anchorX + pos.x) / 2
-          const cy = (dragging.anchorY + pos.y) / 2
-          resized = { ...fh, x: snap(cx), y: snap(cy), width: newW, height: newH, radius: Math.max(newW, newH) / 2 }
+          const r = resizeRectCutout(dragging.anchorX, dragging.anchorY, pos.x, pos.y, dragging.rotation || 0)
+          resized = { ...fh, x: snap(r.x), y: snap(r.y), width: r.width, height: r.height, radius: Math.max(r.width, r.height) / 2 }
           return resized
         }
-        // circle / square: distance from centre
-        const dx = pos.x - dragging.centerX
-        const dy = pos.y - dragging.centerY
-        resized = { ...fh, radius: Math.max(5, Math.sqrt(dx * dx + dy * dy)) }
+        resized = { ...fh, radius: resizeRoundCutout(dragging.centerX, dragging.centerY, pos.x, pos.y) }
         return resized
       })
       if (mirror && axis && dragging.mirrorId && resized) {
