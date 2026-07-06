@@ -3,6 +3,45 @@ import path from 'path'
 
 const FIXTURE_IMAGE = path.join(__dirname, 'fixtures', 'tool.jpg')
 
+type Mat = [number, number, number, number, number, number]
+
+// matrix(a, b, c, d, e, f) maps (x, y) -> (a*x + c*y + e, b*x + d*y + f)
+function parseMatrix(s: string): Mat {
+  const m = s.match(/matrix\(([^)]+)\)/)
+  if (!m) throw new Error(`not a matrix: ${s}`)
+  const v = m[1].split(/[\s,]+/).map(Number)
+  return [v[0], v[1], v[2], v[3], v[4], v[5]]
+}
+
+function invertMatrix([a, b, c, d, e, f]: Mat): Mat {
+  const det = a * d - c * b
+  const ia = d / det, ib = -b / det, ic = -c / det, id = a / det
+  return [ia, ib, ic, id, -(ia * e + ic * f), -(ib * e + id * f)]
+}
+
+function composeMatrix(m2: Mat, m1: Mat): Mat {
+  const [a2, b2, c2, d2, e2, f2] = m2
+  const [a1, b1, c1, d1, e1, f1] = m1
+  return [
+    a2 * a1 + c2 * b1,
+    b2 * a1 + d2 * b1,
+    a2 * c1 + c2 * d1,
+    b2 * c1 + d2 * d1,
+    a2 * e1 + c2 * f1 + e2,
+    b2 * e1 + d2 * f1 + f2,
+  ]
+}
+
+function applyMatrix([a, b, c, d, e, f]: Mat, p: { x: number; y: number }) {
+  return { x: a * p.x + c * p.y + e, y: b * p.x + d * p.y + f }
+}
+
+function firstVertex(d: string): { x: number; y: number } {
+  const m = d.match(/M\s*([\d.eE+-]+)[ ,]\s*([\d.eE+-]+)/)
+  if (!m) throw new Error(`no moveto in path: ${d.slice(0, 40)}`)
+  return { x: Number(m[1]), y: Number(m[2]) }
+}
+
 test.describe.serial('happy path', () => {
   let page: Page
 
@@ -106,6 +145,135 @@ test.describe.serial('happy path', () => {
 
     await page.getByRole('button', { name: 'Smooth' }).click()
     await expect(statusText).not.toHaveText(accurateText!, { timeout: 5_000 })
+  })
+
+  test('rotating keeps the source photo aligned through undo/redo', async () => {
+    // tools saved from a traced session carry their source photo
+    const image = page.locator('svg image')
+    await expect(image).toBeVisible({ timeout: 5_000 })
+    const before = await image.getAttribute('transform')
+    expect(before).toBeTruthy()
+
+    await page.getByRole('button', { name: 'Rotate 90 clockwise' }).click()
+    await expect(image).not.toHaveAttribute('transform', before!, { timeout: 5_000 })
+    const rotated = await image.getAttribute('transform')
+
+    // undo must restore the photo transform along with the outline
+    await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click()
+    await expect(image).toHaveAttribute('transform', before!, { timeout: 5_000 })
+
+    // redo must re-apply it
+    await page.getByRole('button', { name: 'Redo (Ctrl+Shift+Z)' }).click()
+    await expect(image).toHaveAttribute('transform', rotated!, { timeout: 5_000 })
+
+    // back to the original orientation for the rest of the flow
+    await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click()
+    await expect(image).toHaveAttribute('transform', before!, { timeout: 5_000 })
+  })
+
+  test('auto-rotate keeps the source photo aligned', async () => {
+    // fresh mount so this test owns its undo history
+    await page.goto(`/tools/${toolId}`)
+    const image = page.locator('svg image')
+    await expect(image).toBeVisible({ timeout: 10_000 })
+    // accurate mode renders raw vertices, so the path's first vertex is stable
+    await page.getByRole('button', { name: 'Accurate' }).click()
+
+    // scope to the editor canvas: the dev overlay's shadow DOM also holds
+    // evenodd paths and playwright locators pierce shadow roots
+    const outline = page.locator('svg:has(image) path[fill-rule="evenodd"]')
+    const before = (await image.getAttribute('transform'))!
+    const dBefore = (await outline.getAttribute('d'))!
+
+    // deterministic angle: the endpoint only computes a number, the frontend
+    // applies it, so mocking it still exercises the whole rotation path
+    await page.route('**/api/tools/*/auto-rotate', route => route.fulfill({ json: { angle: 30 } }))
+    await page.getByRole('button', { name: 'Auto', exact: true }).click()
+    await expect(image).not.toHaveAttribute('transform', before, { timeout: 5_000 })
+    await page.unroute('**/api/tools/*/auto-rotate')
+
+    // outline and photo must undergo the same rigid transform: the photo's
+    // delta applied to the old first vertex must land on the new first vertex
+    const rotated = (await image.getAttribute('transform'))!
+    const delta = composeMatrix(parseMatrix(rotated), invertMatrix(parseMatrix(before)))
+    const expected = applyMatrix(delta, firstVertex(dBefore))
+    const vertexAfter = firstVertex((await outline.getAttribute('d'))!)
+    expect(vertexAfter.x).toBeCloseTo(expected.x, 3)
+    expect(vertexAfter.y).toBeCloseTo(expected.y, 3)
+
+    // undo restores both together, redo re-applies both
+    await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click()
+    await expect(image).toHaveAttribute('transform', before, { timeout: 5_000 })
+    await expect(outline).toHaveAttribute('d', dBefore)
+    await page.getByRole('button', { name: 'Redo (Ctrl+Shift+Z)' }).click()
+    await expect(image).toHaveAttribute('transform', rotated, { timeout: 5_000 })
+    await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click()
+    await expect(image).toHaveAttribute('transform', before, { timeout: 5_000 })
+
+    await page.getByRole('button', { name: 'Smooth' }).click()
+  })
+
+  test('flips and drag-rotate carry the photo through undo', async () => {
+    await page.goto(`/tools/${toolId}`)
+    const image = page.locator('svg image')
+    await expect(image).toBeVisible({ timeout: 10_000 })
+    const t0 = (await image.getAttribute('transform'))!
+
+    await page.getByRole('button', { name: 'Flip horizontally' }).click()
+    await expect(image).not.toHaveAttribute('transform', t0, { timeout: 5_000 })
+    const t1 = (await image.getAttribute('transform'))!
+
+    await page.getByRole('button', { name: 'Flip vertically' }).click()
+    await expect(image).not.toHaveAttribute('transform', t1, { timeout: 5_000 })
+    const t2 = (await image.getAttribute('transform'))!
+
+    // drag-rotate from a corner rotation zone; mousedown is dispatched on the
+    // element because the zone rect is transparent to hit-testing
+    const zone = page.locator('svg:has(image) rect.cursor-rotate').first()
+    const box = (await zone.boundingBox())!
+    const cx = box.x + box.width / 2
+    const cy = box.y + box.height / 2
+    await zone.evaluate((el, c) => {
+      el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: c.x, clientY: c.y }))
+    }, { x: cx, y: cy })
+    await page.mouse.move(cx + 80, cy + 30, { steps: 5 })
+    await page.mouse.up()
+    await expect(image).not.toHaveAttribute('transform', t2, { timeout: 5_000 })
+
+    // three entries, three undos, each restoring the photo with the outline
+    await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click()
+    await expect(image).toHaveAttribute('transform', t2, { timeout: 5_000 })
+    await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click()
+    await expect(image).toHaveAttribute('transform', t1, { timeout: 5_000 })
+    await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click()
+    await expect(image).toHaveAttribute('transform', t0, { timeout: 5_000 })
+  })
+
+  test('edits during auto-rotate keep history intact', async () => {
+    await page.goto(`/tools/${toolId}`)
+    const image = page.locator('svg image')
+    await expect(image).toBeVisible({ timeout: 10_000 })
+    const t0 = (await image.getAttribute('transform'))!
+
+    // slow the angle fetch so a manual rotate can land mid-flight
+    await page.route('**/api/tools/*/auto-rotate', async route => {
+      await new Promise(resolve => setTimeout(resolve, 2_000))
+      await route.fulfill({ json: { angle: 30 } })
+    })
+    await page.getByRole('button', { name: 'Auto', exact: true }).click()
+    await page.getByRole('button', { name: 'Rotate 90 clockwise' }).click()
+    await expect(image).not.toHaveAttribute('transform', t0, { timeout: 1_000 })
+    const t1 = (await image.getAttribute('transform'))!
+
+    // auto-rotate resolves on top of the interleaved edit
+    await expect(image).not.toHaveAttribute('transform', t1, { timeout: 5_000 })
+    await page.unroute('**/api/tools/*/auto-rotate')
+
+    // both operations must be separate history entries, in order
+    await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click()
+    await expect(image).toHaveAttribute('transform', t1, { timeout: 5_000 })
+    await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click()
+    await expect(image).toHaveAttribute('transform', t0, { timeout: 5_000 })
   })
 
   test('navigate home', async () => {

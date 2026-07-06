@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from 'react'
 import { Plus, Circle, Disc, Square, RectangleHorizontal, Fingerprint, ImageIcon, Eye, EyeOff } from 'lucide-react'
 import type { Point, FingerHole, ToolImageContext, AffineMatrix } from '@/types'
 import { simplifyPolygon, smoothEpsilon, simplifyEpsilon, snapToGrid as snapToGridUtil } from '@/lib/svg'
@@ -55,6 +55,7 @@ interface HistoryEntry {
   points: Point[]
   fingerHoles: FingerHole[]
   interiorRings: Point[][]
+  imageTransform: AffineMatrix | null
 }
 
 export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoothLevel, sourceImageContext, showSourceImage = false, onShowSourceImageChange, sourceImageOpacity = 0.45, onSourceImageOpacityChange, onImageTransformChange, onPointsChange, onFingerHolesChange, onSmoothedChange, onSmoothLevelChange, onInteriorRingsChange, onAutoRotate, autoRotating }: Props) {
@@ -87,18 +88,36 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   useEffect(() => { axisRef.current = symmetryAxis }, [symmetryAxis])
   useEffect(() => { keepSideRef.current = keepSide }, [keepSide])
 
+  const imageTransformRef = useRef<AffineMatrix | null>(sourceImageContext?.transform ?? null)
+  const onImageTransformRef = useRef(onImageTransformChange)
+
   // undo/redo
   const historyOnChange = useCallback((entry: HistoryEntry) => {
     onPointsChange(entry.points)
     onFingerHolesChange(entry.fingerHoles)
     onInteriorRingsChange?.(entry.interiorRings)
+    // restore the photo transform captured with this entry so the source
+    // image stays aligned with the outline across undo/redo
+    if (entry.imageTransform) {
+      imageTransformRef.current = entry.imageTransform
+      onImageTransformRef.current?.(entry.imageTransform)
+    }
   }, [onPointsChange, onFingerHolesChange, onInteriorRingsChange])
 
   const currentRings = interiorRings ?? []
 
-  const { set: pushHistory, undo: handleUndo, redo: handleRedo, canUndo, canRedo } = useHistory<HistoryEntry>(
-    { points, fingerHoles, interiorRings: currentRings },
+  const { set: pushEntry, undo: handleUndo, redo: handleRedo, canUndo, canRedo } = useHistory<HistoryEntry>(
+    { points, fingerHoles, interiorRings: currentRings, imageTransform: sourceImageContext?.transform ?? null },
     historyOnChange
+  )
+
+  // every entry snapshots the photo transform alongside the geometry;
+  // rotate/flip pass their post-op transform explicitly
+  const pushHistory = useCallback(
+    (entry: Omit<HistoryEntry, 'imageTransform'>, imageTransform: AffineMatrix | null = imageTransformRef.current) => {
+      pushEntry({ ...entry, imageTransform })
+    },
+    [pushEntry]
   )
 
   // local drag state: renders locally during drag, flushes to parent on mouseup
@@ -123,8 +142,6 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const onPointsRef = useRef(onPointsChange)
   const onHolesRef = useRef(onFingerHolesChange)
   const onRingsRef = useRef(onInteriorRingsChange)
-  const imageTransformRef = useRef<AffineMatrix | null>(sourceImageContext?.transform ?? null)
-  const onImageTransformRef = useRef(onImageTransformChange)
   useEffect(() => { pointsRef.current = points }, [points])
   useEffect(() => { holesRef.current = fingerHoles }, [fingerHoles])
   useEffect(() => { dragPointsRef.current = dragPoints }, [dragPoints])
@@ -358,37 +375,32 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     if (pts.length === 0) return
     const { x: cx, y: cy } = centroidOf(pts)
     const rotated = rotateGeometry(pts, holesRef.current, currentRingsRef.current, angleDeg)
-    pushHistory({ points: rotated.points, fingerHoles: rotated.fingerHoles, interiorRings: rotated.interiorRings })
+    // rotate the photo about the same centre so it stays under the outline
+    const m = imageTransformRef.current
+    const nextTransform = m ? rotateAround(m, angleDeg * Math.PI / 180, cx, cy) : null
+    pushHistory({ points: rotated.points, fingerHoles: rotated.fingerHoles, interiorRings: rotated.interiorRings }, nextTransform)
     onPointsRef.current(rotated.points)
     onHolesRef.current(rotated.fingerHoles)
     onRingsRef.current?.(rotated.interiorRings)
-    const m = imageTransformRef.current
-    if (m && onImageTransformRef.current) {
-      const rad = angleDeg * Math.PI / 180
-      const next = rotateAround(m, rad, cx, cy)
-      imageTransformRef.current = next
-      onImageTransformRef.current(next)
+    if (nextTransform) {
+      imageTransformRef.current = nextTransform
+      onImageTransformRef.current?.(nextTransform)
     }
   }, [pushHistory])
 
-  // wraps the parent's auto-rotate to add undo history and image transform rotation
+  // edits can land while the angle fetch is in flight; the ref must point at
+  // the latest rotateAll (whose history push closes over the current index)
+  // before the await resumes, hence layout effect rather than passive effect
+  const rotateAllRef = useRef(rotateAll)
+  useLayoutEffect(() => { rotateAllRef.current = rotateAll }, [rotateAll])
+
+  // fetches the optimal angle from the parent, then applies it through
+  // rotateAll so geometry, photo and undo history stay in lockstep
   const handleAutoRotateWrapped = useCallback(async () => {
     if (!onAutoRotate) return
-    const pts = pointsRef.current
-    if (pts.length === 0) return
-    pushHistory({ points: pts, fingerHoles: holesRef.current, interiorRings: currentRingsRef.current })
     const angle = await onAutoRotate()
-    if (angle != null && Math.abs(angle) >= 0.01) {
-      const { x: cx, y: cy } = centroidOf(pts)
-      const m = imageTransformRef.current
-      if (m && onImageTransformRef.current) {
-        const rad = angle * Math.PI / 180
-        const next = rotateAround(m, rad, cx, cy)
-        imageTransformRef.current = next
-        onImageTransformRef.current(next)
-      }
-    }
-  }, [onAutoRotate, pushHistory])
+    if (angle != null && Math.abs(angle) >= 0.01) rotateAllRef.current(angle)
+  }, [onAutoRotate])
 
   const flipAll = useCallback((axis: 'horizontal' | 'vertical') => {
     const pts = pointsRef.current
@@ -409,15 +421,16 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       rotation: -((fh.rotation || 0) % 360),
     }))
     const newRings = rings.map(ring => ring.map(flip).reverse())
-    pushHistory({ points: newPts, fingerHoles: newHoles, interiorRings: newRings })
+    // mirror the photo about the same axis so it stays under the outline
+    const m = imageTransformRef.current
+    const nextTransform = m ? flipAround(m, axis, cx, cy) : null
+    pushHistory({ points: newPts, fingerHoles: newHoles, interiorRings: newRings }, nextTransform)
     onPointsRef.current(newPts)
     onHolesRef.current(newHoles)
     onInteriorRingsChange?.(newRings)
-    const m = imageTransformRef.current
-    if (m && onImageTransformRef.current) {
-      const next = flipAround(m, axis, cx, cy)
-      imageTransformRef.current = next
-      onImageTransformRef.current(next)
+    if (nextTransform) {
+      imageTransformRef.current = nextTransform
+      onImageTransformRef.current?.(nextTransform)
     }
   }, [pushHistory, onInteriorRingsChange])
 
@@ -725,15 +738,16 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       if (dragPointsRef.current) onPointsRef.current(finalPoints)
       if (dragHolesRef.current) onHolesRef.current(finalHoles)
       if (dragRingsRef.current) onRingsRef.current?.(finalRings)
-      pushHistory({ points: finalPoints, fingerHoles: finalHoles, interiorRings: finalRings })
-      if (dragging.type === 'rotate-polygon' && rotateDragRef.current) {
-        const { delta, cx, cy } = rotateDragRef.current
-        const m = imageTransformRef.current
-        if (m && delta !== 0 && onImageTransformRef.current) {
-          const next = rotateAround(m, delta, cx, cy)
-          imageTransformRef.current = next
-          onImageTransformRef.current(next)
-        }
+      // rotate-polygon drags carry the photo with them
+      const m = imageTransformRef.current
+      const rotDrag = dragging.type === 'rotate-polygon' ? rotateDragRef.current : null
+      const nextTransform = m && rotDrag && rotDrag.delta !== 0
+        ? rotateAround(m, rotDrag.delta, rotDrag.cx, rotDrag.cy)
+        : m
+      pushHistory({ points: finalPoints, fingerHoles: finalHoles, interiorRings: finalRings }, nextTransform)
+      if (nextTransform && nextTransform !== m) {
+        imageTransformRef.current = nextTransform
+        onImageTransformRef.current?.(nextTransform)
       }
       rotateDragRef.current = null
       setDragPoints(null)
