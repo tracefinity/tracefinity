@@ -1,0 +1,5 @@
+# Shell scripts must stay LF — they run inside Linux containers.
+*.sh text eol=lf
+
+# Keep other text files normalized
+* text=auto

@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, Check, Download, Folder } from 'lucide-react'
 import { getTool, updateTool, autoRotateTool, getToolSvgUrl, getImageUrl, listProjects } from '@/lib/api'
-import { rotateGeometry } from '@/lib/geometry'
 import { useDebouncedSave } from '@/hooks/useDebouncedSave'
 import { useProjectSource } from '@/hooks/useProjectSource'
 import { projectNameMap } from '@/lib/projectSelectors'
@@ -100,19 +99,13 @@ export default function ToolPage() {
     setTool(prev => prev ? { ...prev, interior_rings } : null)
   }, [])
 
+  // fetches the optimal angle only; ToolEditor applies it so the outline,
+  // photo transform and undo history change as one operation
   const handleAutoRotate = useCallback(async (): Promise<number | null> => {
     if (!tool || autoRotating) return null
     setAutoRotating(true)
     try {
       const { angle } = await autoRotateTool(toolId)
-      if (Math.abs(angle) < 0.01) return null
-      const rotated = rotateGeometry(tool.points, tool.finger_holes, tool.interior_rings, angle)
-      setTool(prev => prev ? {
-        ...prev,
-        points: rotated.points,
-        finger_holes: rotated.fingerHoles,
-        interior_rings: rotated.interiorRings,
-      } : prev)
       return angle
     } catch (err) {
       console.error('auto-rotate failed:', err)
