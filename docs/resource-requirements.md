@@ -24,7 +24,7 @@ On CPUs without AVX (some older VMs, Atoms, low-power NAS boxes):
 - Remote tracers (`gemini`, `replicate`, `fal`) work normally.
 - AVX availability is detected at startup (CPU flags + subprocess probe). A warning is logged when ONNX is unavailable.
 
-CUDA acceleration is available for NVIDIA GPUs (see README).
+All local models run on CPU by default. No GPU needed. NVIDIA CUDA acceleration is optionally available for faster inference (see README). Intel Arc and AMD ROCm GPUs are not supported.
 
 ARM is supported: the Docker image ships linux/arm64 builds. Raspberry Pi 4/5 with 4GB+ RAM works (IS-Net or a remote tracer).
 

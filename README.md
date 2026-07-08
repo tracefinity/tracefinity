@@ -165,17 +165,22 @@ Paper corner detection runs [U2-Net Portable](https://github.com/xuebinqin/U-2-N
 
 **Minimum RAM: 2GB** (IS-Net). BiRefNet Lite needs **8GB**. See [Resource Requirements](docs/resource-requirements.md) for full details including Docker memory limits and platform support.
 
-BiRefNet General is available as an opt-in GPU tracer. For NVIDIA GPU tracing from
-source, install the optional GPU requirements after the default backend
+#### Optional: NVIDIA CUDA acceleration
+
+All local models run on CPU by default. No GPU needed.
+
+If you have an NVIDIA GPU with CUDA, you can optionally enable GPU acceleration
+for faster inference. Install the GPU requirements after the default backend
 requirements, set `TRACERS=birefnet-general,birefnet-lite,isnet`, and set
-`TRACEFINITY_ONNX_PROVIDER=cuda` to require CUDA:
+`TRACEFINITY_ONNX_PROVIDER=cuda`:
 
 ```bash
 pip install -r backend/requirements.txt -r backend/requirements-gpu.txt
 ```
 
 This uses ONNX Runtime GPU for the `rembg` models (`isnet`, `birefnet-lite`,
-`birefnet-general`) and avoids PyTorch CUDA for those tracers.
+`birefnet-general`) and avoids PyTorch CUDA for those tracers. Intel Arc and
+AMD ROCm GPUs are not supported.
 
 See [#21](https://github.com/tracefinity/tracefinity/issues/21) for the benchmark that led to this selection.
 
