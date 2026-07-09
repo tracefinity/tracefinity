@@ -71,6 +71,13 @@ export async function uploadImage(file: File): Promise<UploadResponse> {
   return fetchForm('/api/upload', formData)
 }
 
+export async function importSvgTool(file: File, name?: string): Promise<{ tool_ids: string[] }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const query = name ? `?name=${encodeURIComponent(name)}` : ''
+  return fetchForm(`/api/tools/import-svg${query}`, formData)
+}
+
 export async function setCorners(
   sessionId: string,
   corners: Point[],

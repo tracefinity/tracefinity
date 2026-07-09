@@ -85,6 +85,7 @@ from app.services.project_service import (
 from app.services.project_store import ProjectStore
 from app.services.session_store import SessionStore
 from app.services.stl_generator_manifold import ManifoldSTLGenerator
+from app.services.svg_import import SvgImportError, parse_svg_outline
 from app.services.tool_store import ToolStore
 from app.services.tracer_registry import TRACER_LABELS, tracer_kind, validate_tracer_ids
 
@@ -1116,6 +1117,56 @@ async def save_tools_from_session(request: Request, session_id: str, body: SaveT
         tool_ids.append(tool_id)
 
     return SaveToolsResponse(tool_ids=tool_ids)
+
+
+@router.post("/tools/import-svg", response_model=SaveToolsResponse)
+async def import_svg_tool(
+    request: Request,
+    file: UploadFile,
+    name: str | None = None,
+    user_id: str = Depends(get_user_id),
+):
+    """Import a vector SVG (e.g. Shaper Trace) directly as a library tool.
+
+    The SVG's own width/height + viewBox give real-world scale, so the outline is
+    stored at exact millimetre size with no photo tracing.
+    """
+    raw = await file.read()
+    if len(raw) > settings.max_upload_mb * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"file too large (max {settings.max_upload_mb}MB)")
+    try:
+        outline_mm, rings_mm, meta = parse_svg_outline(raw.decode("utf-8", errors="replace"))
+    except SvgImportError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    _, user_tools, _ = get_stores(user_id)
+    tool_name = (name or Path(file.filename or "Imported tool").stem or "Imported tool").strip()
+
+    # points are already mm; scale_factor=1.0 just centres them at the origin
+    source_poly = Polygon(
+        id=str(uuid.uuid4()),
+        points=[Point(x=x, y=y) for x, y in outline_mm],
+        label=tool_name,
+        interior_rings=[[Point(x=x, y=y) for x, y in ring] for ring in rings_mm],
+    )
+    centered, fholes, interior_rings = polygon_scaler.scale_and_centre(source_poly, 1.0)
+    if not centered:
+        raise HTTPException(status_code=400, detail="SVG outline is empty after parsing")
+
+    tool_id = str(uuid.uuid4())
+    user_tools.set(tool_id, Tool(
+        id=tool_id,
+        name=tool_name,
+        points=centered,
+        finger_holes=fholes,
+        interior_rings=interior_rings,
+        created_at=datetime.utcnow().isoformat(),
+    ))
+    logger.info(
+        "imported svg tool %s: %.1f x %.1f mm, %d holes",
+        tool_id, meta["width_mm"], meta["height_mm"], meta["hole_count"],
+    )
+    return SaveToolsResponse(tool_ids=[tool_id])
 
 
 # --- bin projects ---

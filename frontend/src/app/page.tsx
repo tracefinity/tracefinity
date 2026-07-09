@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import { ImageUploader } from '@/components/ImageUploader'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { SectionHeader } from '@/components/SectionHeader'
-import { uploadImage, listTools, listBins, listProjects, deleteTool, deleteBin, deleteProject, createBin, createProject, getImageUrl } from '@/lib/api'
+import { uploadImage, importSvgTool, listTools, listBins, listProjects, deleteTool, deleteBin, deleteProject, createBin, createProject, getImageUrl } from '@/lib/api'
 import type { ToolSummary, BinSummary, BinPreviewTool, BinProjectSummary, Point, ToolImageContext, AffineMatrix, ProjectStatus } from '@/types'
 import { polygonPathData } from '@/lib/svg'
-import { Trash2, Package, Plus, Loader2, Grid3X3, Folder } from 'lucide-react'
+import { Trash2, Package, Plus, Loader2, Grid3X3, Folder, FileUp } from 'lucide-react'
 import { Alert } from '@/components/Alert'
 import { PhotoIllustration, CornersIllustration, TraceIllustration, OrganiseIllustration } from '@/components/OnboardingIllustrations'
 import { GRID_UNIT } from '@/lib/constants'
@@ -234,6 +234,8 @@ function loadSectionCollapseState(): MainSectionCollapseState {
 export default function HomePage() {
   const router = useRouter()
   const [uploading, setUploading] = useState(false)
+  const [importingSvg, setImportingSvg] = useState(false)
+  const svgInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [toolsList, setToolsList] = useState<ToolSummary[]>([])
   const [binsList, setBinsList] = useState<BinSummary[]>([])
@@ -340,6 +342,22 @@ export default function HomePage() {
     }
   }
 
+  async function handleImportSvg(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setImportingSvg(true)
+    setError(null)
+    try {
+      await importSvgTool(file)
+      setToolsList(await listTools())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'SVG import failed')
+    } finally {
+      setImportingSvg(false)
+    }
+  }
+
   async function handleDeleteTool(id: string) {
     try {
       await deleteTool(id)
@@ -407,6 +425,26 @@ export default function HomePage() {
       {/* upload */}
       <div data-tour="upload">
         <ImageUploader onUpload={handleUpload} disabled={uploading} />
+        <div className="mt-2 flex items-center justify-center gap-2 text-xs text-text-muted">
+          <span>or</span>
+          <input
+            ref={svgInputRef}
+            type="file"
+            accept=".svg,image/svg+xml"
+            onChange={handleImportSvg}
+            className="hidden"
+          />
+          <button
+            onClick={() => svgInputRef.current?.click()}
+            disabled={importingSvg}
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 hover:bg-glass-hover transition-colors disabled:opacity-50"
+          >
+            {importingSvg
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <FileUp className="w-3.5 h-3.5" />}
+            <span>Import SVG outline (Shaper Trace, etc.)</span>
+          </button>
+        </div>
       </div>
 
       {uploading && (
