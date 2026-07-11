@@ -2,6 +2,9 @@ import type {
   UploadResponse,
   CornersResponse,
   PhotoStation,
+  PhotoStationSuggestionsResponse,
+  RedetectCornersResponse,
+  ReuseCornersResponse,
   TraceResponse,
   GenerateResponse,
   Point,
@@ -79,16 +82,23 @@ export async function setCorners(
   sessionId: string,
   corners: Point[],
   paperSize: PaperSize,
+  saveStationName?: string | null,
 ): Promise<CornersResponse> {
   return fetchApi(`/api/sessions/${sessionId}/corners`, {
     method: 'POST',
-    body: JSON.stringify({ corners, paper_size: paperSize }),
+    body: JSON.stringify({ corners, paper_size: paperSize, save_station_name: saveStationName ?? null }),
   })
 }
 
 export interface TracerInfo {
   id: string
   label: string
+}
+
+export async function redetectCorners(sessionId: string): Promise<RedetectCornersResponse> {
+  return fetchApi(`/api/sessions/${sessionId}/redetect-corners`, {
+    method: 'POST',
+  })
 }
 
 export async function getAvailableKeys(): Promise<{
@@ -315,6 +325,22 @@ export async function getPhotoStation(stationId: string): Promise<PhotoStation> 
   return fetchApi(`/api/photo-stations/${stationId}`)
 }
 
+export async function listPhotoStationSuggestions(sessionId: string): Promise<PhotoStationSuggestionsResponse> {
+  return fetchApi(`/api/sessions/${sessionId}/station-suggestions`)
+}
+
+export async function createPhotoStation(opts: {
+  name: string
+  session_id: string
+  paper_size?: PaperSize
+  corners?: Point[]
+}): Promise<PhotoStation> {
+  return fetchApi('/api/photo-stations', {
+    method: 'POST',
+    body: JSON.stringify(opts),
+  })
+}
+
 export async function updatePhotoStation(
   stationId: string,
   updates: {
@@ -326,6 +352,16 @@ export async function updatePhotoStation(
   return fetchApi(`/api/photo-stations/${stationId}`, {
     method: 'PATCH',
     body: JSON.stringify(updates),
+  })
+}
+
+export async function reusePhotoStationCorners(
+  sessionId: string,
+  stationId: string
+): Promise<ReuseCornersResponse> {
+  return fetchApi(`/api/sessions/${sessionId}/reuse-corners`, {
+    method: 'POST',
+    body: JSON.stringify({ station_id: stationId }),
   })
 }
 

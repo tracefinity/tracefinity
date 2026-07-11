@@ -2,14 +2,15 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Camera, Crop, Loader2, Upload } from 'lucide-react'
+import { Camera, Crop, Loader2, SkipForward, Upload } from 'lucide-react'
 import { Alert } from '@/components/Alert'
 import { CaptureAreaOverlay } from '@/components/CaptureAreaOverlay'
 import { StepBar } from '@/components/StepBar'
-import { getImageUrl, getPhotoStation, getSession, listPhotoStations, uploadImage } from '@/lib/api'
+import { getAvailableKeys, getImageUrl, getPhotoStation, getSession, listPhotoStations, setCorners, traceTools, uploadImage } from '@/lib/api'
 import type { CaptureCrop, PhotoStation } from '@/types'
 
 const STEPS = ['Capture', 'Corners', 'Trace', 'Save']
+const TRACER_PREFERENCE_KEY = 'tracefinity.trace.preferredTracer'
 
 export default function CapturePage() {
   return (
@@ -36,6 +37,7 @@ function CapturePageContent() {
   const existingSessionId = searchParams.get('session')
   const stationParam = searchParams.get('station')
   const stationApplied = searchParams.get('stationApplied') === '1'
+  const fromSaveAndNewLoop = searchParams.get('loop') === '1'
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const mediaWrapperRef = useRef<HTMLDivElement>(null)
@@ -54,6 +56,9 @@ function CapturePageContent() {
   const [starting, setStarting] = useState(false)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [quickProcessing, setQuickProcessing] = useState(false)
+  const [quickStatus, setQuickStatus] = useState<string | null>(null)
+  const [preferredTracer, setPreferredTracer] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const autoStartedRef = useRef(false)
 
@@ -85,7 +90,6 @@ function CapturePageContent() {
       setStarting(false)
     }
   }, [stream])
-
   useEffect(() => {
     if (!stream || !videoRef.current) return
     videoRef.current.srcObject = stream
@@ -148,6 +152,27 @@ function CapturePageContent() {
 
     return () => { cancelled = true }
   }, [selectedStationId])
+
+  useEffect(() => {
+    if (!fromSaveAndNewLoop) {
+      setPreferredTracer(null)
+      return
+    }
+
+    let cancelled = false
+    getAvailableKeys()
+      .then((keys) => {
+        if (cancelled) return
+        const saved = window.localStorage.getItem(TRACER_PREFERENCE_KEY)
+        const available = keys.tracers || []
+        setPreferredTracer(saved && available.some((tracer) => tracer.id === saved) ? saved : null)
+      })
+      .catch(() => {
+        if (!cancelled) setPreferredTracer(null)
+      })
+
+    return () => { cancelled = true }
+  }, [fromSaveAndNewLoop])
 
   useEffect(() => {
     return () => {
@@ -236,17 +261,48 @@ function CapturePageContent() {
     return () => { cancelled = true }
   }, [existingSessionId])
 
-  function traceParams(stationId: string | null) {
+  const canSkipToSave = fromSaveAndNewLoop && Boolean(selectedStationId && preferredTracer)
+
+  function traceParams(stationId: string | null, skipToSave = false) {
     const params = new URLSearchParams({ capture: '1' })
     if (stationId) {
       params.set('station', stationId)
       params.set('stationApplied', '1')
     }
+    if (fromSaveAndNewLoop) params.set('loop', '1')
+    if (skipToSave) params.set('skipToSave', '1')
     return params
   }
 
-  async function uploadFile(file: File) {
+  async function processSessionToSave(sessionId: string, stationId: string) {
+    if (!preferredTracer) throw new Error('Select a tracer before using Skip to Save.')
+
+    setQuickStatus('Preparing corners...')
+    let session = await getSession(sessionId)
+
+    if (!session.corrected_image_path) {
+      if (!session.corners || session.corners.length !== 4 || !session.paper_size) {
+        throw new Error('Station corners were not applied to this photo.')
+      }
+      setQuickStatus('Correcting photo...')
+      await setCorners(sessionId, session.corners, session.paper_size)
+      session = await getSession(sessionId)
+    }
+
+    if (!session.polygons || session.polygons.length === 0) {
+      setQuickStatus('Tracing tools...')
+      await traceTools(sessionId, 'google', undefined, preferredTracer)
+    }
+
+    setQuickStatus('Opening Save...')
+    stream?.getTracks().forEach((track) => track.stop())
+    router.push(`/trace/${sessionId}?${traceParams(stationId, true).toString()}`)
+  }
+
+  async function uploadFile(file: File, skipToSave = false) {
     setUploading(true)
+    setQuickProcessing(skipToSave)
+    setQuickStatus(skipToSave ? 'Uploading photo...' : null)
     setError(null)
     try {
       const uploadCaptureArea = captureArea && !isFullCaptureArea(captureArea)
@@ -257,21 +313,47 @@ function CapturePageContent() {
       const result = await uploadImage(file, selectedStationId, uploadCaptureArea)
       stream?.getTracks().forEach((track) => track.stop())
       const appliedStationId = result.station_id || selectedStationId
+      if (skipToSave) {
+        if (!appliedStationId || result.corner_source !== 'station') {
+          throw new Error('The selected station could not be reused for this photo.')
+        }
+        await processSessionToSave(result.session_id, appliedStationId)
+        return
+      }
 
       const params = new URLSearchParams({ capture: '1' })
       if (appliedStationId) {
         params.set('station', appliedStationId)
         params.set('stationApplied', result.corner_source === 'station' ? '1' : '0')
       }
+      if (fromSaveAndNewLoop) params.set('loop', '1')
       router.push(`/trace/${result.session_id}?${params.toString()}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'upload failed')
     } finally {
       setUploading(false)
+      setQuickProcessing(false)
+      setQuickStatus(null)
     }
   }
 
-  function captureFrame() {
+  async function skipExistingSessionToSave() {
+    if (!existingSessionId || !selectedStationId) return
+    setUploading(true)
+    setQuickProcessing(true)
+    setError(null)
+    try {
+      await processSessionToSave(existingSessionId, selectedStationId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to skip to save')
+    } finally {
+      setUploading(false)
+      setQuickProcessing(false)
+      setQuickStatus(null)
+    }
+  }
+
+  function captureFrame(skipToSave = false) {
     const video = videoRef.current
     if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
       setError('Camera is not ready yet.')
@@ -293,7 +375,7 @@ function CapturePageContent() {
         setError('Could not encode this camera frame.')
         return
       }
-      uploadFile(new File([blob], `tracefinity-camera-${Date.now()}.jpg`, { type: 'image/jpeg' }))
+      uploadFile(new File([blob], `tracefinity-camera-${Date.now()}.jpg`, { type: 'image/jpeg' }), skipToSave)
     }, 'image/jpeg', 0.92)
   }
 
@@ -412,6 +494,17 @@ function CapturePageContent() {
           </div>
 
           <div className="p-3 md:mt-auto space-y-2">
+            {canSkipToSave && (
+              <button
+                type="button"
+                onClick={() => existingSessionId && previewUrl && !stream ? skipExistingSessionToSave() : captureFrame(true)}
+                disabled={uploading || (existingSessionId && previewUrl && !stream ? false : !stream)}
+                className="btn-primary w-full py-2 text-sm inline-flex items-center justify-center gap-1.5"
+              >
+                {quickProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <SkipForward className="w-4 h-4" />}
+                {quickProcessing ? quickStatus || 'Processing...' : 'Skip to Save'}
+              </button>
+            )}
             {previewUrl && existingSessionId && !stream ? (
               <button
                 type="button"
@@ -421,10 +514,11 @@ function CapturePageContent() {
                     params.set('station', selectedStationId)
                     if (stationApplied) params.set('stationApplied', '1')
                   }
+                  if (fromSaveAndNewLoop) params.set('loop', '1')
                   router.push(`/trace/${existingSessionId}?${params.toString()}`)
                 }}
                 disabled={uploading}
-                className="btn-primary w-full py-2 text-sm inline-flex items-center justify-center gap-1.5"
+                className={`${canSkipToSave ? 'btn-secondary' : 'btn-primary'} w-full py-2 text-sm inline-flex items-center justify-center gap-1.5`}
               >
                 Continue to Corners
               </button>
@@ -433,7 +527,7 @@ function CapturePageContent() {
                 type="button"
                 onClick={() => captureFrame()}
                 disabled={!stream || uploading}
-                className="btn-primary w-full py-2 text-sm inline-flex items-center justify-center gap-1.5"
+                className={`${canSkipToSave ? 'btn-secondary' : 'btn-primary'} w-full py-2 text-sm inline-flex items-center justify-center gap-1.5`}
               >
                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
                 {uploading ? 'Uploading...' : 'Capture'}
