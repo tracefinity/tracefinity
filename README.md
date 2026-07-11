@@ -65,6 +65,70 @@ By default, Tracefinity uses [IS-Net](https://github.com/xuebinqin/DIS) for loca
 | `GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-image-preview` | Gemini model for mask generation (see below) |
 | `TOOL_LABEL_PROVIDER` | `none` | Optional automatic tool naming. Set to `ollama` for local vision naming |
 
+### Docker Compose
+
+```yaml
+services:
+  tracefinity:
+    image: ghcr.io/tracefinity/tracefinity
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/storage
+    environment:
+      GOOGLE_API_KEY: your-key  # optional, omit to use local model
+    restart: unless-stopped
+```
+
+```bash
+docker compose up -d
+```
+
+Open http://localhost:3000
+
+### Kubernetes (Helm)
+
+```bash
+helm registry login ghcr.io --username <your-github-username> --password <your-github-token>
+
+helm install tracefinity oci://ghcr.io/tracefinity/charts/tracefinity \
+  --namespace tracefinity \
+  --create-namespace \
+  --set persistence.enabled=true \
+  --set persistence.size=5Gi
+```
+
+To use Gemini instead of the local model:
+
+```bash
+helm install tracefinity oci://ghcr.io/tracefinity/charts/tracefinity \
+  --namespace tracefinity \
+  --create-namespace \
+  --set persistence.enabled=true \
+  --set persistence.size=5Gi \
+  --set env.GOOGLE_API_KEY=your-key
+```
+
+Or with a `values.yaml`:
+
+```yaml
+persistence:
+  enabled: true
+  size: 5Gi
+
+env:
+  GOOGLE_API_KEY: your-key
+```
+
+```bash
+helm install tracefinity oci://ghcr.io/tracefinity/charts/tracefinity \
+  --namespace tracefinity \
+  --create-namespace \
+  -f values.yaml
+```
+
+> **Note:** The local tracing models load at startup and require at least 2GB of memory. Set resource limits accordingly — see [Tracing Modes](#tracing-modes) for per-model RAM requirements.
+
 ### From Source
 
 Prerequisites: Python 3.11+, Node.js 20+, [pnpm](https://pnpm.io/installation)
@@ -98,21 +162,26 @@ When no API key is configured, Tracefinity runs a local salient object detection
 | [BiRefNet Lite](https://github.com/ZhengPeng7/BiRefNet) | ~3.6s | 8GB | Best | Handles reflections and shiny surfaces well |
 | [InSPyReNet](https://github.com/plemeri/InSPyReNet) | ~2.8s | 6GB | Good | Apple Silicon (MPS) support |
 
-Paper corner detection runs [U2-Net Portable](https://github.com/xuebinqin/U-2-Net) alongside the tracer. RAM figures include both models. All models load at startup.
+Paper corner detection runs [U2-Net Portable](https://github.com/xuebinqin/U-2-Net) alongside the tracer. RAM figures include both models. All models load at startup. All local models require ONNX Runtime, which needs **AVX** CPU instructions. On non-AVX CPUs (some older VMs, Atoms), U2-Net is skipped (paper detection falls back to OpenCV-only, less accurate) and local tracers are unavailable. Remote tracers (Gemini, Replicate, fal) work regardless.
 
 **Minimum RAM: 2GB** (IS-Net). BiRefNet Lite needs **8GB**. See [Resource Requirements](docs/resource-requirements.md) for full details including Docker memory limits and platform support.
 
-BiRefNet General is available as an opt-in GPU tracer. For NVIDIA GPU tracing from
-source, install the optional GPU requirements after the default backend
+#### Optional: NVIDIA CUDA acceleration
+
+All local models run on CPU by default. No GPU needed.
+
+If you have an NVIDIA GPU with CUDA, you can optionally enable GPU acceleration
+for faster inference. Install the GPU requirements after the default backend
 requirements, set `TRACERS=birefnet-general,birefnet-lite,isnet`, and set
-`TRACEFINITY_ONNX_PROVIDER=cuda` to require CUDA:
+`TRACEFINITY_ONNX_PROVIDER=cuda`:
 
 ```bash
 pip install -r backend/requirements.txt -r backend/requirements-gpu.txt
 ```
 
 This uses ONNX Runtime GPU for the `rembg` models (`isnet`, `birefnet-lite`,
-`birefnet-general`) and avoids PyTorch CUDA for those tracers.
+`birefnet-general`) and avoids PyTorch CUDA for those tracers. Intel Arc and
+AMD ROCm GPUs are not supported.
 
 See [#21](https://github.com/tracefinity/tracefinity/issues/21) for the benchmark that led to this selection.
 

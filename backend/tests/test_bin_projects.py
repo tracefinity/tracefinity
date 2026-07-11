@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+import app.api.routes as routes
 from app.config import ensure_user_dirs, settings
 from app.main import app
 from app.models.schemas import (
@@ -11,14 +12,13 @@ from app.models.schemas import (
     BinProjectCreateRequest,
     BinProjectToolsRequest,
     BinProjectUpdateRequest,
-    Tool,
     PlacedTool,
+    Tool,
 )
-from app.services.project_service import project_health, project_status, repair_project_links
 from app.services.bin_store import BinStore
+from app.services.project_service import project_health, project_status, repair_project_links
 from app.services.project_store import ProjectStore
 from app.services.tool_store import ToolStore
-import app.api.routes as routes
 
 
 def test_old_project_records_get_defaults():

@@ -55,6 +55,7 @@ def _seed_remote_session(tmp_path, monkeypatch):
 
 def test_trace_remote_provider_error_returns_502(tmp_path, monkeypatch):
     import httpx
+
     import app.services.remote_saliency as rs
     client = _seed_remote_session(tmp_path, monkeypatch)
 

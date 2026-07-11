@@ -1,0 +1,14 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+exclude = [".claude/"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E402", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/*" = ["F401", "F841"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

@@ -1,6 +1,7 @@
 """Tests for auto-rotate optimal angle computation."""
 
 import math
+
 import pytest
 
 from app.services.geometry import optimal_rotation_angle

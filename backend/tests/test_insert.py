@@ -4,8 +4,8 @@ import tempfile
 
 import pytest
 
-from app.services.stl_generator_manifold import ManifoldSTLGenerator
 from app.services.polygon_scaler import ScaledPolygon
+from app.services.stl_generator_manifold import ManifoldSTLGenerator
 
 GF_GRID = 42.0
 

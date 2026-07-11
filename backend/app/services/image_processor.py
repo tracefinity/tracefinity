@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import cv2
 import logging
 import math
-import numpy as np
 from pathlib import Path
+
+import cv2
+import numpy as np
 
 from app.constants import PAPER_SIZES, PaperSize
 
@@ -107,15 +108,22 @@ def pick_paper_orientation(
 
 class ImageProcessor:
     def __init__(self):
-        from rembg import new_session
-        from app.services.ort_runtime import get_onnx_providers
-        logger.info("loading U2-Net Portable for paper detection")
-        self._tool_mask_session = new_session("u2netp", providers=get_onnx_providers())
+        from app.services.onnx_check import is_onnx_available
+
+        if is_onnx_available():
+            from rembg import new_session
+
+            from app.services.ort_runtime import get_onnx_providers
+            logger.info("loading U2-Net Portable for paper detection")
+            self._tool_mask_session = new_session("u2netp", providers=get_onnx_providers())
+        else:
+            logger.warning("U2-Net unavailable (no ONNX runtime), paper detection using OpenCV-only")
+            self._tool_mask_session = None
 
     def _get_tool_mask(self, image_path: str) -> np.ndarray:
         """get a rough tool mask via U2-Net Portable for paper detection."""
-        from rembg import remove
         from PIL import Image
+        from rembg import remove
 
         img = Image.open(image_path).convert("RGB")
         result = remove(img, session=self._tool_mask_session)
@@ -124,13 +132,14 @@ class ImageProcessor:
         return mask
 
     def detect_paper_corners(self, image_path: str) -> list[tuple[float, float]] | None:
-        """detect paper corners by masking out tools first."""
+        """detect paper corners, masking out tools when U2-Net is available."""
         img = cv2.imread(image_path)
         if img is None:
             return None
 
-        tool_mask = self._get_tool_mask(image_path)
-        img[tool_mask > 0] = [0, 0, 0]
+        if self._tool_mask_session is not None:
+            tool_mask = self._get_tool_mask(image_path)
+            img[tool_mask > 0] = [0, 0, 0]
 
         return self._detect_paper(img)
 
@@ -234,7 +243,7 @@ class ImageProcessor:
                 logger.debug("paper candidate rejected: fill_ratio=%.2f at thresh=%d", fill_ratio, thresh_val)
                 continue
 
-            # check aspect ratio is paper-like (A-series=0.707, Letter=0.77, Tabloid=0.65)
+            # check aspect ratio is paper-like (A4/A3=0.707, Letter=0.773, Tabloid=0.647)
             rect_w, rect_h = rect[1]
             if rect_w == 0 or rect_h == 0:
                 continue

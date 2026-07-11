@@ -11,10 +11,10 @@ import stat
 
 import pytest
 
-from app.services.tool_store import ToolStore
 from app.services.bin_store import BinStore
-from app.services.session_store import SessionStore
 from app.services.project_store import ProjectStore
+from app.services.session_store import SessionStore
+from app.services.tool_store import ToolStore
 
 # DrawerStore excluded: DrawerModel doesn't exist in schemas (dead code)
 
@@ -119,7 +119,7 @@ class TestNormalLoad:
 
 def _seed_data(store_cls):
     """minimal valid record for each store type."""
-    from app.models.schemas import Tool, BinModel, Session, BinProject
+    from app.models.schemas import BinModel, BinProject, Session, Tool
 
     if store_cls is ToolStore:
         return Tool(id="item-1", name="test", points=[{"x": 0, "y": 0}, {"x": 1, "y": 0}, {"x": 1, "y": 1}]).model_dump()

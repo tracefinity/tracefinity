@@ -23,3 +23,15 @@ Decisions that guide contributions. Read this before opening a PR.
 
 - **Atomic data operations.** Anything that replaces user data must be atomic (swap, not clear-then-copy). Partial failure must not lose data.
 - **Single source of truth for config.** Use pydantic-settings. Don't read env vars directly alongside Settings.
+
+## Linting
+
+Run `make lint` before submitting a PR. CI enforces the same checks on all PRs and pushes to main.
+
+| Layer | Tool | Config |
+|-|-|
+| Python | [ruff](https://docs.astral.sh/ruff/) | `pyproject.toml` -- E/F/W/I rules, E402+E501 ignored |
+| TypeScript | ESLint + `eslint-config-next` | `frontend/eslint.config.mjs` |
+| Types | `tsc --noEmit` | `frontend/tsconfig.json` |
+
+Targets: `make lint-backend`, `make lint-frontend`, `make lint-fix` (auto-fix where possible).

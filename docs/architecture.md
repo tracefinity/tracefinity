@@ -1,7 +1,7 @@
 # Architecture
 
 ## Backend (Python/FastAPI)
-- Image upload with model-assisted paper corner detection (U2-Net Portable + OpenCV)
+- Image upload with model-assisted paper corner detection (U2-Net Portable + OpenCV; falls back to OpenCV-only on non-AVX CPUs where ONNX is unavailable)
 - Perspective correction using user-adjusted corners (portrait + landscape)
 - Tool tracing via local models (BiRefNet Lite, IS-Net, InSPyReNet) or Gemini API
 - Optional automatic tool naming from traced polygon crops through Ollama

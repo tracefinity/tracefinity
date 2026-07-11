@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Settings } from 'lucide-react'
-import { getSettings, saveSettings } from '@/lib/settings'
+import { BED_SIZE_MAX_MM, BED_SIZE_MIN_MM, getSettings, saveSettings } from '@/lib/settings'
 import { IconButton } from '@/components/IconButton'
 import { NumericInput } from '@/components/NumericInput'
 
@@ -31,7 +31,7 @@ export function SettingsPopover() {
     saveSettings({ bedSize: v })
   }
 
-  const pct = ((bedSize - 150) / (400 - 150)) * 100
+  const pct = ((bedSize - BED_SIZE_MIN_MM) / (BED_SIZE_MAX_MM - BED_SIZE_MIN_MM)) * 100
 
   return (
     <div ref={ref} className="relative">
@@ -50,8 +50,8 @@ export function SettingsPopover() {
             <div className="flex items-center gap-2">
               <input
                 type="range"
-                min={150}
-                max={400}
+                min={BED_SIZE_MIN_MM}
+                max={BED_SIZE_MAX_MM}
                 step={1}
                 value={bedSize}
                 onChange={(e) => handleBedSizeChange(parseInt(e.target.value))}
@@ -60,8 +60,8 @@ export function SettingsPopover() {
               />
               <div className="flex items-center gap-1">
                 <NumericInput
-                  min={150}
-                  max={400}
+                  min={BED_SIZE_MIN_MM}
+                  max={BED_SIZE_MAX_MM}
                   step={1}
                   value={bedSize}
                   onChange={handleBedSizeChange}

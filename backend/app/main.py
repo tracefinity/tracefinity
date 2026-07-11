@@ -1,23 +1,14 @@
 import logging
-import os
+from posixpath import normpath
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from posixpath import normpath
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
 from app.config import settings
-
-# refuse to start without PROXY_SECRET unless explicitly opted out for local dev
-_dev_mode = os.environ.get("DEVELOPMENT_MODE", "").lower() in ("1", "true", "yes")
-if not settings.proxy_secret and not _dev_mode:
-    raise RuntimeError(
-        "PROXY_SECRET must be set in production. "
-        "Set DEVELOPMENT_MODE=1 to disable auth for local development."
-    )
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 LOG_DATEFMT = "%H:%M:%S"

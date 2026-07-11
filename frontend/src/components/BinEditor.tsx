@@ -14,9 +14,12 @@ interface Props {
   onTextLabelsChange: (labels: TextLabel[]) => void
   gridX: number
   gridY: number
+  partialBins: boolean
+  partialBinsValues: boolean[]
   wallThickness: number
   defaultCutoutDepth: number
   maxCutoutDepth: number
+  halfGridBase?: boolean
   onEditTool?: (toolId: string) => void
   smoothedToolIds?: Set<string>
   onToggleSmoothed?: (toolId: string, smoothed: boolean) => void
@@ -47,9 +50,12 @@ export function BinEditor({
   onTextLabelsChange,
   gridX,
   gridY,
+  partialBins,
+  partialBinsValues,
   wallThickness,
   defaultCutoutDepth,
   maxCutoutDepth,
+  halfGridBase,
   onEditTool,
   smoothedToolIds,
   onToggleSmoothed,
@@ -61,7 +67,7 @@ export function BinEditor({
   const [selection, setSelection] = useState<Selection>(null)
   const [activeTool, setActiveTool] = useState<Tool>('select')
   const [dragging, setDragging] = useState<DragState>(null)
-  const [snapEnabled, setSnapEnabled] = useState(true)
+  const [snapEnabled, setSnapEnabled] = useState(false)
   const [snapGrid, setSnapGrid] = useState(SNAP_GRID)
   const [pendingLabel, setPendingLabel] = useState<{ x: number; y: number } | null>(null)
   const [pendingText, setPendingText] = useState('')
@@ -539,6 +545,8 @@ export function BinEditor({
         displayHeight={displayHeight}
         gridX={gridX}
         gridY={gridY}
+        partialBins={partialBins}
+        partialBinsValues={partialBinsValues}
         wallThickness={wallThickness}
         placedTools={placedTools}
         selection={selection}
@@ -554,6 +562,7 @@ export function BinEditor({
         binWidthMm={binWidthMm}
         binHeightMm={binHeightMm}
         defaultCutoutDepth={defaultCutoutDepth}
+        halfGridBase={halfGridBase}
         handleR={handleR}
         handleStroke={handleStroke}
         handleOffset={handleOffset}

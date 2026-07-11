@@ -16,7 +16,7 @@ Gridfinity is a modular storage system where bins snap into a baseplate grid. Ea
 | Magnet depth | 1-5mm | 2.4mm | Slightly deeper than magnet for press-fit |
 | Insert height | 0.5-10mm | 1.0mm | Only shown when insert is enabled |
 | Insert fit | 0-1mm | 0.2mm | Clearance shaved off insert edges so it drops into the pocket |
-| Bed size | 150-400mm | 256mm | For auto-splitting oversized bins |
+| Bed size | 150-500mm | 256mm | For auto-splitting oversized bins |
 
 ## Toggles
 
@@ -29,6 +29,12 @@ Gridfinity is a modular storage system where bins snap into a baseplate grid. Ea
 **Raise lip** -- extends the wall and stacking lip upward by this many units (7mm each) above the floor face, leaving the interior open. Use it for shallow bins where a tool protrudes above the floor: the raised lip lets a stacked bin clear the protruding tool. 0 = standard (lip sits at the floor face). Shown only when the stacking lip is on.
 
 **Contrast insert** -- generates a separate STL to print in a different colour. The pocket is deepened automatically to accommodate the insert thickness.
+
+**Partial Bins** -- disables individual grid cells, removing them from the shell.
+
+**Connect Base** -- disabled cells keep the base plate connected instead of being fully removed.
+
+**Retain outer wall** -- keeps the outer bin wall around the full perimeter when connect base is on.
 
 ## Auto grid sizing
 
@@ -43,9 +49,13 @@ Defaults can be saved at two levels:
 
 Use "Save as defaults" to capture the current bin config. Use "Reset defaults" to restore factory settings (2x2 grid, 4u height, magnets on, stacking lip on).
 
+## Partial Bins
+
+The partial bins option allows you to disable individual parts of the Gridfinity box to save filament. By using a matrix that matches the grid width * grid depth, specific parts of the box can be enabled or disabled.
+
 ## Bed splitting
 
-If the bin dimensions exceed your configured bed size, Tracefinity automatically splits it into printable pieces. You get:
+If the bin dimensions exceed your configured bed size or the bin model is separated by the partial bins configuration, Tracefinity automatically splits it into printable pieces. You get:
 
 - Individual STLs for each piece (also available as a ZIP).
 - The full merged STL for large-format printers.

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, field_validator
-from typing import Literal, Optional
+from typing import Literal
+
+from pydantic import BaseModel, field_validator, model_validator
 
 from app.constants import PaperSize
 
@@ -74,15 +75,15 @@ class PolygonsRequest(BaseModel):
 
 
 class BinParams(BaseModel):
-    grid_x: int = 2
-    grid_y: int = 2
+    grid_x: float = 2
+    grid_y: float = 2
     height_units: int = 4
     magnets: bool = True
     magnet_diameter: float = 6.0
     magnet_depth: float = 2.4
     magnet_corners_only: bool = False
     stacking_lip: bool = True
-    rim_units: int = 0  # extra height units (×7mm) the wall/lip rises above the floor face
+    rim_units: int = 0  # extra height units (x7mm) the wall/lip rises above the floor face
     wall_thickness: float = 1.6
     cutout_depth: float = 20.0
     cutout_clearance: float = 1.0
@@ -90,12 +91,33 @@ class BinParams(BaseModel):
     insert_height: float = 1.0
     insert_clearance: float = 0.2  # mm shaved off the insert so it fits the pocket
     cutout_chamfer: float = 0.0
+    half_grid_base: bool = False  # use 21mm half-grid cells for the bottom baseplate
+    partial_bins: bool = False
+    partial_bins_values: list[bool] = []
+    partial_bins_connect: bool = False
+    partial_bins_retain_wall: bool = False
+
+    @model_validator(mode="after")
+    def normalize_partial_bins_values(self) -> "BinParams":
+        import math
+
+        expected = math.ceil(self.grid_x) * math.ceil(self.grid_y)
+        if len(self.partial_bins_values) != expected:
+            self.partial_bins_values = [True] * expected
+        if not self.partial_bins_connect:
+            self.partial_bins_retain_wall = False
+        if self.partial_bins and not any(self.partial_bins_values):
+            raise ValueError("at least one grid cell must remain enabled when partial bins is on")
+        return self
 
     @field_validator("grid_x", "grid_y")
     @classmethod
-    def validate_grid(cls, v: int) -> int:
+    def validate_grid(cls, v: float) -> float:
         if v < 1 or v > 10:
             raise ValueError("grid size must be between 1 and 10")
+        # must be a multiple of 0.5
+        if v * 2 != int(v * 2):
+            raise ValueError("grid size must be a multiple of 0.5")
         return v
 
     @field_validator("height_units")
@@ -153,6 +175,12 @@ class BinParams(BaseModel):
         if v < 0.4 or v > 5:
             raise ValueError("wall thickness must be between 0.4 and 5mm")
         return v
+
+    @model_validator(mode="after")
+    def half_grid_disables_magnets(self) -> "BinParams":
+        if self.half_grid_base:
+            self.magnets = False
+        return self
 
 
 class BinDefaults(BinParams):
@@ -322,12 +350,23 @@ class BinProject(BaseModel):
     status: ProjectStatus = "active"
     tool_ids: list[str] = []
     bin_ids: list[str] = []
-    target_grid_x: int | None = None
-    target_grid_y: int | None = None
+    target_grid_x: float | None = None
+    target_grid_y: float | None = None
     default_bin_config: BinDefaults | None = None
     notes: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
+
+    @field_validator("target_grid_x", "target_grid_y")
+    @classmethod
+    def validate_target_grid(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if v < 1 or v > 10:
+            raise ValueError("grid size must be between 1 and 10")
+        if v * 2 != int(v * 2):
+            raise ValueError("grid size must be a multiple of 0.5")
+        return v
 
 class BinProjectDetail(BinProject):
     placed_tool_ids: list[str] = []
@@ -343,8 +382,8 @@ class BinProjectSummary(BaseModel):
     bin_count: int = 0
     placed_count: int = 0
     unplaced_count: int = 0
-    target_grid_x: int | None = None
-    target_grid_y: int | None = None
+    target_grid_x: float | None = None
+    target_grid_y: float | None = None
     created_at: str | None = None
     updated_at: str | None = None
 
@@ -357,21 +396,43 @@ class BinProjectCreateRequest(BaseModel):
     name: str
     description: str | None = None
     status: ProjectStatus = "active"
-    target_grid_x: int | None = None
-    target_grid_y: int | None = None
+    target_grid_x: float | None = None
+    target_grid_y: float | None = None
     default_bin_config: BinDefaults | None = None
     notes: str | None = None
     tool_ids: list[str] = []
+
+    @field_validator("target_grid_x", "target_grid_y")
+    @classmethod
+    def validate_target_grid(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if v < 1 or v > 10:
+            raise ValueError("grid size must be between 1 and 10")
+        if v * 2 != int(v * 2):
+            raise ValueError("grid size must be a multiple of 0.5")
+        return v
 
 
 class BinProjectUpdateRequest(BaseModel):
     name: str | None = None
     description: str | None = None
     status: ProjectStatus | None = None
-    target_grid_x: int | None = None
-    target_grid_y: int | None = None
+    target_grid_x: float | None = None
+    target_grid_y: float | None = None
     default_bin_config: BinDefaults | None = None
     notes: str | None = None
+
+    @field_validator("target_grid_x", "target_grid_y")
+    @classmethod
+    def validate_target_grid(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if v < 1 or v > 10:
+            raise ValueError("grid size must be between 1 and 10")
+        if v * 2 != int(v * 2):
+            raise ValueError("grid size must be a multiple of 0.5")
+        return v
 
 
 class BinProjectToolsRequest(BaseModel):
@@ -446,8 +507,8 @@ class BinSummary(BaseModel):
     tool_ids: list[str] = []
     tool_count: int
     has_stl: bool
-    grid_x: int = 2
-    grid_y: int = 2
+    grid_x: float = 2
+    grid_y: float = 2
     preview_tools: list[BinPreviewTool] = []
 
 

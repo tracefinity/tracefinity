@@ -20,6 +20,8 @@ interface Props {
   displayHeight: number
   gridX: number
   gridY: number
+  partialBins: boolean
+  partialBinsValues: boolean[]
   wallThickness: number
   placedTools: PlacedTool[]
   selection: Selection
@@ -34,6 +36,7 @@ interface Props {
   binWidthMm: number
   binHeightMm: number
   defaultCutoutDepth: number
+  halfGridBase?: boolean
   // handle sizing
   handleR: number
   handleStroke: number
@@ -65,6 +68,8 @@ export function BinEditorCanvas({
   displayHeight,
   gridX,
   gridY,
+  partialBins,
+  partialBinsValues,
   wallThickness,
   placedTools,
   selection,
@@ -79,6 +84,7 @@ export function BinEditorCanvas({
   binWidthMm,
   binHeightMm,
   defaultCutoutDepth,
+  halfGridBase,
   handleR,
   handleStroke,
   handleOffset,
@@ -114,24 +120,61 @@ export function BinEditorCanvas({
           onClick={handleBackgroundClick}
         >
           <rect x="0" y="0" width={displayWidth} height={displayHeight} fill="rgb(30, 41, 59)" rx="4" />
-          {Array.from({ length: gridX + 1 }).map((_, i) => (
-            <line
-              key={`v${i}`}
-              x1={i * GRID_UNIT * DISPLAY_SCALE} y1={0}
-              x2={i * GRID_UNIT * DISPLAY_SCALE} y2={displayHeight}
-              stroke="rgba(255,255,255,0.1)" strokeWidth={1}
-              strokeDasharray={i === 0 || i === gridX ? undefined : '4,4'}
-            />
-          ))}
-          {Array.from({ length: gridY + 1 }).map((_, i) => (
-            <line
-              key={`h${i}`}
-              x1={0} y1={i * GRID_UNIT * DISPLAY_SCALE}
-              x2={displayWidth} y2={i * GRID_UNIT * DISPLAY_SCALE}
-              stroke="rgba(255,255,255,0.1)" strokeWidth={1}
-              strokeDasharray={i === 0 || i === gridY ? undefined : '4,4'}
-            />
-          ))}
+          {/* full-grid lines at every 0.5-unit step up to gridX */}
+          {Array.from({ length: Math.floor(gridX * 2) + 1 }).map((_, i) => {
+            const pos = i * 0.5
+            const isBoundary = pos === 0 || pos === gridX
+            const isFullUnit = Number.isInteger(pos)
+            if (!isBoundary && !isFullUnit && !halfGridBase) return null
+            return (
+              <line
+                key={`v${i}`}
+                x1={pos * GRID_UNIT * DISPLAY_SCALE} y1={0}
+                x2={pos * GRID_UNIT * DISPLAY_SCALE} y2={displayHeight}
+                stroke={isFullUnit ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)'}
+                strokeWidth={1}
+                strokeDasharray={isBoundary ? undefined : '4,4'}
+              />
+            )
+          })}
+          {Array.from({ length: Math.floor(gridY * 2) + 1 }).map((_, i) => {
+            const pos = i * 0.5
+            const isBoundary = pos === 0 || pos === gridY
+            const isFullUnit = Number.isInteger(pos)
+            if (!isBoundary && !isFullUnit && !halfGridBase) return null
+            return (
+              <line
+                key={`h${i}`}
+                x1={0} y1={pos * GRID_UNIT * DISPLAY_SCALE}
+                x2={displayWidth} y2={pos * GRID_UNIT * DISPLAY_SCALE}
+                stroke={isFullUnit ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)'}
+                strokeWidth={1}
+                strokeDasharray={isBoundary ? undefined : '4,4'}
+              />
+            )
+          })}
+
+          {/* disabled partial-bin cells */}
+          {partialBins && Array.from({ length: gridY }).map((_, iy) =>
+              Array.from({ length: gridX }).map((_, ix) => {
+                  const enabled = partialBinsValues[iy * gridX + ix] ?? true;
+                  if (enabled) return null;
+                  const cell = GRID_UNIT * DISPLAY_SCALE;
+                  return (
+                      <rect
+                          key={`partial-off-${ix}-${iy}`}
+                          x={ix * cell}
+                          y={iy * cell}
+                          width={cell}
+                          height={cell}
+                          fill="rgba(239, 68, 68, 0.22)"
+                          stroke="rgba(239, 68, 68, 0.1)"
+                          strokeWidth={1}
+                          className="pointer-events-none"
+                      />
+                  );
+              }),
+          )}
 
           {/* wall inset boundary */}
           {(() => {

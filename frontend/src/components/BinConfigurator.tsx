@@ -3,6 +3,10 @@
 import { Info } from 'lucide-react'
 import type { BinConfig } from '@/types'
 import { NumericInput } from '@/components/NumericInput'
+import { createPartialBinsValues } from '@/lib/binDefaults'
+import { BED_SIZE_MAX_MM, BED_SIZE_MIN_MM } from '@/lib/settings'
+import { cn } from '@/lib/utils'
+import { ClassValue } from 'clsx'
 
 const GF_HEIGHT_UNIT = 7.0
 const GF_BASE_HEIGHT = 4.75
@@ -33,15 +37,16 @@ function HelpTip({ text }: { text: string }) {
   )
 }
 
-function Toggle({ checked, onChange, label, help }: { checked: boolean; onChange: (v: boolean) => void; label: string; help?: string }) {
+function Toggle({ checked, onChange, label, help, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; help?: string; disabled?: boolean }) {
   return (
-    <div className="relative flex items-center justify-between py-2">
+    <div className={`relative flex items-center justify-between py-2 ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
       <span className="text-xs text-text-primary tracking-[0.3px]">
         {label}
         {help && <HelpTip text={help} />}
       </span>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => onChange(!checked)}
         className={`relative inline-flex h-5 w-9 items-center rounded transition-colors ${
           checked ? 'bg-accent' : 'bg-elevated'
@@ -125,6 +130,28 @@ function SliderRow({
   )
 }
 
+function RadioMatrix({ sizeX, sizeY, values, onChange }: { sizeX: number; sizeY: number; values: boolean[]; onChange: (v: boolean[]) => void }) {
+  let containerClasses: ClassValue = "gap-1 p-1 mx-1 rounded-md w-1/3";
+  if (sizeX > 1) containerClasses = "gap-1 p-1 mx-1 rounded-sm w-1/2";
+  if (sizeX > 2) containerClasses = "gap-1 p-1 mx-1 rounded-sm";
+  if (sizeX > 4) containerClasses = "gap-px p-0 mx-0 rounded-sm";
+
+  return (
+      <div className={cn("grid bg-base p-2 mx-2 rounded-md", containerClasses)} style={{ gridTemplateColumns: `repeat(${sizeX}, 1fr)`, gridTemplateRows: `repeat(${sizeY}, 1fr)` }}>
+          {values.map((value, index) => (
+              <button
+                  key={index}
+                  onClick={() => {
+                      if (value && values.filter(Boolean).length <= 1) return;
+                      onChange(values.map((v, i) => (i === index ? !v : v)));
+                  }}
+                  className={cn("w-full border-2 aspect-square border-muted min-w-3", value ? "bg-accent border-accent" : "bg-elevated border-muted", sizeX > 4 ? "rounded-[2px]" : "rounded-sm")}
+              ></button>
+          ))}
+      </div>
+  );
+}
+
 export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }: Props) {
   function update(partial: Partial<BinConfig>) {
     onChange({ ...config, ...partial })
@@ -134,6 +161,7 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
   const binWidth = config.grid_x * 42
   const binDepth = config.grid_y * 42
   const needsSplit = config.bed_size > 0 && (binWidth > config.bed_size || binDepth > config.bed_size)
+  const exportsSeparateParts = config.partial_bins && !config.partial_bins_connect && config.partial_bins_values.some((enabled) => !enabled);
 
   return (
     <div className="space-y-0">
@@ -148,23 +176,35 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
 
       <SliderRow
         label="Grid Width"
-        help="Bin width in gridfinity units. Each unit is 42mm."
+        help="Bin width in gridfinity units (42mm each). Half-unit increments (21mm) supported."
         value={config.grid_x}
         min={1}
         max={10}
+        step={0.5}
         unit="u"
-        onChange={(v) => update({ grid_x: v })}
+        onChange={(v) =>
+          update({
+              grid_x: v,
+              partial_bins_values: createPartialBinsValues(v, config.grid_y),
+          })
+        }
         disabled={autoSize}
       />
 
       <SliderRow
         label="Grid Depth"
-        help="Bin depth in gridfinity units. Each unit is 42mm."
+        help="Bin depth in gridfinity units (42mm each). Half-unit increments (21mm) supported."
         value={config.grid_y}
         min={1}
         max={10}
+        step={0.5}
         unit="u"
-        onChange={(v) => update({ grid_y: v })}
+        onChange={(v) =>
+          update({
+              grid_y: v,
+              partial_bins_values: createPartialBinsValues(config.grid_x, v),
+          })
+        }
         disabled={autoSize}
       />
 
@@ -216,12 +256,24 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
 
       <div className="border-t border-border mt-2 pt-1">
         <Toggle
-          checked={config.magnets}
+          checked={config.half_grid_base}
+          onChange={(v) => update({ half_grid_base: v, ...(v ? { magnets: false } : {}) })}
+          label="Half-grid base"
+          help="Use 21mm half-grid cells on the baseplate instead of standard 42mm. Gives finer positioning on the baseplate."
+        />
+        <Toggle
+          checked={config.magnets && !config.half_grid_base}
           onChange={(v) => update({ magnets: v })}
           label="Magnet holes"
           help="Holes in the base for magnets. Keeps bins locked to the baseplate."
+          disabled={config.half_grid_base}
         />
-        {config.magnets && (
+        {config.half_grid_base && (
+          <p className="text-[11px] text-text-muted mt-0.5 leading-tight pl-0.5">
+            Magnet holes are not compatible with half-grid base cells
+          </p>
+        )}
+        {config.magnets && !config.half_grid_base && (
           <div className="pl-3 border-l border-border-subtle ml-1 space-y-0">
             <SliderRow
               label="Diameter"
@@ -253,7 +305,11 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
           checked={config.stacking_lip}
           onChange={(v) => {
             const newMax = calcMaxCutoutDepth(config.height_units, v)
-            update({ stacking_lip: v, cutout_depth: Math.min(config.cutout_depth, newMax) })
+            update({
+              stacking_lip: v,
+              rim_units: v ? config.rim_units : 0,
+              cutout_depth: Math.min(config.cutout_depth, newMax),
+            })
           }}
           label="Stacking lip"
           help="Raised rim at the top so bins can stack securely on top of each other."
@@ -308,8 +364,8 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
           label="Bed Size"
           help="Print bed size. Bins wider than this are automatically split into pieces."
           value={config.bed_size}
-          min={150}
-          max={400}
+          min={BED_SIZE_MIN_MM}
+          max={BED_SIZE_MAX_MM}
           step={1}
           unit="mm"
           onChange={(v) => update({ bed_size: v })}
@@ -322,6 +378,45 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
             {' \u2014 will be split'}
           </div>
         )}
+      </div>
+
+      <div className="border-t border-border mt-2 pt-1">
+          <Toggle
+              checked={config.partial_bins}
+              onChange={(v) =>
+                  update({
+                      partial_bins: v,
+                      ...(!v ? { partial_bins_connect: false, partial_bins_retain_wall: false } : {}),
+                  })
+              }
+              label="Partial Bins"
+              help="Print only parts of the bin that are needed to hold the tools."
+          />
+          {config.partial_bins && (
+              <div className="pl-3 border-l border-border-subtle ml-1 space-y-0">
+                  <RadioMatrix sizeX={Math.ceil(config.grid_x)} sizeY={Math.ceil(config.grid_y)} values={config.partial_bins_values} onChange={(v) => update({ partial_bins_values: v })} />
+                  <Toggle
+                      checked={config.partial_bins_connect}
+                      onChange={(v) =>
+                          update({
+                              partial_bins_connect: v,
+                              ...(!v ? { partial_bins_retain_wall: false } : {}),
+                          })
+                      }
+                      label="Connect base"
+                      help="Remove walls in disabled cells, bridge them with a thin base plate, and keep one connected print."
+                  />
+                  {config.partial_bins_connect && (
+                      <Toggle
+                          checked={config.partial_bins_retain_wall}
+                          onChange={(v) => update({ partial_bins_retain_wall: v })}
+                          label="Retain outer wall"
+                          help="Keep the bin perimeter wall through disabled cells while still connecting them on the base."
+                      />
+                  )}
+                  {exportsSeparateParts && <div className="text-[11px] text-amber-400 mt-1 leading-tight">Disconnected pieces {"\u2014"} export includes a ZIP with one STL per part</div>}
+              </div>
+          )}
       </div>
     </div>
   )

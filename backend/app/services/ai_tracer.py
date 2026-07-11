@@ -3,14 +3,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import uuid
 import tempfile
+import uuid
 from pathlib import Path
 
 import cv2
 import numpy as np
 
-from app.models.schemas import Polygon, Point
+from app.models.schemas import Point, Polygon
 from app.services.tracer_registry import (
     GPU_REQUIRED_TRACERS,
     LOCAL_MODEL_LABELS,
@@ -18,7 +18,6 @@ from app.services.tracer_registry import (
     REMOTE_TRACERS,
     TRACER_LABELS,
 )
-
 
 # gemini-3-pro respects output dimensions precisely, so a direct
 # "create a mask" instruction works and alignment is trivial.
@@ -164,7 +163,14 @@ class AITracer:
             return
         label = LOCAL_MODEL_LABELS.get(name, name)
         if name in REMBG_MODELS:
+            from app.services.onnx_check import is_onnx_available
+            if not is_onnx_available():
+                raise RuntimeError(
+                    f"local tracer '{name}' requires ONNX runtime but this CPU "
+                    "lacks AVX support. Use a remote tracer (gemini/replicate/fal) instead."
+                )
             from rembg import new_session
+
             from app.services.ort_runtime import get_onnx_providers
             providers = get_onnx_providers(require_gpu=name in GPU_REQUIRED_TRACERS)
             logging.info("loading %s via rembg with providers: %s", label, providers)
@@ -172,8 +178,8 @@ class AITracer:
             logging.info("%s actual ONNX providers: %s", label, session.inner_session.get_providers())
             self._saliency_backend = ("rembg", session)
         elif name == "inspyrenet":
-            from transparent_background import Remover
             import torch
+            from transparent_background import Remover
             device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
             logging.info("loading %s on %s", label, device)
             self._saliency_backend = ("inspyrenet", Remover(mode="base", device=device))
@@ -232,6 +238,7 @@ class AITracer:
     async def _saliency_remote(self, pil_img, cfg):
         """post the crop to a hosted model, return foreground mask (fg=255)."""
         import io
+
         from app.services.remote_saliency import remote_saliency_mask
         buf = io.BytesIO()
         pil_img.convert("RGB").save(buf, format="PNG")
@@ -349,6 +356,7 @@ class AITracer:
     async def _mask_via_openrouter(self, image_bytes: bytes, mime_type: str, prompt: str) -> bytes | None:
         """call openrouter chat completions with image modality."""
         import base64
+
         import httpx
 
         b64 = base64.b64encode(image_bytes).decode()
@@ -667,6 +675,7 @@ class AITracer:
 
     async def _text_via_openrouter(self, image_bytes: bytes, mime_type: str, prompt: str) -> str:
         import base64
+
         import httpx
 
         b64 = base64.b64encode(image_bytes).decode()

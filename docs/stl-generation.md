@@ -17,6 +17,7 @@ STL generation uses manifold3d (mesh booleans, 10-100x faster than OCCT B-rep). 
 
 ```
 GRID_UNIT = 42.0mm
+HALF_GRID_UNIT = 21.0mm
 HEIGHT_UNIT = 7.0mm
 BASE_HEIGHT = 4.75mm (three tapered layers: 2.15 + 1.8 + 0.8)
 STACKING_LIP = 4.4mm (above wall top: 1.9 + 1.8 + 0.7)
@@ -25,6 +26,46 @@ MAGNET_DIAMETER = 6.0mm
 MAGNET_DEPTH = 2.4mm
 MAGNET_SPACING = 26mm (centre-to-centre, 4 per cell)
 ```
+
+## Half-grid support
+
+Bin dimensions accept 0.5-unit increments (e.g. 3.5x2.5 = 147x105mm). Half-unit trailing cells use 21mm base units. `half_grid_base` generates all base cells at 21mm for finer baseplate positioning. Magnets are placed only on full 42mm cells.
+
+## Partial bins
+
+Optional per-cell shell trimming controlled by `partial_bins`, `partial_bins_values`, `partial_bins_connect`, and `partial_bins_retain_wall` on `BinParams` / `GenerateRequest`. The shell is always built for the full grid first; partial-bin logic runs after lip features and before pocket/magnet/text cutters.
+
+### Cell mask
+
+- `partial_bins_values` is a row-major boolean array of length `ceil(grid_x) * ceil(grid_y)`, matching the UI matrix (row 0 = top). Fractional grid sizes use the same ceil counts as half-grid support.
+- `_cell_enabled(ix, iy)` returns true when partial bins is off, or when the mask entry is true.
+- At least one cell must stay enabled; the API rejects an all-false mask.
+
+### Cut mode (`partial_bins_connect = false`)
+
+Disabled cells are removed with full-height 42×42mm cutters (`_make_disabled_cell_cutters`) from below the bin top through the base. Adjacent enabled cells that share an edge stay one connected manifold volume; separated islands are exported individually (see below). Bed splitting uses the bounding span of **enabled** cells only (`_effective_grid_span`).
+
+### Connect mode (`partial_bins_connect = true`)
+
+Disabled cells keep base geometry but lose walls and lip above `BASE_HEIGHT`:
+
+1. **Wall cutters** (`_make_connect_mode_cell_cutters`) subtract everything from `BASE_HEIGHT` up to the bin top in each disabled cell.
+2. **Stability plates** (`_make_connect_mode_stability_plates`) add a 5.8mm floor bridge (`PARTIAL_BIN_CONNECT_PLATE_MM = 6.0 - 0.2`) at `z = BASE_HEIGHT` across each disabled region. Plates extend half a grid unit into neighbouring enabled cells for adhesion.
+
+**Retain outer wall** (`partial_bins_retain_wall`, only valid with connect mode): wall cutters are inset from the bin perimeter by `LIP_D0 + LIP_D2` (~2.6mm) so the outer shell strip survives through disabled edge cells.
+
+Magnet holes use `_cell_retains_base`: holes are placed in enabled cells **and** in disabled cells that still have connect-base geometry, so magnets can sit under bridged regions.
+
+Bed splitting uses the **full** `grid_x` / `grid_y` footprint when connect mode is on, because the printed part spans the entire grid.
+
+### Export and splitting
+
+`export_split_parts` chooses the export path:
+
+1. **Disconnected partial bins** (partial bins on, connect off, at least one disabled cell): `export_separated_parts` decomposes the finished manifold into one STL per connected volume, packaged as a ZIP alongside the merged STL.
+2. **Bed-size split** (otherwise, when `bed_size > 0` and the diagonal-fit check fails): `split_bin` cuts along grid planes as for a normal oversized bin.
+
+The 3D preview receives split URLs for both cases.
 
 ## Base geometry (per cell, reverse-engineered from gridfinity-build123d)
 
@@ -48,6 +89,8 @@ grid_units = ceil((tool_dimension + 2*wall + 2*clearance + 0.5) / 42)
 ## Bin Splitting
 
 Large bins are split along grid boundaries using manifold3d `split_by_plane`. Diagonal fit check: `(W + H) / sqrt(2) <= bed_size`. Split parts exported as ZIP.
+
+With partial bins in cut mode, separated islands are exported via `decompose` instead of plane cuts when connect mode is off. With connect mode on, bed splitting measures against the full grid size. See **Partial bins** above.
 
 ## 3MF Export
 

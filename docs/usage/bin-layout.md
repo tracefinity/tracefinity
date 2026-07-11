@@ -14,7 +14,7 @@ The tool library strip shows all available tools (filtered to the current projec
 
 Click a placed tool to select it. Drag to reposition. The toolbar updates to show options for the selected tool.
 
-Snap is on by default (5mm grid). Toggle it with the **Snap** button in the floating toolbar.
+Snap is off by default (5mm grid when enabled). Toggle it with the **Snap** button in the floating toolbar.
 
 ## Rotating tools
 
@@ -81,6 +81,7 @@ The sidebar controls all bin parameters:
 | Contrast Insert | Generates a separate insert STL for two-colour printing. |
 | Insert Height | Thickness of the insert piece. |
 | Bed Size | Print bed dimension. Bins exceeding this are split automatically. |
+| Partial Bins | Disable individual grid cells in the bin. |
 
 **Save as default** stores the current settings for all new bins. **Reset** restores factory defaults.
 

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from pydantic_settings import BaseSettings
 from pathlib import Path
 from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 from app.services.tracer_registry import DEFAULT_LOCAL_TRACERS, validate_tracer_ids
 

@@ -6,7 +6,6 @@ import logging
 import math
 import os
 import time
-from pathlib import Path
 
 import numpy as np
 
@@ -17,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 from app.constants import GF_GRID
 
+GF_HALF_GRID = GF_GRID / 2  # 21mm
 GF_HEIGHT_UNIT = 7.0
 GF_BASE_HEIGHT = 4.75
 GF_CORNER_R = 3.75     # 4.0 - 0.25 inset
@@ -55,6 +55,12 @@ def _rounded_rect_pts(w: float, h: float, r: float, segs: int = CIRCLE_SEGS) -> 
             a = base + j * (math.pi / 2) / n
             pts.append((ox + r * math.cos(a), oy + r * math.sin(a)))
     return np.array(pts, dtype=np.float64)
+
+
+def _sharp_rect_pts(w: float, h: float) -> np.ndarray:
+    """CCW axis-aligned rectangle centred at origin (no corner radius)."""
+    hw, hh = w / 2.0, h / 2.0
+    return np.array([(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)], dtype=np.float64)
 
 
 def _cs(pts: np.ndarray):
@@ -152,6 +158,102 @@ def _build_stacking_lip_notch(outer_w: float, outer_h: float):
     return mf.Manifold.batch_boolean([l0, l1, l2, l3, l4], mf.OpType.Add)
 
 
+def _base_cell_layout(grid_units: float, cell_size: float) -> list[tuple[float, float]]:
+    """cell centres and widths along one axis for the baseplate.
+
+    for integer grid sizes every cell is cell_size wide. for fractional
+    sizes (e.g. 3.5) the last cell is a half-width partial cell.
+    returns list of (centre_offset, cell_width) tuples.
+    """
+    total = grid_units * GF_GRID
+    n_cells = math.ceil(total / cell_size - 1e-9)
+    cells: list[tuple[float, float]] = []
+    for i in range(n_cells):
+        w = min(cell_size, total - i * cell_size)
+        if w < 1.0:
+            break
+        cx = i * cell_size + w / 2.0 - total / 2.0
+        cells.append((cx, w))
+    return cells
+
+
+def _cell_center(ix: int, iy: int, grid_x: int, grid_y: int) -> tuple[float, float]:
+    return (
+        (ix - (grid_x - 1) / 2.0) * GF_GRID,
+        (iy - (grid_y - 1) / 2.0) * GF_GRID,
+    )
+
+
+def _partial_cell_index(config: GenerateRequest, ix: int, iy: int) -> int:
+    """Map backend grid coords to UI row-major partial_bins_values (row 0 = top)."""
+    ui_row = math.ceil(config.grid_y) - 1 - iy
+    return ui_row * math.ceil(config.grid_x) + ix
+
+
+def _cell_enabled(config: GenerateRequest, ix: int, iy: int) -> bool:
+    if not getattr(config, "partial_bins", False):
+        return True
+    values = getattr(config, "partial_bins_values", None) or []
+    idx = _partial_cell_index(config, ix, iy)
+    if idx >= len(values):
+        return True
+    return bool(values[idx])
+
+
+def _all_cells_enabled(config: GenerateRequest) -> bool:
+    if not getattr(config, "partial_bins", False):
+        return True
+    values = config.partial_bins_values or []
+    expected = math.ceil(config.grid_x) * math.ceil(config.grid_y)
+    if len(values) != expected:
+        return True
+    return all(values)
+
+
+def _uses_partial_shell(config: GenerateRequest) -> bool:
+    return getattr(config, "partial_bins", False) and not _all_cells_enabled(config)
+
+
+def _partial_bins_connect_bases(config: GenerateRequest) -> bool:
+    return getattr(config, "partial_bins_connect", False) and _uses_partial_shell(config)
+
+
+def _partial_bins_retain_wall(config: GenerateRequest) -> bool:
+    return getattr(config, "partial_bins_retain_wall", False) and _partial_bins_connect_bases(config)
+
+
+def _cell_retains_base(config: GenerateRequest, ix: int, iy: int) -> bool:
+    """Whether a grid cell still has base geometry (enabled, or connect-base disabled)."""
+    return _cell_enabled(config, ix, iy) or _partial_bins_connect_bases(config)
+
+
+def _exports_separated_partial_parts(config: GenerateRequest) -> bool:
+    return _uses_partial_shell(config) and not _partial_bins_connect_bases(config)
+
+
+def _partial_bounds(config: GenerateRequest) -> tuple[int, int, int, int]:
+    grid_x = math.ceil(config.grid_x)
+    grid_y = math.ceil(config.grid_y)
+    enabled = [
+        (ix, iy)
+        for iy in range(grid_y)
+        for ix in range(grid_x)
+        if _cell_enabled(config, ix, iy)
+    ]
+    if not enabled:
+        return 0, grid_x - 1, 0, grid_y - 1
+    ixs = [p[0] for p in enabled]
+    iys = [p[1] for p in enabled]
+    return min(ixs), max(ixs), min(iys), max(iys)
+
+
+def _effective_grid_span(config: GenerateRequest) -> tuple[int, int]:
+    if not _uses_partial_shell(config):
+        return math.ceil(config.grid_x), math.ceil(config.grid_y)
+    min_ix, max_ix, min_iy, max_iy = _partial_bounds(config)
+    return max_ix - min_ix + 1, max_iy - min_iy + 1
+
+
 def _build_shell(config: GenerateRequest):
     """Solid bin shell: base units + wall body to wall_top_z.
 
@@ -159,6 +261,9 @@ def _build_shell(config: GenerateRequest):
     separately in generate_bin and added on top, matching the original
     gf.Bin + StackingLip structure so the groove is only visible above
     wall_top_z and the large top-floor face is preserved.
+
+    When half_grid_base is enabled, uses 21mm cells for the baseplate
+    instead of 42mm cells, giving finer positioning on the baseplate.
     """
     import manifold3d as mf
 
@@ -168,12 +273,16 @@ def _build_shell(config: GenerateRequest):
     outer_h = grid_y * GF_GRID - 0.5
     r = GF_CORNER_R
 
+    half_grid = getattr(config, "half_grid_base", False)
+    cell_size = GF_HALF_GRID if half_grid else GF_GRID
+
+    x_cells = _base_cell_layout(grid_x, cell_size)
+    y_cells = _base_cell_layout(grid_y, cell_size)
+
     base_units = []
-    for iy in range(grid_y):
-        for ix in range(grid_x):
-            cx = (ix - (grid_x - 1) / 2.0) * GF_GRID
-            cy = (iy - (grid_y - 1) / 2.0) * GF_GRID
-            unit = _build_base_unit(GF_GRID - 0.5, GF_GRID - 0.5)
+    for cy, ch in y_cells:
+        for cx, cw in x_cells:
+            unit = _build_base_unit(cw - 0.5, ch - 0.5)
             base_units.append(unit.translate((cx, cy, 0.0)))
 
     cs_wall = _cs(_rounded_rect_pts(outer_w, outer_h, r))
@@ -183,6 +292,231 @@ def _build_shell(config: GenerateRequest):
 
     parts = base_units + [wall_body]
     return mf.Manifold.batch_boolean(parts, mf.OpType.Add)
+
+
+def _bin_top_z(config: GenerateRequest, wall_top_z: float) -> float:
+    rim_units = (getattr(config, "rim_units", 0) or 0) if config.stacking_lip else 0
+    rim_height = rim_units * GF_HEIGHT_UNIT
+    lip_total = (LIP_D0 + LIP_D1 + LIP_D2) if config.stacking_lip else 0
+    return wall_top_z + rim_height + lip_total
+
+
+PARTIAL_BIN_CONNECT_PLATE_Z_INSET = 0.2
+PARTIAL_BIN_CONNECT_PLATE_MM = 6.0 - PARTIAL_BIN_CONNECT_PLATE_Z_INSET
+PARTIAL_BIN_RETAIN_WALL_PRESERVE_MM = LIP_D0 + LIP_D2
+
+
+def _grid_cell_counts(config: GenerateRequest) -> tuple[int, int]:
+    return math.ceil(config.grid_x), math.ceil(config.grid_y)
+
+
+def _find_disabled_components(config: GenerateRequest) -> list[list[tuple[int, int]]]:
+    components: list[list[tuple[int, int]]] = []
+    visited: set[tuple[int, int]] = set()
+    grid_x, grid_y = _grid_cell_counts(config)
+
+    for iy in range(grid_y):
+        for ix in range(grid_x):
+            if _cell_enabled(config, ix, iy) or (ix, iy) in visited:
+                continue
+            cells: list[tuple[int, int]] = []
+            stack = [(ix, iy)]
+            while stack:
+                x, y = stack.pop()
+                if (x, y) in visited or _cell_enabled(config, x, y):
+                    continue
+                visited.add((x, y))
+                cells.append((x, y))
+                for dx, dy in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < grid_x and 0 <= ny < grid_y:
+                        stack.append((nx, ny))
+            components.append(cells)
+
+    return components
+
+
+def _component_world_bbox(config: GenerateRequest, cells: list[tuple[int, int]]):
+    half = GF_GRID / 2.0
+    min_x = min_y = float("inf")
+    max_x = max_y = float("-inf")
+    for ix, iy in cells:
+        cx, cy = _cell_center(ix, iy, config.grid_x, config.grid_y)
+        min_x = min(min_x, cx - half)
+        max_x = max(max_x, cx + half)
+        min_y = min(min_y, cy - half)
+        max_y = max(max_y, cy + half)
+    return min_x, min_y, max_x, max_y
+
+
+def _make_connect_mode_cell_cutters(config: GenerateRequest, top_z: float):
+    """Remove walls/lip above the base in disabled cells."""
+    import manifold3d as mf
+
+    cutters = []
+    cut_height = top_z - GF_BASE_HEIGHT + 0.2
+    retain_wall = _partial_bins_retain_wall(config)
+    bin_hw = (config.grid_x * GF_GRID - 0.5) / 2.0
+    bin_hh = (config.grid_y * GF_GRID - 0.5) / 2.0
+    half = GF_GRID / 2.0
+    preserve = PARTIAL_BIN_RETAIN_WALL_PRESERVE_MM
+    grid_x, grid_y = _grid_cell_counts(config)
+
+    for iy in range(grid_y):
+        for ix in range(grid_x):
+            if _cell_enabled(config, ix, iy):
+                continue
+            cx, cy = _cell_center(ix, iy, config.grid_x, config.grid_y)
+            if retain_wall:
+                x0, x1 = cx - half, cx + half
+                y0, y1 = cy - half, cy + half
+                if ix == 0:
+                    x0 = max(x0, -bin_hw + preserve)
+                if ix == grid_x - 1:
+                    x1 = min(x1, bin_hw - preserve)
+                if iy == 0:
+                    y0 = max(y0, -bin_hh + preserve)
+                if iy == grid_y - 1:
+                    y1 = min(y1, bin_hh - preserve)
+                w, h = x1 - x0, y1 - y0
+                if w <= 0.1 or h <= 0.1:
+                    continue
+                ccx, ccy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+                cs = _cs(_sharp_rect_pts(w, h))
+                cutters.append(
+                    mf.Manifold.extrude(cs, cut_height).translate((ccx, ccy, GF_BASE_HEIGHT - 0.1))
+                )
+            else:
+                cs = _cs(_sharp_rect_pts(GF_GRID, GF_GRID))
+                cutters.append(
+                    mf.Manifold.extrude(cs, cut_height).translate((cx, cy, GF_BASE_HEIGHT - 0.1))
+                )
+
+    if not cutters:
+        return None
+    return mf.Manifold.batch_boolean(cutters, mf.OpType.Add)
+
+
+def _make_connect_mode_stability_plates(config: GenerateRequest):
+    """Floor plates across disabled regions, overlapping into enabled neighbors."""
+    import manifold3d as mf
+
+    plates = []
+    overlap = GF_GRID / 2.0
+    outer_w = config.grid_x * GF_GRID - 0.5
+    outer_h = config.grid_y * GF_GRID - 0.5
+    bin_hw = outer_w / 2.0
+    bin_hh = outer_h / 2.0
+    grid_x, grid_y = _grid_cell_counts(config)
+
+    for cells in _find_disabled_components(config):
+        min_x, min_y, max_x, max_y = _component_world_bbox(config, cells)
+
+        for ix, iy in cells:
+            for dx, dy in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+                nx, ny = ix + dx, iy + dy
+                if not (0 <= nx < grid_x and 0 <= ny < grid_y):
+                    continue
+                if not _cell_enabled(config, nx, ny):
+                    continue
+                ncx, ncy = _cell_center(nx, ny, config.grid_x, config.grid_y)
+                if dx == 1:
+                    max_x = max(max_x, ncx + overlap)
+                elif dx == -1:
+                    min_x = min(min_x, ncx - overlap)
+                if dy == 1:
+                    max_y = max(max_y, ncy + overlap)
+                elif dy == -1:
+                    min_y = min(min_y, ncy - overlap)
+
+        min_x = max(min_x, -bin_hw)
+        max_x = min(max_x, bin_hw)
+        min_y = max(min_y, -bin_hh)
+        max_y = min(max_y, bin_hh)
+
+        w, h = max_x - min_x, max_y - min_y
+        ccx, ccy = (min_x + max_x) / 2.0, (min_y + max_y) / 2.0
+        corner_r = min(GF_CORNER_R, w / 2.0, h / 2.0)
+        plates.append(
+            mf.Manifold.extrude(
+                _cs(_rounded_rect_pts(w, h, corner_r)), PARTIAL_BIN_CONNECT_PLATE_MM
+            ).translate((ccx, ccy, GF_BASE_HEIGHT))
+        )
+
+    if not plates:
+        return None
+    return mf.Manifold.batch_boolean(plates, mf.OpType.Add)
+
+
+def _make_disabled_cell_cutters(config: GenerateRequest, top_z: float):
+    """Cutters that remove geometry for each disabled grid cell."""
+    import manifold3d as mf
+
+    cutters = []
+    grid_x, grid_y = _grid_cell_counts(config)
+
+    for iy in range(grid_y):
+        for ix in range(grid_x):
+            if _cell_enabled(config, ix, iy):
+                continue
+            cx, cy = _cell_center(ix, iy, config.grid_x, config.grid_y)
+            cs = _cs(_sharp_rect_pts(GF_GRID, GF_GRID))
+            cutters.append(
+                mf.Manifold.extrude(cs, top_z + 0.2).translate((cx, cy, -0.1))
+            )
+
+    if not cutters:
+        return None
+    return mf.Manifold.batch_boolean(cutters, mf.OpType.Add)
+
+
+def _add_lip_features(
+    body,
+    config: GenerateRequest,
+    outer_w: float,
+    outer_h: float,
+    wall_top_z: float,
+    origin: tuple[float, float] = (0.0, 0.0),
+):
+    """Add raised rim collar and stacking lip, optionally offset to a grid cell centre."""
+    import manifold3d as mf
+
+    ox, oy = origin
+    rim_units = (getattr(config, "rim_units", 0) or 0) if config.stacking_lip else 0
+    rim_height = rim_units * GF_HEIGHT_UNIT
+    lip_base_z = wall_top_z + rim_height
+    rim_inner_w = outer_w - 2 * (LIP_D0 + LIP_D2)
+    rim_inner_h = outer_h - 2 * (LIP_D0 + LIP_D2)
+    additions = []
+
+    if rim_height > 0:
+        outer_solid = mf.Manifold.extrude(
+            _cs(_rounded_rect_pts(outer_w, outer_h, GF_CORNER_R)), rim_height
+        )
+        inner_solid = mf.Manifold.extrude(
+            _cs(_rounded_rect_pts(rim_inner_w, rim_inner_h, GF_CORNER_R)), rim_height
+        )
+        additions.append((outer_solid - inner_solid).translate((ox, oy, wall_top_z)))
+
+    if config.stacking_lip:
+        lip_total = LIP_D0 + LIP_D1 + LIP_D2
+        notch_depth_below = LIP_D3 + LIP_D4
+        cs_wall_lip = _cs(_rounded_rect_pts(outer_w, outer_h, GF_CORNER_R))
+        lip_solid = mf.Manifold.extrude(cs_wall_lip, lip_total).translate((ox, oy, lip_base_z))
+        notch = _build_stacking_lip_notch(outer_w, outer_h).translate(
+            (ox, oy, lip_base_z - notch_depth_below)
+        )
+        additions.append(lip_solid - notch)
+
+    if not additions:
+        return body
+
+    lip_geom = (
+        mf.Manifold.batch_boolean(additions, mf.OpType.Add)
+        if len(additions) > 1
+        else additions[0]
+    )
+    return body + lip_geom
 
 
 # ── cutter builders ───────────────────────────────────────────────────────────
@@ -273,8 +607,17 @@ def _make_filleted_rectangle_cutter(
 
 
 def _make_magnet_holes(config: GenerateRequest):
-    """Batch union of all magnet hole cylinders (4 per grid cell, or corners only)."""
+    """Batch union of all magnet hole cylinders (4 per cell, or corners only).
+
+    Magnets are always placed on full 42mm grid cells regardless of
+    half_grid_base -- a 21mm cell is only 10.25mm from centre to edge
+    (after 0.5mm clearance), so the 13mm magnet offset would extend
+    beyond the cell boundary.
+    """
     import manifold3d as mf
+
+    if getattr(config, "half_grid_base", False):
+        return mf.Manifold()
 
     diameter = getattr(config, "magnet_diameter", MAGNET_DIAMETER)
     depth = getattr(config, "magnet_depth", MAGNET_DEPTH)
@@ -283,30 +626,60 @@ def _make_magnet_holes(config: GenerateRequest):
     r = diameter / 2
     mag = mf.Manifold.cylinder(depth + 0.01, r, circular_segments=ROUND_SEGS)
 
-    # corners that sit on the outer bin boundary
+    x_cells = _base_cell_layout(config.grid_x, GF_GRID)
+    y_cells = _base_cell_layout(config.grid_y, GF_GRID)
+
+    if not x_cells or not y_cells:
+        return mf.Manifold()
+
+    # skip partial cells (width < 42mm) -- magnets only on full cells
+    x_full = [(cx, cw) for cx, cw in x_cells if abs(cw - GF_GRID) < 0.01]
+    y_full = [(cy, ch) for cy, ch in y_cells if abs(ch - GF_GRID) < 0.01]
+
+    if not x_full or not y_full:
+        return mf.Manifold()
+
+    # outer bin corners for corners_only mode
     outer_corners = set()
     if corners_only:
-        for ix, iy, dx, dy in [
-            (0, 0, -13.0, -13.0),
-            (config.grid_x - 1, 0, 13.0, -13.0),
-            (config.grid_x - 1, config.grid_y - 1, 13.0, 13.0),
-            (0, config.grid_y - 1, -13.0, 13.0),
-        ]:
-            cx = (ix - (config.grid_x - 1) / 2.0) * GF_GRID
-            cy = (iy - (config.grid_y - 1) / 2.0) * GF_GRID
-            outer_corners.add((round(cx + dx, 4), round(cy + dy, 4)))
+        grid_ix_max = math.ceil(config.grid_x) - 1
+        grid_iy_max = math.ceil(config.grid_y) - 1
+        for ix, (cx, _) in enumerate([x_full[0], x_full[-1]]):
+            for iy, (cy, _) in enumerate([y_full[0], y_full[-1]]):
+                if not _cell_retains_base(config, ix if ix == 0 else grid_ix_max, iy if iy == 0 else grid_iy_max):
+                    continue
+                for dx, dy in [(-13.0, -13.0), (13.0, -13.0), (13.0, 13.0), (-13.0, 13.0)]:
+                    # only the corner nearest the bin edge
+                    if cx == x_full[0][0] and dx > 0 and len(x_full) > 1:
+                        continue
+                    if cx == x_full[-1][0] and dx < 0 and len(x_full) > 1:
+                        continue
+                    if cy == y_full[0][0] and dy > 0 and len(y_full) > 1:
+                        continue
+                    if cy == y_full[-1][0] and dy < 0 and len(y_full) > 1:
+                        continue
+                    outer_corners.add((round(cx + dx, 4), round(cy + dy, 4)))
 
     holes = []
-    for iy in range(config.grid_y):
-        for ix in range(config.grid_x):
-            cx = (ix - (config.grid_x - 1) / 2.0) * GF_GRID
-            cy = (iy - (config.grid_y - 1) / 2.0) * GF_GRID
+    grid_ix = math.ceil(config.grid_x)
+    grid_iy = math.ceil(config.grid_y)
+    for iy in range(grid_iy):
+        for ix in range(grid_ix):
+            if not _cell_retains_base(config, ix, iy):
+                continue
+            cx, cy = _cell_center(ix, iy, config.grid_x, config.grid_y)
+            if not any(abs(cx - fx) < 0.01 for fx, _ in x_full):
+                continue
+            if not any(abs(cy - fy) < 0.01 for fy, _ in y_full):
+                continue
             for dx, dy in [(-13.0, -13.0), (13.0, -13.0), (13.0, 13.0), (-13.0, 13.0)]:
                 pos = (round(cx + dx, 4), round(cy + dy, 4))
                 if corners_only and pos not in outer_corners:
                     continue
                 holes.append(mag.translate((pos[0], pos[1], 0.0)))
 
+    if not holes:
+        return mf.Manifold()
     return mf.Manifold.batch_boolean(holes, mf.OpType.Add)
 
 
@@ -321,7 +694,8 @@ def _shapely_to_cross_sections(shifted_pts: list[tuple], interior_rings: list[li
        edges that Clipper2's integer rounding would otherwise bridge — these
        pass Shapely's validity check but still trigger the Clipper2 chord artifact.
     """
-    from shapely.geometry import Polygon as _SPoly, MultiPolygon as _SMPoly
+    from shapely.geometry import MultiPolygon as _SMPoly
+    from shapely.geometry import Polygon as _SPoly
 
     holes = interior_rings if interior_rings else []
     sp = _SPoly(shifted_pts, holes=holes)
@@ -356,6 +730,58 @@ def _shapely_to_cross_sections(shifted_pts: list[tuple], interior_rings: list[li
     return rings
 
 
+def _clip_to_interior(
+    shifted: list[tuple],
+    shifted_holes: list[list[tuple]],
+    interior_rect,
+) -> tuple[list[tuple], list[list[tuple]]]:
+    """clip a shifted polygon (+ holes) to the bin interior boundary.
+
+    returns (clipped_exterior, clipped_holes). if the polygon is entirely
+    outside the interior, returns empty lists.
+    """
+    from shapely.geometry import MultiPolygon as _SMPoly
+    from shapely.geometry import Polygon as _SPoly
+
+    poly = _SPoly(shifted, holes=shifted_holes if shifted_holes else [])
+    if not poly.is_valid:
+        poly = poly.buffer(0)
+    clipped = poly.intersection(interior_rect)
+    if clipped.is_empty:
+        return [], []
+
+    # intersection can return LineString/Point/GeometryCollection when
+    # a polygon only touches the clip rect at an edge or corner
+    if not isinstance(clipped, (_SPoly, _SMPoly)):
+        return [], []
+
+    # intersection can produce MultiPolygon; take the largest piece
+    if isinstance(clipped, _SMPoly):
+        clipped = max(clipped.geoms, key=lambda g: g.area)
+
+    ext = list(clipped.exterior.coords[:-1])
+    holes = [list(ring.coords[:-1]) for ring in clipped.interiors if len(ring.coords) >= 4]
+    return ext, holes
+
+
+def _interior_clip_rect(config):
+    """clip boundary for the bin interior in manifold coordinates (centred at origin).
+
+    when the stacking lip is enabled its inner profile protrudes inward by
+    LIP_D0+LIP_D2 (2.6mm) from the outer wall -- wider than typical wall_thickness.
+    use the larger of the two so cutouts never breach the lip zone.
+    """
+    from shapely.geometry import Polygon as _SPoly
+
+    outer_w = config.grid_x * GF_GRID - 0.5
+    outer_h = config.grid_y * GF_GRID - 0.5
+    lip_inset = (LIP_D0 + LIP_D2) if getattr(config, "stacking_lip", False) else 0.0
+    inset = max(config.wall_thickness, lip_inset)
+    hw = outer_w / 2 - inset
+    hh = outer_h / 2 - inset
+    return _SPoly([(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)])
+
+
 def _make_polygon_cutouts(
     polygons: list[ScaledPolygon],
     config: GenerateRequest,
@@ -366,6 +792,8 @@ def _make_polygon_cutouts(
 ):
     """Batch union of all polygon cutout extrusions."""
     import manifold3d as mf
+
+    interior_rect = _interior_clip_rect(config)
 
     cutters = []
     for poly in polygons:
@@ -384,13 +812,19 @@ def _make_polygon_cutouts(
             ]
             if len(shifted_hole) >= 3:
                 shifted_holes.append(shifted_hole)
+
+        # clip to bin interior so oversized tools don't breach walls
+        shifted, shifted_holes = _clip_to_interior(shifted, shifted_holes, interior_rect)
+        if len(shifted) < 3:
+            continue
+
         try:
             rings = _shapely_to_cross_sections(shifted, shifted_holes)
             if not rings:
                 continue
             has_holes = len(rings) > 1
             if has_holes:
-                # use EvenOdd to handle holes — same pattern as text labels
+                # use EvenOdd to handle holes -- same pattern as text labels
                 cs = mf.CrossSection(rings, mf.FillRule.EvenOdd)
             else:
                 cs = mf.CrossSection(rings)
@@ -430,6 +864,8 @@ def _make_chamfer_cutouts(
     """
     import manifold3d as mf
 
+    interior_rect = _interior_clip_rect(config)
+
     cutters = []
     for poly in polygons:
         shifted = [
@@ -443,6 +879,11 @@ def _make_chamfer_cutouts(
             sh = [(p[0] + offset_x, -(p[1] + offset_y)) for p in hole]
             if len(sh) >= 3:
                 shifted_holes.append(sh)
+
+        # clip to bin interior so oversized tools don't breach walls
+        shifted, shifted_holes = _clip_to_interior(shifted, shifted_holes, interior_rect)
+        if len(shifted) < 3:
+            continue
 
         pocket_depth = _resolve_pocket_depth(poly.depth_override, config, max_depth)
         eff_chamfer = min(chamfer_size, max(0.0, pocket_depth - 1))
@@ -882,63 +1323,42 @@ class ManifoldSTLGenerator:
         offset_x = -bin_width / 2
         offset_y = -bin_depth / 2
         wall_top_z = config.height_units * GF_HEIGHT_UNIT
+        outer_w = config.grid_x * GF_GRID - 0.5
+        outer_h = config.grid_y * GF_GRID - 0.5
+        connect_bases = _partial_bins_connect_bases(config)
+        partial_shell = _uses_partial_shell(config)
 
-        # build solid shell (wall body to wall_top_z, no lip yet)
         t1 = time.monotonic()
         bin_body = _build_shell(config)
         logger.info("shell: %.2fs", time.monotonic() - t1)
 
-        outer_w = config.grid_x * GF_GRID - 0.5
-        outer_h = config.grid_y * GF_GRID - 0.5
+        t1 = time.monotonic()
+        bin_body = _add_lip_features(bin_body, config, outer_w, outer_h, wall_top_z)
+        rim_units = (getattr(config, "rim_units", 0) or 0) if config.stacking_lip else 0
+        if config.stacking_lip or rim_units > 0:
+            logger.info("lip features: %.2fs", time.monotonic() - t1)
 
-        # raised rim ("collar"): a hollow perimeter wall extending the bin wall
-        # above the floor face (wall_top_z) without filling the interior.  A
-        # protruding tool sits in the open volume inside the collar, and the
-        # stacking lip (if enabled) rides on top so a stacked bin clears the
-        # tool.  Cutouts still pocket down from wall_top_z, unaffected by the rim.
-        rim_units = getattr(config, "rim_units", 0) or 0
-        rim_height = rim_units * GF_HEIGHT_UNIT
-        lip_base_z = wall_top_z + rim_height
-        # inner opening matches the stacking-lip inner opening so the collar wall
-        # is flush with the lip's inner face (no inward overhang/ledge).
-        rim_inner_w = outer_w - 2 * (LIP_D0 + LIP_D2)
-        rim_inner_h = outer_h - 2 * (LIP_D0 + LIP_D2)
-
-        if rim_height > 0:
-            outer_solid = mf.Manifold.extrude(
-                _cs(_rounded_rect_pts(outer_w, outer_h, GF_CORNER_R)), rim_height
-            )
-            inner_solid = mf.Manifold.extrude(
-                _cs(_rounded_rect_pts(rim_inner_w, rim_inner_h, GF_CORNER_R)), rim_height
-            )
-            collar = (outer_solid - inner_solid).translate((0.0, 0.0, wall_top_z))
-            bin_body = bin_body + collar
-            logger.info("raised rim (%du): %.2fs", rim_units, time.monotonic() - t1)
-
-        # stacking lip: build groove into a separate lip solid (z=lip_base_z to
-        # z=lip_base_z+lip_total) and add it to the bin body.  The notch extends
-        # below lip_base_z but only cuts the lip solid (not the wall/collar), so
-        # the groove is invisible below lip_base_z — matching gf.Bin behaviour
-        # and preserving the large top-floor face at z=wall_top_z.
-        if config.stacking_lip:
-            lip_total = LIP_D0 + LIP_D1 + LIP_D2
-            notch_depth_below = LIP_D3 + LIP_D4
-            cs_wall_lip = _cs(_rounded_rect_pts(outer_w, outer_h, GF_CORNER_R))
-            lip_solid = mf.Manifold.extrude(cs_wall_lip, lip_total).translate(
-                (0.0, 0.0, lip_base_z)
-            )
-            notch = _build_stacking_lip_notch(outer_w, outer_h).translate(
-                (0.0, 0.0, lip_base_z - notch_depth_below)
-            )
-            lip_with_groove = lip_solid - notch
-            bin_body = bin_body + lip_with_groove
-            logger.info("stacking lip: %.2fs", time.monotonic() - t1)
+        if partial_shell:
+            t1 = time.monotonic()
+            top_z = _bin_top_z(config, wall_top_z)
+            if connect_bases:
+                disabled_cutters = _make_connect_mode_cell_cutters(config, top_z)
+                if disabled_cutters:
+                    bin_body = bin_body - disabled_cutters
+                plates = _make_connect_mode_stability_plates(config)
+                if plates:
+                    bin_body = bin_body + plates
+            else:
+                disabled_cutters = _make_disabled_cell_cutters(config, top_z)
+                if disabled_cutters:
+                    bin_body = bin_body - disabled_cutters
+            logger.info("partial bins: %.2fs", time.monotonic() - t1)
 
         # collect remaining cutters (pocket, magnets, finger holes, text) and
         # subtract them in one pass to avoid sequential z-plane imprecision
         cutters: list = []
 
-        if config.magnets:
+        if config.magnets and not config.half_grid_base:
             cutters.append(_make_magnet_holes(config))
 
         pocket_depth = 5
@@ -974,7 +1394,8 @@ class ManifoldSTLGenerator:
                     cutters.append(fh_chamfers)
                 logger.info("chamfer cutouts: %.2fs", time.monotonic() - t1)
 
-        # text labels (recessed cutters + embossed body additions)
+        # text labels (recessed cutters + embossed body additions).
+        # Labels in disabled partial-bin cells are not clipped and may float in the STL.
         text_body = None
         if config.text_labels:
             t1 = time.monotonic()
@@ -1083,20 +1504,25 @@ class ManifoldSTLGenerator:
         return True
 
     @staticmethod
-    def _compute_split_points(total_mm: float, grid_count: int, bed_size: float) -> list[float]:
-        """Split points relative to bin centre for one axis."""
+    def _compute_split_points(total_mm: float, grid_count: float, bed_size: float) -> list[float]:
+        """Split points relative to bin centre for one axis.
+
+        Uses half-grid (21mm) granularity so fractional bins split cleanly.
+        """
         if bed_size <= 0 or total_mm <= bed_size:
             return []
-        max_units = max(1, int(bed_size // GF_GRID))
         import math as _m
-        num_pieces = _m.ceil(grid_count / max_units)
-        base = grid_count // num_pieces
-        extra = grid_count % num_pieces
+        # work in half-units for split granularity
+        half_units = int(grid_count * 2)
+        max_halves = max(1, int(bed_size // GF_HALF_GRID))
+        num_pieces = _m.ceil(half_units / max_halves)
+        base = half_units // num_pieces
+        extra = half_units % num_pieces
         sizes = [base + (1 if i < extra else 0) for i in range(num_pieces)]
         points = []
         pos = -total_mm / 2
         for s in sizes[:-1]:
-            pos += s * GF_GRID
+            pos += s * GF_HALF_GRID
             points.append(pos)
         return points
 
@@ -1110,18 +1536,22 @@ class ManifoldSTLGenerator:
         session_id: str,
     ) -> list[str]:
         """Split completed bin into bed-sized pieces. Returns list of output paths."""
-        import manifold3d as mf
         import math
 
-        bin_width = config.grid_x * GF_GRID
-        bin_depth = config.grid_y * GF_GRID
+        span_x, span_y = (
+            (config.grid_x, config.grid_y)
+            if _partial_bins_connect_bases(config)
+            else _effective_grid_span(config)
+        )
+        bin_width = span_x * GF_GRID
+        bin_depth = span_y * GF_GRID
 
         fits_diagonal = (bin_width + bin_depth) / math.sqrt(2) <= bed_size
         if fits_diagonal:
             return []
 
-        x_cuts = self._compute_split_points(bin_width, config.grid_x, bed_size)
-        y_cuts = self._compute_split_points(bin_depth, config.grid_y, bed_size)
+        x_cuts = self._compute_split_points(config.grid_x * GF_GRID, config.grid_x, bed_size)
+        y_cuts = self._compute_split_points(config.grid_y * GF_GRID, config.grid_y, bed_size)
 
         if not x_cuts and not y_cuts:
             return []
@@ -1140,6 +1570,44 @@ class ManifoldSTLGenerator:
             paths.append(path)
 
         return paths
+
+    def export_separated_parts(
+        self,
+        bin_body,
+        text_body,
+        output_dir: str,
+        session_id: str,
+    ) -> list[str]:
+        """Export each disconnected manifold volume as its own STL file."""
+        part = bin_body + text_body if text_body and not text_body.is_empty() else bin_body
+        pieces = [p for p in part.decompose() if not p.is_empty()]
+        if len(pieces) < 2:
+            return []
+
+        paths = []
+        for i, piece in enumerate(pieces):
+            path = f"{output_dir}/{session_id}_part{i + 1}.stl"
+            _export_stl(piece, path)
+            paths.append(path)
+        return paths
+
+    def export_split_parts(
+        self,
+        bin_body,
+        text_body,
+        config: GenerateRequest,
+        bed_size: float,
+        output_dir: str,
+        session_id: str,
+    ) -> list[str]:
+        """Export per-piece STLs for disconnected partial bins or bed-sized splits."""
+        if _exports_separated_partial_parts(config):
+            paths = self.export_separated_parts(bin_body, text_body, output_dir, session_id)
+            if paths:
+                return paths
+        if bed_size > 0:
+            return self.split_bin(bin_body, text_body, config, bed_size, output_dir, session_id)
+        return []
 
     @staticmethod
     def _split_along_axis(part, cut_points: list[float], axis: str) -> list:

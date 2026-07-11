@@ -5,9 +5,10 @@ export function useDebouncedSave(
   deps: unknown[],
   delay: number = 150,
   options?: { skipInitial?: boolean }
-): { saving: boolean; saved: boolean } {
+): { saving: boolean; saved: boolean; saveCount: number } {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveCount, setSaveCount] = useState(0)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingSaveRef = useRef<(() => void) | null>(null)
   const savedTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -31,6 +32,7 @@ export function useDebouncedSave(
       setSaved(false)
       try {
         await saveFnRef.current()
+        setSaveCount(c => c + 1)
         setSaved(true)
         if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
         savedTimerRef.current = setTimeout(() => setSaved(false), 2000)
@@ -59,5 +61,5 @@ export function useDebouncedSave(
     return () => window.removeEventListener('beforeunload', flush)
   }, [])
 
-  return { saving, saved }
+  return { saving, saved, saveCount }
 }

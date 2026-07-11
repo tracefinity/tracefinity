@@ -117,20 +117,26 @@ function BinPreview({ gridX, gridY, tools }: { gridX: number; gridY: number; too
       preserveAspectRatio="xMidYMid meet"
     >
       <rect x={0} y={0} width={binW} height={binH} fill="var(--color-bin-preview-fill)" rx={2} />
-      {Array.from({ length: gridX + 1 }).map((_, i) => (
-        <line
-          key={`v${i}`}
-          x1={i * GRID_UNIT} y1={0} x2={i * GRID_UNIT} y2={binH}
-          stroke="var(--color-bin-preview-grid)" strokeWidth={0.5}
-        />
-      ))}
-      {Array.from({ length: gridY + 1 }).map((_, i) => (
-        <line
-          key={`h${i}`}
-          x1={0} y1={i * GRID_UNIT} x2={binW} y2={i * GRID_UNIT}
-          stroke="var(--color-bin-preview-grid)" strokeWidth={0.5}
-        />
-      ))}
+      {Array.from({ length: Math.floor(gridX * 2) + 1 }).map((_, i) => {
+        const x = i * GRID_UNIT / 2
+        return (
+          <line
+            key={`v${i}`}
+            x1={x} y1={0} x2={x} y2={binH}
+            stroke="var(--color-bin-preview-grid)" strokeWidth={0.5}
+          />
+        )
+      })}
+      {Array.from({ length: Math.floor(gridY * 2) + 1 }).map((_, i) => {
+        const y = i * GRID_UNIT / 2
+        return (
+          <line
+            key={`h${i}`}
+            x1={0} y1={y} x2={binW} y2={y}
+            stroke="var(--color-bin-preview-grid)" strokeWidth={0.5}
+          />
+        )
+      })}
       {tools.map((tool, ti) => {
         const d = polygonPathData(tool.points, tool.interior_rings)
         return (

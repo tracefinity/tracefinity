@@ -8,7 +8,7 @@ From the bin editor, click **Export** to open the download menu. Available forma
 
 Standard mesh format. Works with every slicer (PrusaSlicer, Cura, OrcaSlicer, etc.).
 
-If the bin is too large for the configured bed size, the export menu shows **Full STL** (the merged file) and **ZIP** (split parts as separate STLs). The split count is shown in the sidebar banner.
+If the bin is too large for the configured bed size or the bin is separated by the partial bins configuration, the export menu shows **Full STL** (the merged file) and **ZIP** (split parts as separate STLs). The split count is shown in the sidebar banner.
 
 ### 3MF
 

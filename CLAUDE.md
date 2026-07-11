@@ -30,6 +30,17 @@ cd frontend && pnpm install
 make dev  # starts backend (:8000) and frontend (:4001) concurrently
 ```
 
+## Linting
+
+```bash
+make lint           # run all linters
+make lint-backend   # ruff only
+make lint-frontend  # eslint + tsc --noEmit
+make lint-fix       # auto-fix where possible
+```
+
+Backend: ruff, configured in `pyproject.toml` (rules E/F/W/I, ignores E402/E501). Frontend: eslint (flat config in `frontend/eslint.config.mjs`) + `tsc --noEmit`. CI runs on PRs and pushes to main (`.github/workflows/lint.yml`).
+
 ## Principles
 
 - Coordinate systems differ across layers (see docs/gotchas.md). SVG/layout Y is down; manifold3d Y is up. Always negate Y when crossing that boundary.
@@ -43,7 +54,7 @@ make dev  # starts backend (:8000) and frontend (:4001) concurrently
 
 Configurable via `GEMINI_IMAGE_MODEL` env var. Defaults to `gemini-3.1-flash-image-preview` locally, `gemini-3-pro-image-preview` in Docker. Also supports `gemini-2.5-flash-image` (faster, needs alignment).
 
-Two models run at all times: U2-Net Portable for paper detection and the configured tracer for tool tracing. Both load at startup. RAM figures are combined (tested in Linux containers).
+Two models run at all times: U2-Net Portable for paper detection and the configured tracer for tool tracing. Both load at startup. RAM figures are combined (tested in Linux containers). All local models require ONNX Runtime, which needs AVX CPU instructions. On non-AVX CPUs, U2-Net is skipped (paper detection falls back to OpenCV-only) and local tracers are unavailable -- use a remote tracer instead.
 
 Tracers (configurable via `TRACERS` env var):
 - `isnet` (default) -- IS-Net, good quality, ~0.8s/image, min 2GB

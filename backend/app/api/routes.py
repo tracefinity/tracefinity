@@ -9,72 +9,67 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
-from starlette.requests import Request
 from PIL import Image
+from starlette.requests import Request
 
 logger = logging.getLogger(__name__)
 
-from app.config import settings, ensure_user_dirs
 from app.auth import get_user_id
+from app.config import ensure_user_dirs, settings
+from app.constants import GF_GRID
 from app.models.schemas import (
-    UploadResponse,
-    CornersRequest,
-    CornersResponse,
-    TraceRequest,
-    TraceResponse,
-    PolygonsRequest,
-    GenerateRequest,
-    GenerateResponse,
-    Session,
-    SessionSummary,
-    SessionListResponse,
-    SessionUpdateRequest,
-    StatusResponse,
-    Point,
-    Polygon,
-    FingerHole,
-    Tool,
-    ToolDetailResponse,
-    ToolSummary,
-    ToolListResponse,
-    ToolUpdateRequest,
-    SaveToolsRequest,
-    SaveToolsResponse,
+    BinConfig,
+    BinDefaults,
+    BinListResponse,
+    BinModel,
+    BinPreviewTool,
     BinProject,
+    BinProjectBinsRequest,
+    BinProjectCreateBinRequest,
+    BinProjectCreateRequest,
     BinProjectDetail,
     BinProjectListResponse,
-    BinProjectCreateRequest,
-    BinProjectUpdateRequest,
     BinProjectToolsRequest,
-    BinProjectCreateBinRequest,
-    BinProjectBinsRequest,
-    BinDefaults,
-    ProjectHealthResponse,
-    PlacedTool,
-    BinModel,
-    BinConfig,
+    BinProjectUpdateRequest,
     BinSummary,
-    BinPreviewTool,
-    BinListResponse,
     BinUpdateRequest,
+    CornersRequest,
+    CornersResponse,
     CreateBinRequest,
+    FingerHole,
+    GenerateRequest,
+    GenerateResponse,
+    PlacedTool,
+    Point,
+    Polygon,
+    PolygonsRequest,
+    ProjectHealthResponse,
+    SaveToolsRequest,
+    SaveToolsResponse,
+    Session,
+    SessionListResponse,
+    SessionSummary,
+    SessionUpdateRequest,
+    StatusResponse,
+    Tool,
+    ToolDetailResponse,
+    ToolListResponse,
+    ToolSummary,
+    ToolUpdateRequest,
+    TraceRequest,
+    TraceResponse,
+    UploadResponse,
 )
-from app.constants import GF_GRID
+from app.services.ai_tracer import AITracer
+from app.services.bin_service import sync_placed_tools
+from app.services.bin_store import BinStore
+from app.services.geometry import optimal_rotation_angle as _optimal_rotation_angle
 from app.services.image_ingest import ingest_image
 from app.services.image_processor import ImageProcessor
-from app.services.ai_tracer import AITracer
-from app.services.polygon_scaler import PolygonScaler, ScaledPolygon, ScaledFingerHole
-from app.services.stl_generator_manifold import ManifoldSTLGenerator
-from app.services.session_store import SessionStore
-from app.services.tool_store import ToolStore
-from app.services.bin_store import BinStore
-from app.services.project_store import ProjectStore
-from app.services.bin_service import sync_placed_tools
 from app.services.image_service import generate_tool_thumbnail
-from app.services.tracer_registry import TRACER_LABELS, tracer_kind, validate_tracer_ids
-from app.services.geometry import optimal_rotation_angle as _optimal_rotation_angle
+from app.services.polygon_scaler import PolygonScaler, ScaledFingerHole, ScaledPolygon
 from app.services.project_service import (
     add_bin_to_project,
     add_project_to_tools,
@@ -87,7 +82,13 @@ from app.services.project_service import (
     remove_project_from_tools,
     repair_project_links,
 )
+from app.services.project_store import ProjectStore
+from app.services.session_store import SessionStore
+from app.services.stl_generator_manifold import ManifoldSTLGenerator
 from app.services.tool_namer import name_polygons
+from app.services.tool_store import ToolStore
+from app.services.tracer_registry import TRACER_LABELS, tracer_kind, validate_tracer_ids
+
 router = APIRouter()
 
 # Heuristic mismatch score combining a label penalty with bbox and point deltas measured in mm.
@@ -363,10 +364,17 @@ def _build_bin_from_tools(
         needed_w = tool_width + 2 * clearance + 2 * wall + 0.5
         needed_h = tool_height + 2 * clearance + 2 * wall + 0.5
 
-        grid_x = max(1, int((needed_w + GF_GRID - 1) // GF_GRID))
-        grid_y = max(1, int((needed_h + GF_GRID - 1) // GF_GRID))
-        bc.grid_x = min(grid_x, 10)
-        bc.grid_y = min(grid_y, 10)
+        # snap to 0.5 units when half-grid is on, whole units otherwise
+        if bc.half_grid_base:
+            half = GF_GRID / 2
+            grid_x = max(1.0, math.ceil(needed_w / half) * 0.5)
+            grid_y = max(1.0, math.ceil(needed_h / half) * 0.5)
+        else:
+            grid_x = max(1.0, math.ceil(needed_w / GF_GRID))
+            grid_y = max(1.0, math.ceil(needed_h / GF_GRID))
+        bc.grid_x = min(grid_x, 10.0)
+        bc.grid_y = min(grid_y, 10.0)
+        bc.partial_bins_values = [True] * (math.ceil(bc.grid_x) * math.ceil(bc.grid_y))
 
         bin_w = bc.grid_x * GF_GRID
         bin_h = bc.grid_y * GF_GRID
@@ -434,16 +442,17 @@ def _run_generate(
 
     stl_urls: list[str] = []
     zip_url = None
-    if gen_req.bed_size > 0:
-        output_dir = str(user_path / "outputs")
-        part_paths = stl_generator.split_bin(bin_body, text_body, gen_req, gen_req.bed_size, output_dir, entity_id)
-        if part_paths:
-            stl_urls = [f"/storage/{user_id}/outputs/{Path(p).name}" for p in part_paths]
-            part_bytes = [(Path(p).name, Path(p).read_bytes()) for p in part_paths]
-            with zipfile.ZipFile(str(zip_path), 'w', zipfile.ZIP_DEFLATED) as zf:
-                for fname, data in part_bytes:
-                    zf.writestr(fname, data)
-            zip_url = f"/storage/{user_id}/outputs/{entity_id}_parts.zip"
+    output_dir = str(user_path / "outputs")
+    part_paths = stl_generator.export_split_parts(
+        bin_body, text_body, gen_req, gen_req.bed_size, output_dir, entity_id
+    )
+    if part_paths:
+        stl_urls = [f"/storage/{user_id}/outputs/{Path(p).name}" for p in part_paths]
+        part_bytes = [(Path(p).name, Path(p).read_bytes()) for p in part_paths]
+        with zipfile.ZipFile(str(zip_path), 'w', zipfile.ZIP_DEFLATED) as zf:
+            for fname, data in part_bytes:
+                zf.writestr(fname, data)
+        zip_url = f"/storage/{user_id}/outputs/{entity_id}_parts.zip"
 
     insert_stl_url = None
     warning = None
@@ -1057,7 +1066,10 @@ async def download_tool_svg(request: Request, tool_id: str, user_id: str = Depen
     return Response(
         content=svg,
         media_type="image/svg+xml",
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}.svg"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_name}.svg"',
+            "Cache-Control": "no-cache",
+        },
     )
 
 
@@ -1585,8 +1597,13 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
         insert_height=bc.insert_height,
         insert_clearance=bc.insert_clearance,
         cutout_chamfer=bc.cutout_chamfer,
+        partial_bins=bc.partial_bins,
+        partial_bins_values=bc.partial_bins_values,
+        partial_bins_connect=bc.partial_bins_connect,
+        partial_bins_retain_wall=bc.partial_bins_retain_wall,
         text_labels=bc.text_labels + bin_data.text_labels,
         bed_size=bc.bed_size,
+        half_grid_base=bc.half_grid_base,
     )
 
     response = _run_generate(scaled, gen_req, bin_id, up, input_hash, user_id)
@@ -1605,7 +1622,9 @@ def _bin_stem(bin_data) -> str:
     bc = bin_data.bin_config
     raw = (bin_data.name or "bin").strip()
     safe = re.sub(r"[^\w\-]", "_", raw).strip("_") or "bin"
-    return f"{safe}_{bc.grid_x}u{bc.grid_y}u{bc.height_units}u_{int(bc.cutout_depth)}mm-tracefinity"
+    gx = f"{bc.grid_x:g}"
+    gy = f"{bc.grid_y:g}"
+    return f"{safe}_{gx}u{gy}u{bc.height_units}u_{int(bc.cutout_depth)}mm-tracefinity"
 
 
 # bin file downloads

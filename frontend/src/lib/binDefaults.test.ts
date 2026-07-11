@@ -39,6 +39,23 @@ describe('bin defaults', () => {
     vi.unstubAllGlobals()
   })
 
+  it('normalizes partial_bins_values to match grid size', () => {
+    const config = buildBinConfig({ grid_x: 3, grid_y: 4 })
+
+    expect(config.partial_bins).toBe(false)
+    expect(config.partial_bins_values).toEqual(Array(12).fill(true))
+  })
+
+  it('resets partial_bins_values when grid overrides change size', () => {
+    const config = buildBinConfig({
+      grid_x: 3,
+      grid_y: 2,
+      partial_bins_values: [true, true],
+    })
+
+    expect(config.partial_bins_values).toEqual(Array(6).fill(true))
+  })
+
   it('uses legacy bedSize when no full bin defaults are saved', () => {
     storage.setItem(SETTINGS_KEY, JSON.stringify({ bedSize: 220 }))
 
