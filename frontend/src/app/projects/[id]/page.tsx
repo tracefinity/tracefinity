@@ -37,7 +37,7 @@ import {
 } from '@/lib/projectSelectors'
 import { AlertTriangle, ArrowLeft, CheckSquare, ChevronDown, ChevronRight, Loader2, Package, Plus, Search, Square, Trash2, Unlink } from 'lucide-react'
 
-const PROJECT_SECTION_COLLAPSE_KEY = 'tracefinity.project.collapsedSections'
+const PROJECT_SECTION_COLLAPSE_KEY = 'tracefinity.project.collapsedSections.v2'
 type ProjectSectionId = 'binDefaults' | 'projectTools' | 'linkedBins'
 type ProjectSectionCollapseState = Record<ProjectSectionId, boolean>
 
