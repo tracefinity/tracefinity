@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import base64
 import json
 import logging
@@ -114,7 +113,7 @@ class OllamaToolNamer:
                 response.raise_for_status()
                 return response.json()
 
-        result = await asyncio.wait_for(_call(), timeout=self.config.timeout_seconds)
+        result = await _call()
         raw = result.get("message", {}).get("content", "")
         return parse_label_response(raw)
 
