@@ -1,6 +1,10 @@
 import type {
   UploadResponse,
   CornersResponse,
+  PhotoStation,
+  PhotoStationSuggestionsResponse,
+  RedetectCornersResponse,
+  ReuseCornersResponse,
   TraceResponse,
   GenerateResponse,
   Point,
@@ -20,6 +24,7 @@ import type {
   PlacedTool,
   TextLabel,
   PaperSize,
+  CaptureCrop,
 } from '@/types'
 
 export class ApiError extends Error {
@@ -65,20 +70,23 @@ async function fetchForm<T>(path: string, body: FormData): Promise<T> {
   return res.json()
 }
 
-export async function uploadImage(file: File): Promise<UploadResponse> {
+export async function uploadImage(file: File, stationId?: string | null, captureCrop?: CaptureCrop | null): Promise<UploadResponse> {
   const formData = new FormData()
   formData.append('image', file)
+  if (stationId) formData.append('station_id', stationId)
+  if (captureCrop) formData.append('capture_crop', JSON.stringify(captureCrop))
   return fetchForm('/api/upload', formData)
 }
 
 export async function setCorners(
   sessionId: string,
   corners: Point[],
-  paperSize: PaperSize
+  paperSize: PaperSize,
+  saveStationName?: string | null,
 ): Promise<CornersResponse> {
   return fetchApi(`/api/sessions/${sessionId}/corners`, {
     method: 'POST',
-    body: JSON.stringify({ corners, paper_size: paperSize }),
+    body: JSON.stringify({ corners, paper_size: paperSize, save_station_name: saveStationName ?? null }),
   })
 }
 
@@ -87,7 +95,18 @@ export interface TracerInfo {
   label: string
 }
 
-export async function getAvailableKeys(): Promise<{ google: boolean; provider: string | null; provider_label: string | null; tracers: TracerInfo[] }> {
+export async function redetectCorners(sessionId: string): Promise<RedetectCornersResponse> {
+  return fetchApi(`/api/sessions/${sessionId}/redetect-corners`, {
+    method: 'POST',
+  })
+}
+
+export async function getAvailableKeys(): Promise<{
+  google: boolean
+  provider: string | null
+  provider_label: string | null
+  tracers: TracerInfo[]
+}> {
   return fetchApi('/api/api-keys')
 }
 
@@ -295,6 +314,59 @@ export async function removeToolFromProject(projectId: string, toolId: string): 
 
 export async function getProjectHealth(projectId: string): Promise<ProjectHealthResponse> {
   return fetchApi(`/api/bin-projects/${projectId}/health`)
+}
+
+export async function listPhotoStations(): Promise<PhotoStation[]> {
+  const res = await fetchApi<{ stations: PhotoStation[] }>('/api/photo-stations')
+  return res.stations
+}
+
+export async function getPhotoStation(stationId: string): Promise<PhotoStation> {
+  return fetchApi(`/api/photo-stations/${stationId}`)
+}
+
+export async function listPhotoStationSuggestions(sessionId: string): Promise<PhotoStationSuggestionsResponse> {
+  return fetchApi(`/api/sessions/${sessionId}/station-suggestions`)
+}
+
+export async function createPhotoStation(opts: {
+  name: string
+  session_id: string
+  paper_size?: PaperSize
+  corners?: Point[]
+}): Promise<PhotoStation> {
+  return fetchApi('/api/photo-stations', {
+    method: 'POST',
+    body: JSON.stringify(opts),
+  })
+}
+
+export async function updatePhotoStation(
+  stationId: string,
+  updates: {
+    name?: string
+    paper_size?: PaperSize
+    corners?: Point[]
+  }
+): Promise<PhotoStation> {
+  return fetchApi(`/api/photo-stations/${stationId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  })
+}
+
+export async function reusePhotoStationCorners(
+  sessionId: string,
+  stationId: string
+): Promise<ReuseCornersResponse> {
+  return fetchApi(`/api/sessions/${sessionId}/reuse-corners`, {
+    method: 'POST',
+    body: JSON.stringify({ station_id: stationId }),
+  })
+}
+
+export async function deletePhotoStation(stationId: string): Promise<void> {
+  await fetchApi(`/api/photo-stations/${stationId}`, { method: 'DELETE' })
 }
 
 export async function repairProject(projectId: string): Promise<ProjectHealthResponse> {
