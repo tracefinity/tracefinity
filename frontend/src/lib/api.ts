@@ -21,6 +21,7 @@ import type {
   PlacedTool,
   TextLabel,
   PaperSize,
+  CaptureCrop,
 } from '@/types'
 
 export class ApiError extends Error {
@@ -66,9 +67,11 @@ async function fetchForm<T>(path: string, body: FormData): Promise<T> {
   return res.json()
 }
 
-export async function uploadImage(file: File): Promise<UploadResponse> {
+export async function uploadImage(file: File, stationId?: string | null, captureCrop?: CaptureCrop | null): Promise<UploadResponse> {
   const formData = new FormData()
   formData.append('image', file)
+  if (stationId) formData.append('station_id', stationId)
+  if (captureCrop) formData.append('capture_crop', JSON.stringify(captureCrop))
   return fetchForm('/api/upload', formData)
 }
 
