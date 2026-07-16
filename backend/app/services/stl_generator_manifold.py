@@ -1200,7 +1200,6 @@ def _make_text_labels(
     offset_y: float,
     pocket_depth: float = 0,
     polygons: list[ScaledPolygon] | None = None,
-    max_depth: float = 0,
 ):
     """Build manifold solids for text labels. Returns (recessed_cutter, embossed_body).
 
@@ -1380,10 +1379,10 @@ class ManifoldSTLGenerator:
             cutters.append(_make_magnet_holes(config))
 
         pocket_depth = 5
-        floor_z = GF_BASE_HEIGHT
-        lip_deduction = (LIP_D3 + LIP_D4) if config.stacking_lip else 0
-        max_depth = wall_top_z - floor_z - 2 - lip_deduction
         if polygons:
+            floor_z = GF_BASE_HEIGHT
+            lip_deduction = (LIP_D3 + LIP_D4) if config.stacking_lip else 0
+            max_depth = wall_top_z - floor_z - 2 - lip_deduction
             # Default pocket_depth still tracks the global cutout_depth; per-cutout
             # overrides are resolved inside the cutter functions.
             pocket_depth = _resolve_pocket_depth(None, config, max_depth)
@@ -1428,7 +1427,6 @@ class ManifoldSTLGenerator:
                 offset_y,
                 pocket_depth,
                 polygons=poly_dicts,
-                max_depth=max_depth,
             )
             if recessed:
                 cutters.append(recessed)
