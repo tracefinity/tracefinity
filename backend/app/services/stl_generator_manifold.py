@@ -314,8 +314,9 @@ def _label_layout_cell(config: GenerateRequest, x_mm: float, y_mm: float) -> tup
     """Map a text label position (bin layout mm, origin top-left) to grid cell indices."""
     grid_x, grid_y = _grid_cell_counts(config)
     ix = min(max(int(x_mm // GF_GRID), 0), grid_x - 1)
-    iy_ui = min(max(int(y_mm // GF_GRID), 0), grid_y - 1)
-    return ix, grid_y - 1 - iy_ui
+    # rows pitch from the bottom; fractional remainder band is the top row
+    iy = min(max(int((config.grid_y * GF_GRID - y_mm) // GF_GRID), 0), grid_y - 1)
+    return ix, iy
 
 
 def _label_in_enabled_cell(config: GenerateRequest, x_mm: float, y_mm: float) -> bool:
@@ -1199,7 +1200,6 @@ def _make_text_labels(
     offset_y: float,
     pocket_depth: float = 0,
     polygons: list[ScaledPolygon] | None = None,
-    max_depth: float = 0,
 ):
     """Build manifold solids for text labels. Returns (recessed_cutter, embossed_body).
 
@@ -1379,10 +1379,10 @@ class ManifoldSTLGenerator:
             cutters.append(_make_magnet_holes(config))
 
         pocket_depth = 5
-        floor_z = GF_BASE_HEIGHT
-        lip_deduction = (LIP_D3 + LIP_D4) if config.stacking_lip else 0
-        max_depth = wall_top_z - floor_z - 2 - lip_deduction
         if polygons:
+            floor_z = GF_BASE_HEIGHT
+            lip_deduction = (LIP_D3 + LIP_D4) if config.stacking_lip else 0
+            max_depth = wall_top_z - floor_z - 2 - lip_deduction
             # Default pocket_depth still tracks the global cutout_depth; per-cutout
             # overrides are resolved inside the cutter functions.
             pocket_depth = _resolve_pocket_depth(None, config, max_depth)
@@ -1427,7 +1427,6 @@ class ManifoldSTLGenerator:
                 offset_y,
                 pocket_depth,
                 polygons=poly_dicts,
-                max_depth=max_depth,
             )
             if recessed:
                 cutters.append(recessed)
