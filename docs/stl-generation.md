@@ -65,7 +65,11 @@ Bed splitting uses the **full** `grid_x` / `grid_y` footprint when connect mode 
 1. **Disconnected partial bins** (partial bins on, connect off, at least one disabled cell): `export_separated_parts` decomposes the finished manifold into one STL per connected volume, packaged as a ZIP alongside the merged STL.
 2. **Bed-size split** (otherwise, when `bed_size > 0` and the diagonal-fit check fails): `split_bin` cuts along grid planes as for a normal oversized bin.
 
-The 3D preview receives split URLs for both cases.
+### Text labels
+
+Labels are generated on a single floor chosen from the label centre (`wall_top_z` or
+`cutout_floor_z`, depending on whether the centre is inside a tool polygon).
+When partial bins disable a cell, labels in that cell are skipped entirely.
 
 ## Base geometry (per cell, reverse-engineered from gridfinity-build123d)
 

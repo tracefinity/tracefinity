@@ -310,6 +310,21 @@ def _grid_cell_counts(config: GenerateRequest) -> tuple[int, int]:
     return math.ceil(config.grid_x), math.ceil(config.grid_y)
 
 
+def _label_layout_cell(config: GenerateRequest, x_mm: float, y_mm: float) -> tuple[int, int]:
+    """Map a text label position (bin layout mm, origin top-left) to grid cell indices."""
+    grid_x, grid_y = _grid_cell_counts(config)
+    ix = min(max(int(x_mm // GF_GRID), 0), grid_x - 1)
+    iy_ui = min(max(int(y_mm // GF_GRID), 0), grid_y - 1)
+    return ix, grid_y - 1 - iy_ui
+
+
+def _label_in_enabled_cell(config: GenerateRequest, x_mm: float, y_mm: float) -> bool:
+    if not _uses_partial_shell(config):
+        return True
+    ix, iy = _label_layout_cell(config, x_mm, y_mm)
+    return _cell_enabled(config, ix, iy)
+
+
 def _find_disabled_components(config: GenerateRequest) -> list[list[tuple[int, int]]]:
     components: list[list[tuple[int, int]]] = []
     visited: set[tuple[int, int]] = set()
@@ -1183,7 +1198,8 @@ def _make_text_labels(
     offset_x: float,
     offset_y: float,
     pocket_depth: float = 0,
-    polygons: list = None,
+    polygons: list[ScaledPolygon] | None = None,
+    max_depth: float = 0,
 ):
     """Build manifold solids for text labels. Returns (recessed_cutter, embossed_body).
 
@@ -1194,11 +1210,13 @@ def _make_text_labels(
 
     recessed = []
     embossed = []
-
     cutout_floor_z = wall_top_z - pocket_depth
     polys = polygons or []
 
     for tl in (config.text_labels or []):
+        if not _label_in_enabled_cell(config, tl.x, tl.y):
+            continue
+
         cs = _text_to_cross_section(tl.text, tl.font_size)
         if cs is None:
             continue
@@ -1207,7 +1225,6 @@ def _make_text_labels(
             lx = tl.x + offset_x
             ly = -(tl.y + offset_y)
 
-            # determine if label centre is inside any tool cutout
             in_cutout = any(
                 _point_in_polygon(tl.x, tl.y, p.get("points", []))
                 for p in polys
@@ -1362,13 +1379,12 @@ class ManifoldSTLGenerator:
             cutters.append(_make_magnet_holes(config))
 
         pocket_depth = 5
+        floor_z = GF_BASE_HEIGHT
+        lip_deduction = (LIP_D3 + LIP_D4) if config.stacking_lip else 0
+        max_depth = wall_top_z - floor_z - 2 - lip_deduction
         if polygons:
-            floor_z = GF_BASE_HEIGHT
-            lip_deduction = (LIP_D3 + LIP_D4) if config.stacking_lip else 0
-            max_depth = wall_top_z - floor_z - 2 - lip_deduction
-            # Default pocket_depth (used by text labels below) still tracks the
-            # global cutout_depth; per-cutout overrides are resolved inside the
-            # cutter functions via _resolve_pocket_depth.
+            # Default pocket_depth still tracks the global cutout_depth; per-cutout
+            # overrides are resolved inside the cutter functions.
             pocket_depth = _resolve_pocket_depth(None, config, max_depth)
 
             t1 = time.monotonic()
@@ -1395,12 +1411,24 @@ class ManifoldSTLGenerator:
                 logger.info("chamfer cutouts: %.2fs", time.monotonic() - t1)
 
         # text labels (recessed cutters + embossed body additions).
-        # Labels in disabled partial-bin cells are not clipped and may float in the STL.
         text_body = None
         if config.text_labels:
             t1 = time.monotonic()
-            poly_dicts = [{"points": [{"x": p[0], "y": p[1]} for p in pg.points_mm]} for pg in polygons] if polygons else []
-            recessed, embossed = _make_text_labels(config, wall_top_z, False, offset_x, offset_y, pocket_depth, poly_dicts)
+            poly_dicts = (
+                [{"points": [{"x": p[0], "y": p[1]} for p in pg.points_mm]} for pg in polygons]
+                if polygons
+                else []
+            )
+            recessed, embossed = _make_text_labels(
+                config,
+                wall_top_z,
+                False,
+                offset_x,
+                offset_y,
+                pocket_depth,
+                polygons=poly_dicts,
+                max_depth=max_depth,
+            )
             if recessed:
                 cutters.append(recessed)
             if embossed and not embossed.is_empty():
