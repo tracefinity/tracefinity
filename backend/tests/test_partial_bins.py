@@ -330,4 +330,42 @@ def test_text_label_in_disabled_cell_excluded_from_stl(tmp_path: Path):
     assert text_span is None
 
 
+def test_label_layout_cell_fractional_grid_indexes_rows_from_bottom():
+    # 63mm layout: fractional 21mm band is the top row (iy=1),
+    # full 42mm row pitches from the bottom (iy=0)
+    config = _base_config(grid_y=1.5)
 
+    assert _label_layout_cell(config, 21, 30) == (0, 0)
+    assert _label_layout_cell(config, 21, 10) == (0, 1)
+    # centre exactly on a gridline goes to the higher-index cell, matching x
+    assert _label_layout_cell(config, 21, 21) == (0, 1)
+
+
+def test_text_label_fractional_grid_bottom_row_disabled_skips_label(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    # label at y=30 sits in the bottom 42mm row, which is disabled
+    config = _base_config(
+        grid_y=1.5,
+        partial_bins=True,
+        partial_bins_values=[True, True, False, False],
+        text_labels=[TextLabel(id="lbl", text="HELLO", x=21, y=30, emboss=True)],
+    )
+
+    _, text_body = generator.generate_bin([], config, str(tmp_path / "bottom.stl"))
+
+    assert text_body is None
+
+
+def test_text_label_fractional_grid_top_row_disabled_keeps_label(tmp_path: Path):
+    generator = ManifoldSTLGenerator()
+    # same label, but only the top 21mm band is disabled
+    config = _base_config(
+        grid_y=1.5,
+        partial_bins=True,
+        partial_bins_values=[False, False, True, True],
+        text_labels=[TextLabel(id="lbl", text="HELLO", x=21, y=30, emboss=True)],
+    )
+
+    _, text_body = generator.generate_bin([], config, str(tmp_path / "top.stl"))
+
+    assert text_body is not None and not text_body.is_empty()

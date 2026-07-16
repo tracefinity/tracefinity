@@ -314,8 +314,9 @@ def _label_layout_cell(config: GenerateRequest, x_mm: float, y_mm: float) -> tup
     """Map a text label position (bin layout mm, origin top-left) to grid cell indices."""
     grid_x, grid_y = _grid_cell_counts(config)
     ix = min(max(int(x_mm // GF_GRID), 0), grid_x - 1)
-    iy_ui = min(max(int(y_mm // GF_GRID), 0), grid_y - 1)
-    return ix, grid_y - 1 - iy_ui
+    # rows pitch from the bottom; fractional remainder band is the top row
+    iy = min(max(int((config.grid_y * GF_GRID - y_mm) // GF_GRID), 0), grid_y - 1)
+    return ix, iy
 
 
 def _label_in_enabled_cell(config: GenerateRequest, x_mm: float, y_mm: float) -> bool:
