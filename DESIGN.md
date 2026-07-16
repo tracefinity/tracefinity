@@ -8,6 +8,15 @@ Decisions that guide contributions. Read this before opening a PR.
 - **No assumed inference.** Tool identification, naming, and categorisation must not assume a specific ML model or remote service. These features should be behind pluggable interfaces with manual/simple fallbacks as the default.
 - **Coordinate system discipline.** SVG/layout Y is down; manifold3d Y is up. Always negate Y when crossing that boundary. See docs/gotchas.md.
 
+## Scope
+
+Tracefinity is the photo-tracing-to-gridfinity pipeline. Photos are the input; gridfinity bins are the output. Features that serve this pipeline are in scope. Features that turn it into a general outline-to-bin converter are not.
+
+**Non-goals:**
+- Alternative outline import formats (SVG, DXF, STL, manual drawing). See #134.
+- Non-gridfinity output (freeform bin dimensions, non-standard grids). See #72.
+- General-purpose 2D-to-3D conversion unrelated to the tracing workflow.
+
 ## Architecture
 
 - **Keep PRs focused.** One concern per PR. If you're touching unrelated files (sidebar width, dev scripts, polish), split them out.

@@ -50,6 +50,15 @@ Backend: ruff, configured in `pyproject.toml` (rules E/F/W/I, ignores E402/E501)
 - Tool polygons are stored in px on the trace page, converted to mm (via `scale_factor`) when saved as Tools. Placed tools in bins are already in mm -- don't re-scale.
 - Cache-bust image URLs with `?v={timestamp}`. PolygonEditor needs a `key` prop to force remount on URL change.
 
+## Scope gate
+
+Before creating issues/PRs or accepting contributions, check:
+
+- Does it serve the photo-to-gridfinity pipeline specifically?
+- Does it widen input formats beyond photos (SVG, DXF, manual drawing)?
+- Does it widen output geometry beyond gridfinity?
+- If uncertain, check DESIGN.md non-goals and closed PRs #72, #134.
+
 ## Tracing
 
 Configurable via `GEMINI_IMAGE_MODEL` env var. Defaults to `gemini-3.1-flash-image-preview` locally, `gemini-3-pro-image-preview` in Docker. Also supports `gemini-2.5-flash-image` (faster, needs alignment).
