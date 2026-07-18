@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Settings } from 'lucide-react'
+import { getAppVersion } from '@/lib/api'
 import { BED_SIZE_MAX_MM, BED_SIZE_MIN_MM, getSettings, saveSettings } from '@/lib/settings'
 import { IconButton } from '@/components/IconButton'
 import { NumericInput } from '@/components/NumericInput'
@@ -9,11 +10,17 @@ import { NumericInput } from '@/components/NumericInput'
 export function SettingsPopover() {
   const [open, setOpen] = useState(false)
   const [bedSize, setBedSize] = useState(256)
+  const [version, setVersion] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setBedSize(getSettings().bedSize)
   }, [])
+
+  useEffect(() => {
+    if (!open || version !== null) return
+    getAppVersion().then(setVersion).catch(() => {})
+  }, [open, version])
 
   useEffect(() => {
     if (!open) return
@@ -74,6 +81,12 @@ export function SettingsPopover() {
               Bins wider than this are automatically split into printable pieces.
             </p>
           </div>
+
+          {version && (
+            <p className="text-[10px] text-text-muted mt-4 pt-3 border-t border-border">
+              Version {version}
+            </p>
+          )}
         </div>
       )}
     </div>

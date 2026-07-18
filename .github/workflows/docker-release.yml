@@ -45,6 +45,26 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
+      # single-arch build for the smoke check; APP_VERSION is arch-independent
+      # and the push build below reuses the cached layers
+      - name: Build for smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: tracefinity-smoke
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test image version
+        run: |
+          # baked APP_VERSION must match the release tag before anything is pushed
+          got=$(docker run --rm --entrypoint sh tracefinity-smoke -c 'echo "$APP_VERSION"')
+          echo "image APP_VERSION='$got' expected '${GITHUB_REF_NAME#v}'"
+          test "$got" = "${GITHUB_REF_NAME#v}"
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -53,6 +73,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
