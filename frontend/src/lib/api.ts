@@ -91,6 +91,11 @@ export async function getAvailableKeys(): Promise<{ google: boolean; provider: s
   return fetchApi('/api/api-keys')
 }
 
+export async function getAppVersion(): Promise<string> {
+  const res = await fetchApi<{ version: string }>('/api/version')
+  return res.version
+}
+
 export async function traceTools(
   sessionId: string,
   provider: 'google',
