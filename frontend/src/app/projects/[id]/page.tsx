@@ -36,6 +36,8 @@ import {
   type ProjectToolFilter,
 } from '@/lib/projectSelectors'
 import { AlertTriangle, ArrowLeft, CheckSquare, ChevronDown, ChevronRight, Loader2, Package, Plus, Search, Square, Trash2, Unlink } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useTheme } from '@/hooks/useTheme'
 
 const PROJECT_SECTION_COLLAPSE_KEY = 'tracefinity.project.collapsedSections'
 type ProjectSectionId = 'binDefaults' | 'projectTools' | 'linkedBins'
@@ -62,6 +64,7 @@ export default function ProjectPage() {
   const params = useParams()
   const router = useRouter()
   const projectId = params.id as string
+  const { theme } = useTheme()
 
   const [project, setProject] = useState<BinProject | null>(null)
   const [projects, setProjects] = useState<BinProjectSummary[]>([])
@@ -478,7 +481,7 @@ export default function ProjectPage() {
         <section className="glass rounded-[8px] px-3 py-2">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-xs text-amber-300">
+              <div className={cn("flex items-center gap-2 text-xs", theme === 'dark' ? 'text-amber-300' : 'text-amber-600')}>
                 <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
                 <span>{healthIssues.length} project health issue{healthIssues.length !== 1 ? 's' : ''}</span>
               </div>
@@ -581,7 +584,7 @@ export default function ProjectPage() {
                       title: binLabel(bin),
                       className: 'text-text-secondary',
                     }))
-                    : [{ key: 'needs-bin', label: 'Needs bin', title: 'Needs bin', className: 'text-amber-300' }]),
+                    : [{ key: 'needs-bin', label: 'Needs bin', title: 'Needs bin', className: theme === 'dark' ? 'text-amber-300' : 'text-amber-600' }]),
                 ]
                 return (
                 <div key={tool.id} className="glass rounded-[8px] px-3 py-2 min-h-[72px] flex items-start justify-between gap-2">
@@ -829,7 +832,7 @@ export default function ProjectPage() {
                     </button>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {outsideTools.length > 0 && (
-                        <AlertTriangle className="w-4 h-4 text-amber-300" />
+                        <AlertTriangle className={cn("w-4 h-4", theme === 'dark' ? 'text-amber-300' : 'text-amber-600')} />
                       )}
                       <Package className="w-4 h-4 text-text-muted" />
                       <button
@@ -854,7 +857,7 @@ export default function ProjectPage() {
                     <div className="mt-2 space-y-1 border-t border-border-subtle pt-2">
                       {outsideTools.length > 0 && (
                         <div className="glass-sm rounded-[7px] border border-border-subtle px-2 py-1">
-                          <p className="text-[10px] text-amber-300">{outsideTools.length} outside-project tool{outsideTools.length !== 1 ? 's' : ''} in this bin</p>
+                          <p className={cn("text-[10px]", theme === 'dark' ? 'text-amber-300' : 'text-amber-600')}>{outsideTools.length} outside-project tool{outsideTools.length !== 1 ? 's' : ''} in this bin</p>
                         </div>
                       )}
                       <p className="text-[10px] text-text-muted px-1">In this bin</p>

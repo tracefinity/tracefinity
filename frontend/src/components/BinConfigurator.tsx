@@ -7,6 +7,7 @@ import { createPartialBinsValues } from '@/lib/binDefaults'
 import { BED_SIZE_MAX_MM, BED_SIZE_MIN_MM } from '@/lib/settings'
 import { cn } from '@/lib/utils'
 import { ClassValue } from 'clsx'
+import { useTheme } from '@/hooks/useTheme'
 
 const GF_HEIGHT_UNIT = 7.0
 const GF_BASE_HEIGHT = 4.75
@@ -150,6 +151,15 @@ function RadioMatrix({ sizeX, sizeY, values, onChange }: { sizeX: number; sizeY:
           ))}
       </div>
   );
+}
+
+function HintBanner({ children }: { children: React.ReactNode }) {
+  const { theme } = useTheme()
+  return (
+    <div className={cn("text-[11px] mt-1 leading-tight", theme === 'dark' ? 'text-amber-400' : 'text-amber-600')}>
+      {children}
+    </div>
+  )
 }
 
 export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }: Props) {
@@ -371,12 +381,12 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
           onChange={(v) => update({ bed_size: v })}
         />
         {needsSplit && (
-          <div className="text-[11px] text-amber-400 mt-1 leading-tight">
+          <HintBanner>
             {binWidth > config.bed_size && `Width ${binWidth}mm exceeds bed`}
             {binWidth > config.bed_size && binDepth > config.bed_size && ' & '}
             {binDepth > config.bed_size && `Depth ${binDepth}mm exceeds bed`}
             {' \u2014 will be split'}
-          </div>
+          </HintBanner>
         )}
       </div>
 
@@ -414,7 +424,7 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
                           help="Keep the bin perimeter wall through disabled cells while still connecting them on the base."
                       />
                   )}
-                  {exportsSeparateParts && <div className="text-[11px] text-amber-400 mt-1 leading-tight">Disconnected pieces {"\u2014"} export includes a ZIP with one STL per part</div>}
+                  {exportsSeparateParts && <HintBanner>Disconnected pieces {"\u2014"} export includes a ZIP with one STL per part</HintBanner>}
               </div>
           )}
       </div>

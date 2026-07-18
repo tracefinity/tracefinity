@@ -15,6 +15,8 @@ import { GRID_UNIT } from '@/lib/constants'
 import { getDefaultBinDefaults } from '@/lib/binDefaults'
 import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation'
 import { projectNameMap, projectStatusLabels, toolProjectLabel, toolProjectTitle } from '@/lib/projectSelectors'
+import { cn } from '@/lib/utils'
+import { useTheme } from '@/hooks/useTheme'
 
 function thumbnailRotationStyle(transform: AffineMatrix | null): React.CSSProperties | undefined {
   if (!transform) return undefined
@@ -229,6 +231,15 @@ function loadSectionCollapseState(): MainSectionCollapseState {
   } catch {
     return defaultSectionCollapse
   }
+}
+
+function HintBanner({ children }: { children: React.ReactNode }) {
+  const { theme } = useTheme()
+  return (
+    <div className={cn("text-[10px] flex-shrink-0", theme === 'dark' ? 'text-amber-300' : 'text-amber-600')}>
+      {children}
+    </div>
+  )
 }
 
 export default function HomePage() {
@@ -499,7 +510,7 @@ export default function HomePage() {
                               <span className="text-[10px] text-text-muted flex-shrink-0">·</span>
                             )}
                             {project.unplaced_count > 0 && (
-                              <span className="text-[10px] text-amber-300 flex-shrink-0">{project.unplaced_count} need bin</span>
+                              <HintBanner>{project.unplaced_count} need bin</HintBanner>
                             )}
                           </div>
                         )}
@@ -609,7 +620,7 @@ export default function HomePage() {
                                 {projectBinToolIds.has(tool.id) ? (
                                   <span className="text-[10px] text-text-muted flex-shrink-0">Placed</span>
                                 ) : (
-                                  <span className="text-[10px] text-amber-300 flex-shrink-0">Needs bin</span>
+                                  <HintBanner>Needs bin</HintBanner>
                                 )}
                               </>
                             )}

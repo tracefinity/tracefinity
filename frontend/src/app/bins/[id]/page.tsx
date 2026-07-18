@@ -15,10 +15,13 @@ import { Alert } from '@/components/Alert'
 import { useDebouncedSave } from '@/hooks/useDebouncedSave'
 import { useProjectSource } from '@/hooks/useProjectSource'
 import { GRID_UNIT } from '@/lib/constants'
+import { useTheme } from '@/hooks/useTheme'
+import { cn } from '@/lib/utils'
 
 function InfoBanner({ children }: { children: React.ReactNode }) {
+  const { theme } = useTheme()
   return (
-    <div className="text-[10px] text-amber-400 bg-amber-900/20 border border-amber-800/50 rounded px-2 py-1">
+    <div className={cn("text-[10px] rounded px-2 py-1", theme === 'dark' ? 'bg-amber-900/20 border border-amber-800/50 text-amber-400' : 'bg-amber-500/20 border border-amber-400/50 text-amber-600')}>
       {children}
     </div>
   )

@@ -17,6 +17,8 @@ import { useHistory } from '@/hooks/useHistory'
 import { ToolEditorToolbar } from '@/components/ToolEditorToolbar'
 import { ToolEditorCanvas } from '@/components/ToolEditorCanvas'
 import type { EditMode, Selection } from '@/components/ToolEditorToolbar'
+import { cn } from '@/lib/utils'
+import { useTheme } from '@/hooks/useTheme'
 
 interface Props {
   points: Point[]
@@ -90,6 +92,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
 
   const imageTransformRef = useRef<AffineMatrix | null>(sourceImageContext?.transform ?? null)
   const onImageTransformRef = useRef(onImageTransformChange)
+  const { theme } = useTheme()
 
   // undo/redo
   const historyOnChange = useCallback((entry: HistoryEntry) => {
@@ -889,7 +892,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       </div>
 
       {mirrorNote && (
-        <div className="absolute top-[58px] left-1/2 -translate-x-1/2 z-20 glass-toolbar px-3 py-1.5 text-[11px] text-amber-300 max-w-[320px] text-center pointer-events-none">
+        <div className={cn("absolute top-[58px] left-1/2 -translate-x-1/2 z-20 glass-toolbar px-3 py-1.5 text-[11px] max-w-[320px] text-center pointer-events-none", theme === 'dark' ? 'text-amber-300' : 'text-amber-600')}>
           {mirrorNote}
         </div>
       )}
