@@ -150,6 +150,10 @@ RUN chmod +x /app/tests/test_entrypoint.sh
 
 EXPOSE 3000
 
+# version baked in by CI (release tag or dev-<sha>); "dev" for local builds
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
+
 ENV GEMINI_IMAGE_MODEL="gemini-3-pro-image-preview"
 ENV STORAGE_PATH=/app/storage
 ENV U2NET_HOME=/app/.u2net

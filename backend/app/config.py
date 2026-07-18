@@ -9,6 +9,7 @@ from app.services.tracer_registry import DEFAULT_LOCAL_TRACERS, validate_tracer_
 
 
 class Settings(BaseSettings):
+    app_version: str = "dev"
     storage_path: Path = Path("./storage")
     google_api_key: Optional[str] = None
     openrouter_api_key: Optional[str] = None

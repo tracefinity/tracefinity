@@ -575,6 +575,12 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
     )
 
 
+@router.get("/version")
+async def get_version():
+    """return the running app version (baked into the image, "dev" locally)."""
+    return {"version": settings.app_version}
+
+
 @router.get("/api-keys")
 async def get_available_keys(request: Request):
     """return available tracers and provider info."""

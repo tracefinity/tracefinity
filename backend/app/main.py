@@ -22,7 +22,7 @@ logging.basicConfig(
 from app.api.routes import router
 from app.api.user_routes import router as user_router
 
-app = FastAPI(title="Tracefinity API", version="0.1.0")
+app = FastAPI(title="Tracefinity API", version=settings.app_version)
 
 
 @app.on_event("startup")
