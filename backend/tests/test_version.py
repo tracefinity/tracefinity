@@ -27,3 +27,39 @@ def test_version_endpoint_reflects_settings(client, monkeypatch):
 def test_app_version_read_from_env(monkeypatch):
     monkeypatch.setenv("APP_VERSION", "0.6.0")
     assert Settings().app_version == "0.6.0"
+
+
+def test_version_endpoint_404_when_disabled(client, monkeypatch):
+    monkeypatch.setattr(settings, "show_app_version", False)
+    resp = client.get("/api/version")
+    assert resp.status_code == 404
+
+
+def test_show_app_version_read_from_env(monkeypatch):
+    monkeypatch.setenv("SHOW_APP_VERSION", "false")
+    assert Settings().show_app_version is False
+    monkeypatch.setenv("SHOW_APP_VERSION", "0")
+    assert Settings().show_app_version is False
+    monkeypatch.delenv("SHOW_APP_VERSION")
+    assert Settings().show_app_version is True
+
+
+def test_openapi_version_hidden_when_disabled(monkeypatch):
+    """reload app with the toggle off; openapi must not carry the version."""
+    import importlib
+
+    import app.config as config_mod
+    import app.main as main_mod
+
+    monkeypatch.setenv("SHOW_APP_VERSION", "false")
+    monkeypatch.setenv("APP_VERSION", "9.9.9")
+    importlib.reload(config_mod)
+    importlib.reload(main_mod)
+    try:
+        resp = TestClient(main_mod.app).get("/openapi.json")
+        assert resp.json()["info"]["version"] == "hidden"
+    finally:
+        monkeypatch.delenv("SHOW_APP_VERSION")
+        monkeypatch.delenv("APP_VERSION")
+        importlib.reload(config_mod)
+        importlib.reload(main_mod)

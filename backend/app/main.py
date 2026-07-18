@@ -22,7 +22,12 @@ logging.basicConfig(
 from app.api.routes import router
 from app.api.user_routes import router as user_router
 
-app = FastAPI(title="Tracefinity API", version=settings.app_version)
+# neutral openapi version when the toggle is off, so nothing is disclosed
+# (fastapi rejects an empty version string)
+app = FastAPI(
+    title="Tracefinity API",
+    version=settings.app_version if settings.show_app_version else "hidden",
+)
 
 
 @app.on_event("startup")

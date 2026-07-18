@@ -33,4 +33,15 @@ describe('SettingsPopover version display', () => {
     expect(await screen.findByText('Settings')).toBeTruthy()
     expect(screen.queryByText(/^Version /)).toBeNull()
   })
+
+  it('omits the version line when version reporting is disabled', async () => {
+    // SHOW_APP_VERSION=false makes /api/version return 404
+    getAppVersion.mockRejectedValue(new Error('not found'))
+    render(<SettingsPopover />)
+
+    fireEvent.click(screen.getByTitle('Settings'))
+
+    expect(await screen.findByText('Settings')).toBeTruthy()
+    expect(screen.queryByText(/^Version /)).toBeNull()
+  })
 })

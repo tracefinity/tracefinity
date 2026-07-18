@@ -53,7 +53,7 @@ Response fields:
 - `tracers` (array): `{id, label}` entries. Remote tracers include `{"id":"replicate","label":"Replicate"}` and `{"id":"fal","label":"fal.ai"}` when the respective tokens are configured.
 
 ## Meta
-- `GET /api/version` - running app version. Release images report the release tag (e.g. `0.6.0`), dev images `dev-<sha>`, local runs `dev`.
+- `GET /api/version` - running app version. Release images report the release tag (e.g. `0.6.0`), dev images `dev-<sha>`, local runs `dev`. Returns 404 when `SHOW_APP_VERSION=false`.
 
 ## File serving
 - `GET /api/files/{session_id}/bin.stl` - session STL

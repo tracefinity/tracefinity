@@ -577,7 +577,12 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
 
 @router.get("/version")
 async def get_version():
-    """return the running app version (baked into the image, "dev" locally)."""
+    """return the running app version (baked into the image, "dev" locally).
+
+    404 when SHOW_APP_VERSION=false so nothing is disclosed.
+    """
+    if not settings.show_app_version:
+        raise HTTPException(status_code=404)
     return {"version": settings.app_version}
 
 
