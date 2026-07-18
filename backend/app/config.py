@@ -36,7 +36,13 @@ class Settings(BaseSettings):
     tool_label_timeout_seconds: float = 30.0
     tool_label_max_crop_px: int = 512
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+        # empty env vars (e.g. docker run -e SHOW_APP_VERSION=) fall back to defaults
+        "env_ignore_empty": True,
+    }
 
     @property
     def available_tracers(self) -> list[str]:
