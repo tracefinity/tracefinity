@@ -58,6 +58,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Smoke test image version
+        run: |
+          # baked APP_VERSION must match the release tag
+          docker run --rm --entrypoint sh \
+            "$REGISTRY/$IMAGE_NAME:${{ steps.meta.outputs.version }}" \
+            -c 'echo "$APP_VERSION"' | grep -qx "${GITHUB_REF_NAME#v}"
+
   release-helm-chart:
     runs-on: ubuntu-latest
     needs: build
