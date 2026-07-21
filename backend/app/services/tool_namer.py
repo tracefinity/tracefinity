@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 import cv2
@@ -12,9 +13,9 @@ import numpy as np
 
 from app.config import settings
 from app.models.schemas import Point, Polygon
+from app.services.ai_tracer import OPENROUTER_URL
 
 logger = logging.getLogger(__name__)
-
 
 LABEL_PROMPT = """Identify the physical tool or object in this image.
 Return only JSON with this shape:
@@ -67,6 +68,8 @@ class ToolNamerConfig:
     ollama_url: str = "http://localhost:11434"
     timeout_seconds: float = 30.0
     max_crop_px: int = 512
+    openrouter_api_key: str | None = field(kw_only=True)
+    openrouter_model: str = field(kw_only=True)
 
     @classmethod
     def from_settings(cls) -> "ToolNamerConfig":
@@ -76,6 +79,8 @@ class ToolNamerConfig:
             ollama_url=settings.tool_label_ollama_url,
             timeout_seconds=settings.tool_label_timeout_seconds,
             max_crop_px=settings.tool_label_max_crop_px,
+            openrouter_api_key=settings.openrouter_api_key,
+            openrouter_model=settings.openrouter_label_model,
         )
 
 
@@ -118,6 +123,83 @@ class OllamaToolNamer:
         return parse_label_response(raw)
 
 
+class OpenRouterToolNamer:
+    """Names an isolated tool crop via an OpenRouter vision model.
+
+    Not part of upstream tracefinity -- tool_namer.py only ships an Ollama
+    branch. Reuses the same OPENROUTER_URL/api-key/model settings already
+    used for the gemini contour-labeling path in
+    ai_tracer.py, and the existing per-crop LABEL_PROMPT in this file, which
+    is already scoped to one isolated tool.
+    """
+
+    def __init__(self, config: ToolNamerConfig):
+        self.config = config
+
+    async def name(self, image_png: bytes) -> str | None:
+        import httpx
+
+        if not self.config.openrouter_api_key:
+            logger.warning("tool naming provider=openrouter but no OPENROUTER_API_KEY set")
+            return None
+
+        image_b64 = base64.b64encode(image_png).decode("ascii")
+        data_url = f"data:image/png;base64,{image_b64}"
+        headers = {"Authorization": f"Bearer {self.config.openrouter_api_key}"}
+
+        # openrouter_model may be a comma-separated priority list. Free-tier
+        # (":free") models share a 20 req/min pool per model across all
+        # OpenRouter users -- a popular model can 429 well before any
+        # per-account cap is involved. Retry each model briefly, then fall
+        # through to the next one rather than failing the whole trace.
+        models = [m.strip() for m in self.config.openrouter_model.split(",") if m.strip()]
+        max_attempts_per_model = 2
+
+        async with httpx.AsyncClient(timeout=self.config.timeout_seconds) as client:
+            for model_index, model in enumerate(models):
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": LABEL_PROMPT},
+                                {"type": "image_url", "image_url": {"url": data_url}},
+                            ],
+                        }
+                    ],
+                    "temperature": 0,
+                }
+
+                response = None
+                for attempt in range(max_attempts_per_model):
+                    response = await client.post(OPENROUTER_URL, json=payload, headers=headers)
+                    if response.status_code != 429:
+                        break
+                    if attempt < max_attempts_per_model - 1:
+                        retry_after = response.headers.get("retry-after")
+                        delay = float(retry_after) if retry_after else 2.0 * (attempt + 1)
+                        logger.info(
+                            "openrouter 429 on %s, retrying in %.1fs (attempt %d/%d)",
+                            model, delay, attempt + 1, max_attempts_per_model,
+                        )
+                        await asyncio.sleep(delay)
+
+                if response.status_code == 429:
+                    if model_index < len(models) - 1:
+                        logger.info("openrouter %s exhausted retries, falling back to %s", model, models[model_index + 1])
+                        continue
+                    logger.warning("openrouter 429 on all configured models: %s", models)
+                    return None
+
+                response.raise_for_status()
+                result = response.json()
+                raw = result["choices"][0]["message"]["content"]
+                return parse_label_response(raw)
+
+        return None
+
+
 def create_tool_namer(config: ToolNamerConfig | None = None) -> ToolNamer:
     config = config or ToolNamerConfig.from_settings()
     provider = config.provider.strip().lower()
@@ -125,6 +207,8 @@ def create_tool_namer(config: ToolNamerConfig | None = None) -> ToolNamer:
         return FallbackToolNamer()
     if provider == "ollama":
         return OllamaToolNamer(config)
+    if provider == "openrouter":
+        return OpenRouterToolNamer(config)
 
     logger.warning("unsupported tool naming provider '%s'; using fallback labels", provider)
     return FallbackToolNamer()
