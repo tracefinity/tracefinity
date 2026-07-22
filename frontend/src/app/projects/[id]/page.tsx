@@ -39,7 +39,7 @@ import { AlertTriangle, ArrowLeft, CheckSquare, ChevronDown, ChevronRight, Loade
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/hooks/useTheme'
 
-const PROJECT_SECTION_COLLAPSE_KEY = 'tracefinity.project.collapsedSections'
+const PROJECT_SECTION_COLLAPSE_KEY = 'tracefinity.project.collapsedSections.v2'
 type ProjectSectionId = 'binDefaults' | 'projectTools' | 'linkedBins'
 type ProjectSectionCollapseState = Record<ProjectSectionId, boolean>
 

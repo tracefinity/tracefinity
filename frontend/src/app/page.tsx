@@ -211,7 +211,7 @@ function NameModal({ open, title = 'New bin', description = 'Give your bin a nam
   )
 }
 
-const SECTION_COLLAPSE_KEY = 'tracefinity.home.collapsedSections'
+const SECTION_COLLAPSE_KEY = 'tracefinity.home.collapsedSections.v2'
 type MainSectionId = 'projects' | 'tools' | 'bins' | 'howItWorks'
 type MainSectionCollapseState = Record<MainSectionId, boolean>
 
