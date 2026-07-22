@@ -10,6 +10,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from app.config import settings
 from app.models.schemas import Point, Polygon
 from app.services.tracer_registry import (
     GPU_REQUIRED_TRACERS,
@@ -63,8 +64,6 @@ Return labels in the same order as the positions listed above."""
 
 # models that need post-hoc alignment (don't respect output dimensions)
 _NEEDS_ALIGNMENT = {"gemini-2.5-flash-image"}
-
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
 class AITracer:
@@ -381,7 +380,7 @@ class AITracer:
         async def _call():
             async with httpx.AsyncClient(timeout=90) as client:
                 resp = await client.post(
-                    OPENROUTER_URL,
+                    settings.openrouter_url,
                     json=payload,
                     headers={
                         "Authorization": f"Bearer {self.openrouter_key}",
@@ -697,7 +696,7 @@ class AITracer:
         async def _call():
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
-                    OPENROUTER_URL,
+                    settings.openrouter_url,
                     json=payload,
                     headers={
                         "Authorization": f"Bearer {self.openrouter_key}",

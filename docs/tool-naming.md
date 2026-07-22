@@ -17,7 +17,7 @@ TOOL_LABEL_MAX_CROP_PX=512
 
 ## OpenRouter naming
 
-For setups without a local Ollama server (or without GPU headroom to run one), naming can go through OpenRouter's chat completions API instead. Same per-crop flow as Ollama: one cropped image per still-generic polygon, same JSON label parsing and validation, generic label kept on failure.
+For setups without a local Ollama server (or without GPU headroom to run one), naming can go through OpenRouter's chat completions API instead. Same per-crop flow as Ollama: one cropped image per still-generic polygon, same JSON label parsing and validation, generic label kept on failure. As with the remote (`gemini`) tracer, each cropped tool image is sent to OpenRouter's API to be named.
 
 ```bash
 TOOL_LABEL_PROVIDER=openrouter

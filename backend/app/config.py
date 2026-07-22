@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     storage_path: Path = Path("./storage")
     google_api_key: Optional[str] = None
     openrouter_api_key: Optional[str] = None
+    openrouter_url: str = "https://openrouter.ai/api/v1/chat/completions"
     openrouter_image_model: str = "google/gemini-3.1-flash-image-preview"
     openrouter_label_model: str = "google/gemini-2.0-flash-001"
     gemini_image_model: str = "gemini-3.1-flash-image-preview"
