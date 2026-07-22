@@ -15,6 +15,7 @@ from app.models.schemas import Point, Polygon, Session
 from app.services.tool_namer import (
     FallbackToolNamer,
     OllamaToolNamer,
+    OpenRouterToolNamer,
     ToolNamerConfig,
     create_tool_namer,
     name_polygons,
@@ -62,7 +63,7 @@ def test_disabled_provider_keeps_fallback_labels(tmp_path):
     assert result[0].label == "tool 1"
 
 
-def test_create_tool_namer_supports_only_ollama_and_fallback():
+def test_create_tool_namer_dispatches_by_provider():
     assert isinstance(
         create_tool_namer(ToolNamerConfig(provider="none")),
         FallbackToolNamer,
@@ -72,9 +73,61 @@ def test_create_tool_namer_supports_only_ollama_and_fallback():
         OllamaToolNamer,
     )
     assert isinstance(
+        create_tool_namer(ToolNamerConfig(provider="openrouter")),
+        OpenRouterToolNamer,
+    )
+    assert isinstance(
         create_tool_namer(ToolNamerConfig(provider="unsupported")),
         FallbackToolNamer,
     )
+
+
+class _FakeResponse:
+    def __init__(self, status_code: int, json_body: dict | None = None, headers: dict | None = None):
+        self.status_code = status_code
+        self._json_body = json_body or {}
+        self.headers = headers or {}
+
+    def json(self):
+        return self._json_body
+
+
+def test_openrouter_namer_falls_through_to_next_model_on_429(monkeypatch):
+    calls: list[str] = []
+
+    async def fake_post(_self, _url, json, headers):
+        calls.append(json["model"])
+        if json["model"] == "model-a":
+            return _FakeResponse(429, headers={"retry-after": "0"})
+        return _FakeResponse(200, {"choices": [{"message": {"content": '{"name":"hacksaw"}'}}]})
+
+    monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+
+    namer = OpenRouterToolNamer(
+        ToolNamerConfig(
+            provider="openrouter",
+            openrouter_api_key="key",
+            openrouter_model="model-a,model-b",
+        )
+    )
+
+    label = asyncio.run(namer.name(b"\x89PNG"))
+
+    assert label == "hacksaw"
+    assert calls == ["model-a", "model-a", "model-b"]
+
+
+def test_openrouter_namer_returns_none_when_content_missing(monkeypatch):
+    async def fake_post(_self, _url, json, headers):
+        return _FakeResponse(200, {"choices": [{"message": {}}]})
+
+    monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+
+    namer = OpenRouterToolNamer(
+        ToolNamerConfig(provider="openrouter", openrouter_api_key="key", openrouter_model="model-a")
+    )
+
+    assert asyncio.run(namer.name(b"\x89PNG")) is None
 
 
 def test_parse_valid_ollama_json_label():

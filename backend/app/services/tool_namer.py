@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -54,6 +55,10 @@ _BAD_NAME_FRAGMENTS = (
     "contact sheet",
 )
 
+# Per-model retry budget for OpenRouterToolNamer before falling through to
+# the next model in the priority list.
+_OPENROUTER_MAX_ATTEMPTS_PER_MODEL = 2
+
 
 class ToolNamer(Protocol):
     async def name(self, image_png: bytes) -> str | None:
@@ -67,6 +72,8 @@ class ToolNamerConfig:
     ollama_url: str = "http://localhost:11434"
     timeout_seconds: float = 30.0
     max_crop_px: int = 512
+    openrouter_api_key: str | None = settings.openrouter_api_key
+    openrouter_model: str = settings.openrouter_label_model
 
     @classmethod
     def from_settings(cls) -> "ToolNamerConfig":
@@ -76,6 +83,8 @@ class ToolNamerConfig:
             ollama_url=settings.tool_label_ollama_url,
             timeout_seconds=settings.tool_label_timeout_seconds,
             max_crop_px=settings.tool_label_max_crop_px,
+            openrouter_api_key=settings.openrouter_api_key,
+            openrouter_model=settings.openrouter_label_model,
         )
 
 
@@ -118,6 +127,85 @@ class OllamaToolNamer:
         return parse_label_response(raw)
 
 
+class OpenRouterToolNamer:
+    """Names an isolated tool crop via an OpenRouter vision model.
+    """
+
+    def __init__(self, config: ToolNamerConfig):
+        self.config = config
+
+    async def name(self, image_png: bytes) -> str | None:
+        import httpx
+
+        if not self.config.openrouter_api_key:
+            logger.warning("tool naming provider=openrouter but no OPENROUTER_API_KEY set")
+            return None
+
+        image_b64 = base64.b64encode(image_png).decode("ascii")
+        data_url = f"data:image/png;base64,{image_b64}"
+
+        # openrouter_model may be a comma-separated priority list. Free-tier
+        # (":free") models share a 20 req/min pool per model across all
+        # OpenRouter users, so any single model can fail under load that has
+        # nothing to do with this account. Try each model in order and fall
+        # through to the next on any error, not just 429.
+        models = [m.strip() for m in self.config.openrouter_model.split(",") if m.strip()]
+
+        async with httpx.AsyncClient(timeout=self.config.timeout_seconds) as client:
+            for model in models:
+                response = await self._post_with_retry(client, model, data_url)
+                if response.status_code >= 400:
+                    logger.info("openrouter %s failed (%d)", model, response.status_code)
+                    continue
+
+                # A 200 can still carry no usable content (e.g. reasoning
+                # models may return null content); treat that as "no name".
+                result = response.json()
+                choices = result.get("choices") or [{}]
+                message = choices[0].get("message") or {}
+                raw = message.get("content")
+                if not raw:
+                    return None
+                return parse_label_response(raw)
+
+        logger.warning("openrouter failed on all configured models: %s", models)
+        return None
+
+    async def _post_with_retry(self, client, model: str, data_url: str):
+        """POST one naming request for one model, retrying briefly on 429."""
+        payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": LABEL_PROMPT},
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                    ],
+                }
+            ],
+            "temperature": 0,
+        }
+        headers = {"Authorization": f"Bearer {self.config.openrouter_api_key}"}
+
+        for attempt in range(_OPENROUTER_MAX_ATTEMPTS_PER_MODEL):
+            response = await client.post(settings.openrouter_url, json=payload, headers=headers)
+            if response.status_code != 429 or attempt == _OPENROUTER_MAX_ATTEMPTS_PER_MODEL - 1:
+                return response
+
+            # Retry-After is server-controlled; cap it to the namer's own
+            # TOOL_LABEL_TIMEOUT_SECONDS budget so a large value can't stall
+            # the whole trace request. The HTTP-date form isn't a float and
+            # falls back to the default backoff.
+            try:
+                delay = float(response.headers["retry-after"])
+            except (KeyError, ValueError):
+                delay = 2.0 * (attempt + 1)
+            delay = min(delay, self.config.timeout_seconds)
+            logger.info("openrouter 429 on %s, retrying in %.1fs", model, delay)
+            await asyncio.sleep(delay)
+
+
 def create_tool_namer(config: ToolNamerConfig | None = None) -> ToolNamer:
     config = config or ToolNamerConfig.from_settings()
     provider = config.provider.strip().lower()
@@ -125,6 +213,8 @@ def create_tool_namer(config: ToolNamerConfig | None = None) -> ToolNamer:
         return FallbackToolNamer()
     if provider == "ollama":
         return OllamaToolNamer(config)
+    if provider == "openrouter":
+        return OpenRouterToolNamer(config)
 
     logger.warning("unsupported tool naming provider '%s'; using fallback labels", provider)
     return FallbackToolNamer()
