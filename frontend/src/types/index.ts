@@ -5,6 +5,13 @@ export interface Point {
 
 export type PaperSize = 'a4' | 'letter' | 'a3' | 'tabloid'
 
+export interface CaptureCrop {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface FingerHole {
   id: string
   x: number
@@ -56,6 +63,9 @@ export interface Session {
   tags: string[]
   created_at: string | null
   original_image_path: string | null
+  original_image_width: number | null
+  original_image_height: number | null
+  capture_crop: CaptureCrop | null
   corrected_image_path: string | null
   mask_image_path: string | null
   corners: Point[] | null
@@ -83,12 +93,58 @@ export interface UploadResponse {
   session_id: string
   image_url: string
   detected_corners: Point[] | null
+  image_width: number | null
+  image_height: number | null
+  corner_source: 'detected' | 'station' | 'none'
+  station_id: string | null
 }
 
 export interface CornersResponse {
   corrected_image_url: string
   scale_factor: number
   warnings: PhotoWarning[]
+  station: PhotoStation | null
+}
+
+export interface PhotoStation {
+  id: string
+  name: string
+  image_width: number
+  image_height: number
+  image_path: string | null
+  capture_crop: CaptureCrop | null
+  paper_size: PaperSize
+  corners: Point[]
+  created_at: string | null
+  updated_at: string | null
+  last_used_at: string | null
+}
+
+export type PhotoStationMatchStatus = 'exact' | 'near' | 'far'
+
+export interface PhotoStationSuggestion {
+  station: PhotoStation
+  match_status: PhotoStationMatchStatus
+  width_delta_percent: number
+  height_delta_percent: number
+  max_corner_drift_px: number | null
+  max_corner_drift_percent: number | null
+  warnings: string[]
+}
+
+export interface PhotoStationSuggestionsResponse {
+  suggestions: PhotoStationSuggestion[]
+  station_count: number
+}
+
+export interface RedetectCornersResponse {
+  corners: Point[]
+}
+
+export interface ReuseCornersResponse {
+  corners: Point[]
+  paper_size: PaperSize
+  suggestion: PhotoStationSuggestion
 }
 
 export interface TraceResponse {
