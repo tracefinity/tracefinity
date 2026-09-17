@@ -25,6 +25,14 @@ OPENROUTER_API_KEY=sk-or-...
 OPENROUTER_LABEL_MODEL=google/gemini-2.0-flash-001
 ```
 
+The endpoint is not tied to OpenRouter. Any OpenAI-compatible chat completions API that accepts `image_url` content parts works, so a self-hosted router or another hosted one can stand in:
+
+```bash
+OPENROUTER_URL=https://your-router.example/v1/chat/completions
+```
+
+The same endpoint serves the `gemini` tracer when it runs through `OPENROUTER_API_KEY`. Mask generation there needs OpenRouter's image output format, which a plain OpenAI-compatible proxy may not provide.
+
 `OPENROUTER_LABEL_MODEL` accepts a **comma-separated list** of models, tried in order:
 
 ```bash
@@ -43,6 +51,7 @@ This is aimed at OpenRouter's free-tier (`:free` suffix) models, which share a 2
 | `TOOL_LABEL_TIMEOUT_SECONDS` | `30` | Timeout for each naming request (both providers) |
 | `TOOL_LABEL_MAX_CROP_PX` | `512` | Maximum long edge for each isolated tool crop (both providers) |
 | `OPENROUTER_API_KEY` | unset | Required for the `openrouter` provider |
+| `OPENROUTER_URL` | `https://openrouter.ai/api/v1/chat/completions` | Chat completions endpoint for the `openrouter` provider. Any OpenAI-compatible API that accepts image inputs |
 | `OPENROUTER_LABEL_MODEL` | `google/gemini-2.0-flash-001` | Model, or comma-separated fallback list, for the `openrouter` provider |
 
 ## Behavior
