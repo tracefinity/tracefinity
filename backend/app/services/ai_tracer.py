@@ -80,16 +80,19 @@ PAPER_FRAGMENT_MAX_GAP = 0.25
 PAPER_FRAGMENT_MAX_GRAY_DIFF = 25
 PAPER_FRAGMENT_MAX_SAT_DIFF = 20
 # when the mask touches a crop edge the crop grows by this share of its
-# size on that side, at most this many times (#212)
+# size on that side, at most this many times. a grown crop shows more
+# background, which can flip saliency onto the sheet; a mask that balloons
+# past this multiple of the previous one is that failure, not more tool (#212)
 CROP_GROW_FRACTION = 0.25
 CROP_GROW_ROUNDS = 2
+CROP_GROW_MAX_AREA_RATIO = 4.0
 
 
 def _fragment_tone(contour: np.ndarray, gray: np.ndarray, sat: np.ndarray) -> tuple[float, float]:
     """mean grey and saturation inside a contour."""
     x, y, w, h = cv2.boundingRect(contour)
     local = np.zeros((h, w), np.uint8)
-    cv2.drawContours(local, [contour - np.array([x, y])], -1, 255, -1)
+    cv2.drawContours(local, [(contour - np.array([x, y])).astype(np.int32)], -1, 255, -1)
     return cv2.mean(gray[y:y + h, x:x + w], local)[0], cv2.mean(sat[y:y + h, x:x + w], local)[0]
 
 
@@ -106,6 +109,8 @@ def _merge_paper_fragments(
     )
     area, (x0, y0, w0, h0), (sheet_gray, sheet_sat) = rects[0]
     x1, y1 = x0 + w0, y0 + h0
+    # fixed to the largest fragment so chained merges cannot walk across the frame
+    gap = PAPER_FRAGMENT_MAX_GAP * max(w0, h0)
     pending = [
         r for r in rects[1:]
         if abs(r[2][0] - sheet_gray) <= PAPER_FRAGMENT_MAX_GRAY_DIFF
@@ -114,7 +119,6 @@ def _merge_paper_fragments(
     merged = True
     while merged and pending:
         merged = False
-        gap = PAPER_FRAGMENT_MAX_GAP * max(x1 - x0, y1 - y0)
         keep = []
         for frag_area, (fx, fy, fw, fh), tone in pending:
             fx1, fy1 = fx + fw, fy + fh
@@ -308,9 +312,15 @@ class AITracer:
         returns a full-size foreground mask (fg=255)."""
         img_w, img_h = pil_img.size
         x, y, rw, rh = rect
+        inside: np.ndarray | None = None
+        kept = rect
         for attempt in range(CROP_GROW_ROUNDS + 1):
             logging.info("cropping to %dx%d at (%d,%d) before saliency", rw, rh, x, y)
-            inside = await self._saliency_on_image(pil_img.crop((x, y, x + rw, y + rh)))
+            grown = await self._saliency_on_image(pil_img.crop((x, y, x + rw, y + rh)))
+            if inside is not None and np.count_nonzero(grown) > CROP_GROW_MAX_AREA_RATIO * np.count_nonzero(inside):
+                logging.info("grown crop ballooned the mask; keeping the previous crop")
+                break
+            inside, kept = grown, (x, y, rw, rh)
             touched = _touched_edges(inside)
             if attempt == CROP_GROW_ROUNDS or not any(touched.values()):
                 break
@@ -322,6 +332,7 @@ class AITracer:
             if (nx, ny, nx1, ny1) == (x, y, x + rw, y + rh):
                 break
             x, y, rw, rh = nx, ny, nx1 - nx, ny1 - ny
+        x, y, rw, rh = kept
         full = np.zeros((img_h, img_w), dtype=np.uint8)
         full[y:y + rh, x:x + rw] = inside
         return full

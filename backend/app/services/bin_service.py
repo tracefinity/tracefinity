@@ -33,6 +33,7 @@ def sync_placed_tools(bin_data, user_tools) -> bool:
         # preserve per-placement state (depth_override, etc.) by matching
         # source-tool holes to existing placed holes by id. without this,
         # GET /bins/{id} silently overwrites stored overrides on every load.
+        # a hole the placement has not seen yet keeps the library value.
         existing_overrides = {fh.id: fh.depth_override for fh in pt.finger_holes}
         new_fh = []
         for fh in tool.finger_holes:
@@ -40,7 +41,7 @@ def sync_placed_tools(bin_data, user_tools) -> bool:
             ry = (fh.x - lib_cx) * sin_r + (fh.y - lib_cy) * cos_r
             new_fh.append(fh.model_copy(update={
                 "x": placed_cx + rx, "y": placed_cy + ry,
-                "depth_override": existing_overrides.get(fh.id),
+                "depth_override": existing_overrides.get(fh.id, fh.depth_override),
             }))
 
         new_rings = []

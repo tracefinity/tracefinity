@@ -98,3 +98,23 @@ def test_sync_carries_source_fields_and_placement_override():
     (out,) = bin_data.placed_tools[0].finger_holes
     _assert_same_except(out, source_hole, "x", "y", "depth_override")
     assert out.depth_override == 9.0
+
+
+def test_sync_new_library_hole_keeps_library_override():
+    new_hole = _probe().model_copy(update={"id": "new", "depth_override": 12.0})
+    tool = Tool(id="t1", name="probe", points=SQUARE, finger_holes=[new_hole], interior_rings=[])
+    placed = PlacedTool(
+        id="pt1", tool_id="t1", name="probe",
+        points=[Point(x=p.x + 100, y=p.y + 100) for p in SQUARE],
+        finger_holes=[], interior_rings=[],
+    )
+    bin_data = BinModel(id="b1", bin_config=BinConfig(), placed_tools=[placed])
+
+    class _Store:
+        def get(self, key):
+            return tool if key == "t1" else None
+
+    sync_placed_tools(bin_data, _Store())
+
+    (out,) = bin_data.placed_tools[0].finger_holes
+    assert out.depth_override == 12.0

@@ -49,7 +49,7 @@ docker run -p 3000:3000 -v ./data:/app/storage -e REPLICATE_API_TOKEN=your-token
 docker run -p 3000:3000 -v ./data:/app/storage --user "$(id -u):$(id -g)" ghcr.io/tracefinity/tracefinity
 ```
 
-With a remote provider the corrected paper crop is sent to that provider for masking. The crop grows past the paper edge when a tool overhangs the sheet, so some of the surrounding photo can be sent too. fal is called with `sync_mode`, so the result is not kept in request history; Replicate API predictions (including the input image) auto-purge after about an hour, which is the only retention control Replicate exposes (it has no API to delete them sooner).
+With a remote provider the corrected paper crop is sent to that provider for masking. When a tool overhangs the sheet the crop grows past the paper edge and is sent again, so some of the surrounding photo can go to the provider in a second or third request. fal is called with `sync_mode`, so the result is not kept in request history; Replicate API predictions (including the input image) auto-purge after about an hour, which is the only retention control Replicate exposes (it has no API to delete them sooner).
 
 The Docker image supports **linux/amd64** and **linux/arm64**. Apple Silicon Macs run arm64 natively via Docker Desktop. ARM devices need at least 2GB RAM (for U2-Net paper detection), so a Raspberry Pi 4/5 with 4GB+ works.
 
