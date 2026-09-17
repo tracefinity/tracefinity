@@ -49,7 +49,7 @@ docker run -p 3000:3000 -v ./data:/app/storage -e REPLICATE_API_TOKEN=your-token
 docker run -p 3000:3000 -v ./data:/app/storage --user "$(id -u):$(id -g)" ghcr.io/tracefinity/tracefinity
 ```
 
-With a remote provider the corrected paper crop is sent to that provider for masking. fal is called with `sync_mode`, so the result is not kept in request history; Replicate API predictions (including the input image) auto-purge after about an hour, which is the only retention control Replicate exposes (it has no API to delete them sooner).
+With a remote provider the corrected paper crop is sent to that provider for masking. The crop grows past the paper edge when a tool overhangs the sheet, so some of the surrounding photo can be sent too. fal is called with `sync_mode`, so the result is not kept in request history; Replicate API predictions (including the input image) auto-purge after about an hour, which is the only retention control Replicate exposes (it has no API to delete them sooner).
 
 The Docker image supports **linux/amd64** and **linux/arm64**. Apple Silicon Macs run arm64 natively via Docker Desktop. ARM devices need at least 2GB RAM (for U2-Net paper detection), so a Raspberry Pi 4/5 with 4GB+ works.
 
@@ -64,7 +64,7 @@ By default, Tracefinity uses [IS-Net](https://github.com/xuebinqin/DIS) for loca
 | Variable | Default | Description |
 |-|-|-|
 | `GOOGLE_API_KEY` | | Gemini API key. Uses Gemini instead of local models |
-| `TRACERS` | auto-detected | Comma-separated list of available tracers, e.g. `gemini,birefnet-lite,isnet` |
+| `TRACERS` | auto-detected | Comma-separated list of available tracers, e.g. `gemini,birefnet-lite,isnet`. When set it is the complete list; unset with a Gemini or OpenRouter key offers `gemini` only |
 | `MAX_UPLOAD_MB` | `20` | Maximum compressed upload size in megabytes |
 | `MAX_IMAGE_PIXELS` | `64000000` | Maximum decoded pixels accepted before downscaling |
 | `STL_GENERATION_CONCURRENCY` | unlimited | Process-wide maximum STL generation jobs; excess jobs wait up to 5 seconds, then receive 503 |

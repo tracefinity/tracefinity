@@ -65,6 +65,12 @@ The brightness detection tries multiple thresholds (200, 190, 180), picks the la
 
 Difficult cases: hands in the frame, sticks/rods crossing the paper, very heavy tool overflow with minimal visible paper. These may need manual corner adjustment.
 
+On a bright sheet against a dark background U2-Net returns the sheet, not the tool. A mask over `TOOL_MASK_MAX_FRACTION` of the frame is ignored, and a masked miss retries unmasked; before that the upload came back with no corners at all (#213).
+
+## Saliency crop
+
+Local and remote saliency tracers run on the paper rect from `_detect_paper_rect`, not the full corrected image, because on the full image the bright sheet is the salient object. Two traps follow. A tool crossing the sheet splits the bright region, so fragments that line up with the sheet across a tool-sized gap are merged before cropping. A tool overhanging the sheet is outside the crop, so the crop grows on any side the mask touches and runs again; without that the mask is cut flat at the paper edge (#212). Gemini does not crop.
+
 ## Gemini mask quirks
 
 - Masks come back at different dimensions AND aspect ratio than requested. `_trace_mask()` resizes with `INTER_NEAREST`, then `_align_mask()` uses template matching to correct the positional offset.

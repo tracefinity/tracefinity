@@ -12,6 +12,8 @@ Paper detection uses a separate U2-Net Portable model that is always loaded alon
 
 The tracer model is configurable via the `TRACERS` environment variable. Multiple can be specified (comma-separated); the first is used by default.
 
+`TRACERS` is the complete list when set; API keys do not add to it. When it is unset and `GOOGLE_API_KEY` or `OPENROUTER_API_KEY` is set, only `gemini` is offered, so set `TRACERS=gemini,isnet` to keep a local model alongside.
+
 | Backend | Env value | Speed | RAM (min) | Notes |
 |-|-|-|-|-|
 | IS-Net | `isnet` | ~0.8s/image | 2 GB | Default. Good quality. |

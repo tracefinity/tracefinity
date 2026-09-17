@@ -12,6 +12,8 @@ from app.constants import PAPER_SIZES, PaperSize
 logger = logging.getLogger(__name__)
 
 PX_PER_MM = 10
+# a saliency mask this large is the sheet, not a tool lying on it (#213)
+TOOL_MASK_MAX_FRACTION = 0.4
 
 
 def _quad_aspect_ratio(
@@ -132,14 +134,26 @@ class ImageProcessor:
         return mask
 
     def detect_paper_corners(self, image_path: str) -> list[tuple[float, float]] | None:
-        """detect paper corners, masking out tools when U2-Net is available."""
+        """detect paper corners, masking out tools when U2-Net is available.
+        on a dark background the sheet itself is the salient object, so a
+        mask covering most of the frame is ignored and a masked miss retries
+        unmasked instead of reporting no corners (#213)."""
         img = cv2.imread(image_path)
         if img is None:
             return None
 
         if self._tool_mask_session is not None:
             tool_mask = self._get_tool_mask(image_path)
-            img[tool_mask > 0] = [0, 0, 0]
+            fraction = np.count_nonzero(tool_mask) / tool_mask.size
+            if fraction > TOOL_MASK_MAX_FRACTION:
+                logger.info("tool mask covers %.0f%% of the frame, likely the sheet; detecting unmasked", fraction * 100)
+            else:
+                masked = img.copy()
+                masked[tool_mask > 0] = [0, 0, 0]
+                corners = self._detect_paper(masked)
+                if corners:
+                    return corners
+                logger.info("paper not found with tools masked; retrying unmasked")
 
         return self._detect_paper(img)
 

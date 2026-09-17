@@ -405,15 +405,7 @@ def _translate_points(points: list[Point], dx: float, dy: float) -> list[Point]:
 
 
 def _translate_finger_holes(holes: list[FingerHole], dx: float, dy: float) -> list[FingerHole]:
-    return [
-        FingerHole(
-            id=fh.id, x=fh.x + dx, y=fh.y + dy,
-            radius=fh.radius, width=fh.width, height=fh.height,
-            rotation=fh.rotation, shape=fh.shape,
-            depth_override=fh.depth_override,
-        )
-        for fh in holes
-    ]
+    return [fh.model_copy(update={"x": fh.x + dx, "y": fh.y + dy}) for fh in holes]
 
 
 def _polygon_source_transform(poly: Polygon, scale_factor: float) -> tuple[float, float] | None:
@@ -1602,11 +1594,7 @@ async def download_tool_svg(request: Request, tool_id: str, user_id: str = Depen
 
     points_mm = [(p.x, p.y) for p in tool.points]
     interior_rings_mm = [[(p.x, p.y) for p in ring] for ring in tool.interior_rings]
-    fholes = [ScaledFingerHole(
-        fh.id, fh.x, fh.y, fh.radius,
-        shape=fh.shape, width_mm=fh.width, height_mm=fh.height,
-        rotation=fh.rotation,
-    ) for fh in tool.finger_holes]
+    fholes = [ScaledFingerHole.from_finger_hole(fh) for fh in tool.finger_holes]
     sp = ScaledPolygon(tool.id, points_mm, tool.name, fholes, interior_rings_mm)
 
     if tool.smoothed:
@@ -2134,15 +2122,7 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
     scaled = []
     for pt in bin_data.placed_tools:
         points_mm = [(p.x, p.y) for p in pt.points]
-        fholes = [
-            ScaledFingerHole(
-                fh.id, fh.x, fh.y, fh.radius,
-                shape=fh.shape, width_mm=fh.width, height_mm=fh.height,
-                rotation=fh.rotation,
-                depth_override=fh.depth_override,
-            )
-            for fh in pt.finger_holes
-        ]
+        fholes = [ScaledFingerHole.from_finger_hole(fh) for fh in pt.finger_holes]
         interior_rings_mm = [
             [(p.x, p.y) for p in ring]
             for ring in pt.interior_rings

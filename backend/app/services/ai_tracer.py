@@ -21,20 +21,21 @@ from app.services.tracer_registry import (
     TRACER_LABELS,
 )
 
-# gemini-3-pro respects output dimensions precisely, so a direct
-# "create a mask" instruction works and alignment is trivial.
+# gemini-3-pro and 3.1-flash respect output dimensions precisely, so a direct
+# "create a mask" instruction works and alignment is trivial. the tracer emits
+# one polygon per contour, so the prompt has to ask for every object (#223).
 MASK_PROMPT_PRO = """Create a black and white mask of this image.
 
 CRITICAL: The output image MUST be EXACTLY {width}x{height} pixels - the same as the input.
 
 Instructions:
 1. Output dimensions: {width} pixels wide, {height} pixels tall (MANDATORY)
-2. Tool silhouette: pure black (#000000)
+2. Every tool or object lying on the paper: pure black (#000000) silhouette. Include small, thin, shiny and low-contrast items, not only the largest one
 3. Everything else (paper, shadows, background): pure white (#FFFFFF)
-4. Trace the actual tool edges, NOT the shadow edges
-5. Tool position must stay exactly where it is
+4. Trace the actual edges of each object, NOT the shadow edges
+5. Each object must stay exactly where it is
 
-Output a {width}x{height} pixel image with black tool silhouette on white background."""
+Output a {width}x{height} pixel image with a black silhouette for every object on a white background."""
 
 # gemini-2.5-flash ignores dimension requests and returns arbitrary sizes.
 # "stencil" language produces cleaner B/W output than "mask" language.
@@ -65,6 +66,80 @@ Return labels in the same order as the positions listed above."""
 
 # models that need post-hoc alignment (don't respect output dimensions)
 _NEEDS_ALIGNMENT = {"gemini-2.5-flash-image"}
+# models that mask more cleanly from the "stencil" wording. kept apart from
+# alignment: one is geometry, the other phrasing (#223)
+_STENCIL_PROMPT_MODELS = {"gemini-2.5-flash-image"}
+
+# saliency crop: bright fragments smaller than this share of the image are
+# noise, and fragments of one sheet split by a tool sit no further apart
+# than this share of the sheet's long side. they also share the sheet's
+# brightness and saturation, which keeps a light table beside the sheet
+# out of the crop (#212)
+PAPER_FRAGMENT_MIN_FRACTION = 0.005
+PAPER_FRAGMENT_MAX_GAP = 0.25
+PAPER_FRAGMENT_MAX_GRAY_DIFF = 25
+PAPER_FRAGMENT_MAX_SAT_DIFF = 20
+# when the mask touches a crop edge the crop grows by this share of its
+# size on that side, at most this many times (#212)
+CROP_GROW_FRACTION = 0.25
+CROP_GROW_ROUNDS = 2
+
+
+def _fragment_tone(contour: np.ndarray, gray: np.ndarray, sat: np.ndarray) -> tuple[float, float]:
+    """mean grey and saturation inside a contour."""
+    x, y, w, h = cv2.boundingRect(contour)
+    local = np.zeros((h, w), np.uint8)
+    cv2.drawContours(local, [contour - np.array([x, y])], -1, 255, -1)
+    return cv2.mean(gray[y:y + h, x:x + w], local)[0], cv2.mean(sat[y:y + h, x:x + w], local)[0]
+
+
+def _merge_paper_fragments(
+    fragments: list[np.ndarray], gray: np.ndarray, sat: np.ndarray
+) -> tuple[float, tuple[int, int, int, int]]:
+    """bounding rect of the largest bright fragment plus every fragment of
+    the same tone that lines up with it across a tool-sized gap.
+    returns (summed area, rect)."""
+    rects = sorted(
+        ((cv2.contourArea(c), cv2.boundingRect(c), _fragment_tone(c, gray, sat)) for c in fragments),
+        key=lambda r: r[0],
+        reverse=True,
+    )
+    area, (x0, y0, w0, h0), (sheet_gray, sheet_sat) = rects[0]
+    x1, y1 = x0 + w0, y0 + h0
+    pending = [
+        r for r in rects[1:]
+        if abs(r[2][0] - sheet_gray) <= PAPER_FRAGMENT_MAX_GRAY_DIFF
+        and abs(r[2][1] - sheet_sat) <= PAPER_FRAGMENT_MAX_SAT_DIFF
+    ]
+    merged = True
+    while merged and pending:
+        merged = False
+        gap = PAPER_FRAGMENT_MAX_GAP * max(x1 - x0, y1 - y0)
+        keep = []
+        for frag_area, (fx, fy, fw, fh), tone in pending:
+            fx1, fy1 = fx + fw, fy + fh
+            aligned = (fx < x1 and fx1 > x0) or (fy < y1 and fy1 > y0)
+            dx = max(x0 - fx1, fx - x1, 0)
+            dy = max(y0 - fy1, fy - y1, 0)
+            if aligned and dx <= gap and dy <= gap:
+                x0, y0 = min(x0, fx), min(y0, fy)
+                x1, y1 = max(x1, fx1), max(y1, fy1)
+                area += frag_area
+                merged = True
+            else:
+                keep.append((frag_area, (fx, fy, fw, fh), tone))
+        pending = keep
+    return area, (x0, y0, x1 - x0, y1 - y0)
+
+
+def _touched_edges(mask: np.ndarray, band: int = 3, min_px: int = 10) -> dict[str, bool]:
+    """which edges of a foreground mask carry more than noise."""
+    return {
+        "top": int(np.count_nonzero(mask[:band])) >= min_px,
+        "bottom": int(np.count_nonzero(mask[-band:])) >= min_px,
+        "left": int(np.count_nonzero(mask[:, :band])) >= min_px,
+        "right": int(np.count_nonzero(mask[:, -band:])) >= min_px,
+    }
 
 
 class AITracer:
@@ -98,7 +173,7 @@ class AITracer:
             self._init_saliency_backend()
 
     def _mask_prompt(self, width: int, height: int) -> str:
-        if self.model in _NEEDS_ALIGNMENT:
+        if self.model in _STENCIL_PROMPT_MODELS:
             return MASK_PROMPT_FLASH.format(width=width, height=height)
         return MASK_PROMPT_PRO.format(width=width, height=height)
 
@@ -196,10 +271,13 @@ class AITracer:
     def _detect_paper_rect(img: np.ndarray) -> tuple[int, int, int, int] | None:
         """find the axis-aligned paper rect in a corrected image.
         paper = bright AND desaturated. erodes before bounding so the rect
-        lands strictly inside the paper, not on the fringe."""
+        lands strictly inside the paper, not on the fringe. a tool crossing
+        the sheet splits it into fragments; those are merged back when they
+        line up with the sheet across a tool-sized gap (#212)."""
         h, w = img.shape[:2]
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         s_chan = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)[:, :, 1]
+        min_fragment = (h * w) * PAPER_FRAGMENT_MIN_FRACTION
 
         best: tuple[int, int, int, int, int] | None = None
         for thresh_val in (200, 190, 180, 170):
@@ -209,13 +287,12 @@ class AITracer:
             binary = cv2.erode(binary, np.ones((9, 9), np.uint8), iterations=2)
             binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8), iterations=3)
             contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            if not contours:
+            fragments = [c for c in contours if cv2.contourArea(c) >= min_fragment]
+            if not fragments:
                 continue
-            largest = max(contours, key=cv2.contourArea)
-            area = cv2.contourArea(largest)
+            area, (x, y, bw, bh) = _merge_paper_fragments(fragments, gray, s_chan)
             if area < (h * w) * 0.1:
                 continue
-            x, y, bw, bh = cv2.boundingRect(largest)
             if bw < 100 or bh < 100:
                 continue
             if best is None or area > best[0]:
@@ -224,6 +301,30 @@ class AITracer:
         if best is None:
             return None
         return best[1], best[2], best[3], best[4]
+
+    async def _saliency_within(self, pil_img, rect: tuple[int, int, int, int]) -> np.ndarray:
+        """run saliency on the paper crop, growing the crop on any side the
+        mask touches so a tool overhanging the sheet is kept whole (#212).
+        returns a full-size foreground mask (fg=255)."""
+        img_w, img_h = pil_img.size
+        x, y, rw, rh = rect
+        for attempt in range(CROP_GROW_ROUNDS + 1):
+            logging.info("cropping to %dx%d at (%d,%d) before saliency", rw, rh, x, y)
+            inside = await self._saliency_on_image(pil_img.crop((x, y, x + rw, y + rh)))
+            touched = _touched_edges(inside)
+            if attempt == CROP_GROW_ROUNDS or not any(touched.values()):
+                break
+            pad = int(CROP_GROW_FRACTION * max(rw, rh))
+            nx = max(0, x - pad) if touched["left"] else x
+            ny = max(0, y - pad) if touched["top"] else y
+            nx1 = min(img_w, x + rw + pad) if touched["right"] else x + rw
+            ny1 = min(img_h, y + rh + pad) if touched["bottom"] else y + rh
+            if (nx, ny, nx1, ny1) == (x, y, x + rw, y + rh):
+                break
+            x, y, rw, rh = nx, ny, nx1 - nx, ny1 - ny
+        full = np.zeros((img_h, img_w), dtype=np.uint8)
+        full[y:y + rh, x:x + rw] = inside
+        return full
 
     async def _saliency_on_image(self, pil_img):
         """run the configured saliency backend, return foreground mask (fg=255)."""
@@ -271,12 +372,7 @@ class AITracer:
 
         rect = self._detect_paper_rect(np_bgr)
         if rect is not None:
-            x, y, rw, rh = rect
-            logging.info("cropping to paper rect %dx%d at (%d,%d) before saliency", rw, rh, x, y)
-            cropped = pil_img.crop((x, y, x + rw, y + rh))
-            inside = await self._saliency_on_image(cropped)
-            full = np.zeros((np_bgr.shape[0], np_bgr.shape[1]), dtype=np.uint8)
-            full[y:y + rh, x:x + rw] = inside
+            full = await self._saliency_within(pil_img, rect)
         else:
             logging.info("paper rect not detected; running saliency on full image")
             full = await self._saliency_on_image(pil_img)

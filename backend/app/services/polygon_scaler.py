@@ -86,6 +86,16 @@ class ScaledFingerHole:
         self.rotation = rotation
         self.depth_override = depth_override
 
+    @classmethod
+    def from_finger_hole(cls, fh: FingerHole, scale: float = 1.0) -> "ScaledFingerHole":
+        """single rebuild path so a new FingerHole field cannot be dropped (#214).
+        radius, width and height are already mm; only the centre scales."""
+        return cls(
+            fh.id, fh.x * scale, fh.y * scale, fh.radius,
+            shape=fh.shape, width_mm=fh.width, height_mm=fh.height,
+            rotation=fh.rotation, depth_override=fh.depth_override,
+        )
+
 
 class ScaledPolygon:
     def __init__(self, id: str, points_mm: list[tuple[float, float]], label: str, finger_holes: list[ScaledFingerHole] = None, interior_rings_mm: list[list[tuple[float, float]]] = None, depth_override: float | None = None):
@@ -106,16 +116,7 @@ class PolygonScaler:
         for poly in polygons:
             points_mm = [(p.x * scale_factor, p.y * scale_factor) for p in poly.points]
             finger_holes = [
-                ScaledFingerHole(
-                    fh.id,
-                    fh.x * scale_factor,
-                    fh.y * scale_factor,
-                    fh.radius,
-                    shape=fh.shape,
-                    width_mm=fh.width,
-                    height_mm=fh.height,
-                    rotation=fh.rotation,
-                )
+                ScaledFingerHole.from_finger_hole(fh, scale_factor)
                 for fh in poly.finger_holes
             ]
             interior_rings_mm = [
@@ -148,16 +149,7 @@ class PolygonScaler:
             )
 
         finger_holes = [
-            FingerHole(
-                id=fh.id,
-                x=fh.x * scale_factor - cx,
-                y=fh.y * scale_factor - cy,
-                radius=fh.radius,
-                width=fh.width,
-                height=fh.height,
-                rotation=fh.rotation,
-                shape=fh.shape,
-            )
+            fh.model_copy(update={"x": fh.x * scale_factor - cx, "y": fh.y * scale_factor - cy})
             for fh in poly.finger_holes
         ]
 
