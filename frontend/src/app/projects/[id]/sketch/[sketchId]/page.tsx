@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getProject, listBins, updateProjectSketch } from '@/lib/api'
 import type { BinProject, BinSummary, ProjectBinPlacement, ProjectSketch } from '@/types'
@@ -149,7 +149,7 @@ export default function ProjectSketchPage() {
   }, [arrangeMisfits, placements, overlapping, outOfBounds])
 
   // a rejection must reach the hook: catching it here would report the plan as saved
-  const { saving, saved, error: saveError } = useDebouncedSave(
+  const { saving, saved, error: saveError, flush } = useDebouncedSave(
     async () => {
       if (!project || !sketch) return
       await updateProjectSketch(project.id, sketch.id, {
@@ -162,6 +162,10 @@ export default function ProjectSketchPage() {
     400,
     { skipInitial: true },
   )
+
+  const flushRef = useRef(flush)
+  useEffect(() => { flushRef.current = flush }, [flush])
+  useEffect(() => () => { flushRef.current() }, [])
 
   async function handleRename(name: string) {
     if (!project || !sketch) return
@@ -589,7 +593,10 @@ export default function ProjectSketchPage() {
           {error && <Alert variant="error">{error}</Alert>}
           <button
             type="button"
-            onClick={() => router.push(`/projects/${project.id}`)}
+            onClick={async () => {
+              await flush()
+              router.push(`/projects/${project.id}`)
+            }}
             className="btn-secondary w-full px-2 py-1.5 text-[11px]"
           >
             Back to project

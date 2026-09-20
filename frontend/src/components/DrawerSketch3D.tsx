@@ -81,7 +81,12 @@ function DrawerFloor({ drawerX, drawerY }: { drawerX: number; drawerY: number })
  * sits at the origin, so it lines up with the drawer grid like the 2D sketch.
  * Rendering matches the bin page preview: solid body plus sharp contour lines.
  */
-function BinStlModel({ url, color, renderMode }: { url: string; color: string; renderMode: RenderMode }) {
+function BinStlModel({ url, color, renderMode, fallback }: {
+  url: string
+  color: string
+  renderMode: RenderMode
+  fallback: React.ReactNode
+}) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
   const [edges, setEdges] = useState<THREE.EdgesGeometry | null>(null)
 
@@ -106,7 +111,11 @@ function BinStlModel({ url, color, renderMode }: { url: string; color: string; r
         setEdges(loadedEdges)
       },
       undefined,
-      () => setGeometry(null),
+      error => {
+        if (disposed) return
+        console.error('drawer plan: STL load error', url, error)
+        setGeometry(null)
+      },
     )
 
     return () => {
@@ -118,7 +127,7 @@ function BinStlModel({ url, color, renderMode }: { url: string; color: string; r
     }
   }, [url])
 
-  if (!geometry) return null
+  if (!geometry) return <>{fallback}</>
 
   return (
     <>
@@ -172,6 +181,14 @@ function PlacedBin({
   const rect = placementRect(placement, bin)
   const footprint = binFootprint(bin, placement.rotation)
   const offset = rotationOffsetMm(placement.rotation, bin)
+  const block = (
+    <BinBlock
+      widthMm={bin.grid_x * GRID_UNIT}
+      depthMm={bin.grid_y * GRID_UNIT}
+      heightMm={binHeightMm(bin.height_units)}
+      color={color}
+    />
+  )
 
   const outlinePositions = useMemo(() => {
     const w = footprint.w * GRID_UNIT
@@ -192,15 +209,8 @@ function PlacedBin({
       {/* rotate the model about the drawer's vertical axis, then shift it back into its footprint */}
       <group position={[offset.dx, 0, offset.dz]} rotation={[0, -placement.rotation * Math.PI / 180, 0]}>
         {stlUrl
-          ? <BinStlModel url={stlUrl} color={color} renderMode={renderMode} />
-          : (
-            <BinBlock
-              widthMm={bin.grid_x * GRID_UNIT}
-              depthMm={bin.grid_y * GRID_UNIT}
-              heightMm={binHeightMm(bin.height_units)}
-              color={color}
-            />
-          )}
+          ? <BinStlModel url={stlUrl} color={color} renderMode={renderMode} fallback={block} />
+          : block}
       </group>
       {/* footprint outline keeps overlaps readable even behind a solid model */}
       <lineLoop>

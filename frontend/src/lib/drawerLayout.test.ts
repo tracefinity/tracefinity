@@ -198,6 +198,22 @@ describe('findFreeSpot', () => {
     expect(findFreeSpot(bin('b', 3, 1), [], 1, 4)).toEqual({ x: 0, y: 0, rotation: 90 })
   })
 
+  it('keeps the exact preferred rotation, not just its footprint', () => {
+    for (const rotation of [0, 90, 180, 270]) {
+      expect(findFreeSpot(bin('b', 3, 1), [], 4, 4, { rotation })).toMatchObject({ rotation })
+    }
+  })
+
+  it('falls back to the other orientation when the preferred one does not fit', () => {
+    // a 3x1 bin only fits upright in a 1x4 drawer
+    expect(findFreeSpot(bin('b', 3, 1), [], 1, 4, { rotation: 180 })).toMatchObject({ rotation: 270 })
+    expect(findFreeSpot(bin('b', 3, 1), [], 4, 1, { rotation: 90 })).toMatchObject({ rotation: 180 })
+  })
+
+  it('treats an unknown rotation as 0', () => {
+    expect(findFreeSpot(bin('b', 1, 1), [], 4, 4, { rotation: 45 })).toMatchObject({ rotation: 0 })
+  })
+
   it('returns null when the bin does not fit', () => {
     expect(findFreeSpot(bin('b', 5, 5), [], 4, 4)).toBeNull()
   })
@@ -255,6 +271,16 @@ describe('autoArrange', () => {
 
     expect(result.placements).toContainEqual(orphan)
     expect(result.unfittedIds).toEqual([])
+  })
+
+  it('keeps each placement orientation', () => {
+    const bins = binById([bin('a', 3, 1), bin('b', 3, 1)])
+    const placements = [placement('a', 0, 0, 180, 'p-a'), placement('b', 0, 2, 270, 'p-b')]
+
+    const result = autoArrange(placements, bins, 4, 4)
+
+    expect(result.placements.find(p => p.id === 'p-a')?.rotation).toBe(180)
+    expect(result.placements.find(p => p.id === 'p-b')?.rotation).toBe(270)
   })
 
   it('keeps copies of the same bin apart', () => {

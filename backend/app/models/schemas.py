@@ -545,6 +545,15 @@ class ProjectBinPlacement(BaseModel):
 
 DEFAULT_SKETCH_NAME = "Drawer plan"
 
+_SKETCH_NAMESPACE = uuid.UUID("6f1a6f4c-1d8e-5a9b-9a21-0f2a4f6f7c10")
+
+
+def legacy_sketch_id(project_id: str | None) -> str:
+    """Id of the sketch a pre-multi-sketch project migrates into."""
+    if not project_id:
+        return str(uuid.uuid4())
+    return str(uuid.uuid5(_SKETCH_NAMESPACE, f"legacy-sketch:{project_id}"))
+
 
 class ProjectSketch(BaseModel):
     """One drawer plan: a grid plus the bins placed on it. A project may hold several."""
@@ -592,6 +601,7 @@ class BinProject(BaseModel):
         layout = data.pop("bin_layout", None) or []
         if not data.get("sketches") and (layout or grid_x is not None or grid_y is not None):
             data["sketches"] = [{
+                "id": legacy_sketch_id(data.get("id")),
                 "name": DEFAULT_SKETCH_NAME,
                 "target_grid_x": grid_x,
                 "target_grid_y": grid_y,

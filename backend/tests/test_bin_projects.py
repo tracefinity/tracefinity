@@ -554,3 +554,46 @@ def test_bin_summary_exposes_grid_and_height_for_sketching(tmp_path, monkeypatch
     assert summary["grid_y"] == 1
     assert summary["height_units"] == 6
     assert summary["half_grid_base"] is True
+
+
+def test_legacy_migration_id_is_stable_across_loads():
+    record = {
+        "id": "project-1",
+        "name": "Top drawer",
+        "target_grid_x": 6,
+        "bin_layout": [{"id": "p1", "bin_id": "bin-1", "x": 1, "y": 0}],
+    }
+
+    first = BinProject.model_validate(record)
+    second = BinProject.model_validate(record)
+
+    assert first.sketches[0].id == second.sketches[0].id
+    # a different project must not collide with it
+    other = BinProject.model_validate({**record, "id": "project-2"})
+    assert other.sketches[0].id != first.sketches[0].id
+
+
+def test_rejected_sketch_update_leaves_nothing_behind(tmp_path, monkeypatch):
+    client = _api_client(tmp_path, monkeypatch)
+    project = client.post("/api/bin-projects", json={"name": "Top drawer"}).json()
+    loose = client.post("/api/bins", json={"name": "Bin B"}).json()
+    sketch = client.post(
+        f"/api/bin-projects/{project['id']}/sketches",
+        json={"name": "Top", "target_grid_x": 4, "target_grid_y": 4},
+    ).json()
+
+    resp = client.patch(f"/api/bin-projects/{project['id']}/sketches/{sketch['id']}", json={
+        "name": "Renamed",
+        "target_grid_x": 8,
+        "bin_layout": [{"bin_id": loose["id"], "x": 0, "y": 0}],
+    })
+
+    assert resp.status_code == 400
+    # an unrelated write flushes the whole store, so a partial change would persist
+    client.patch(f"/api/bin-projects/{project['id']}", json={"notes": "unrelated"})
+    routes._project_store_cache.clear()
+    stored = client.get(f"/api/bin-projects/{project['id']}").json()["sketches"][0]
+
+    assert stored["name"] == "Top"
+    assert stored["target_grid_x"] == 4
+    assert stored["bin_layout"] == []

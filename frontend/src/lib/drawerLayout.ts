@@ -54,6 +54,12 @@ export function clampDrawerGrid(value: number): number {
   return Math.min(DRAWER_GRID_MAX, Math.max(DRAWER_GRID_MIN, snapUnits(value, HALF_GRID_SNAP)))
 }
 
+export function normalizeRotation(rotation: number | undefined): PlacementRotation {
+  return PLACEMENT_ROTATIONS.includes(rotation as PlacementRotation)
+    ? rotation as PlacementRotation
+    : 0
+}
+
 export function nextRotation(rotation: number): PlacementRotation {
   const index = PLACEMENT_ROTATIONS.indexOf(rotation as PlacementRotation)
   return PLACEMENT_ROTATIONS[(index + 1) % PLACEMENT_ROTATIONS.length]
@@ -200,8 +206,8 @@ export function findFreeSpot(
   options: { rotation?: number } = {},
 ): { x: number; y: number; rotation: PlacementRotation } | null {
   const snap = snapForBin(bin)
-  const preferred = options.rotation ?? 0
-  const rotations: PlacementRotation[] = isQuarterTurn(preferred) ? [90, 0] : [0, 90]
+  const preferred = normalizeRotation(options.rotation)
+  const rotations: PlacementRotation[] = [preferred, nextRotation(preferred)]
 
   for (const rotation of rotations) {
     const { w, h } = binFootprint(bin, rotation)
@@ -249,7 +255,7 @@ export function autoArrange(
 
   for (const placement of ordered) {
     const bin = bins.get(placement.bin_id)!
-    const spot = findFreeSpot(bin, occupied, drawerX, drawerY)
+    const spot = findFreeSpot(bin, occupied, drawerX, drawerY, { rotation: placement.rotation })
     if (!spot) {
       unfitted.push(placement)
       continue

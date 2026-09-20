@@ -1900,17 +1900,23 @@ async def update_project_sketch(
     sketch = get_sketch(project, sketch_id)
     _, _, user_bins = get_stores(user_id)
 
+    name = None
     if req.name is not None:
         name = req.name.strip()
         if not name:
             raise HTTPException(status_code=400, detail="sketch name is required")
+    layout = None
+    if "bin_layout" in req.model_fields_set:
+        layout = validate_bin_layout(project, req.bin_layout or [], user_bins)
+
+    if name is not None:
         sketch.name = name
     if "target_grid_x" in req.model_fields_set:
         sketch.target_grid_x = req.target_grid_x
     if "target_grid_y" in req.model_fields_set:
         sketch.target_grid_y = req.target_grid_y
-    if "bin_layout" in req.model_fields_set:
-        sketch.bin_layout = validate_bin_layout(project, req.bin_layout or [], user_bins)
+    if layout is not None:
+        sketch.bin_layout = layout
 
     sketch.updated_at = _now_iso()
     project.updated_at = sketch.updated_at
