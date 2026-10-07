@@ -16,6 +16,7 @@ import { Alert } from '@/components/Alert'
 import { useDebouncedSave } from '@/hooks/useDebouncedSave'
 import { useProjectSource } from '@/hooks/useProjectSource'
 import {
+  binFitMargin,
   getGridSizeError,
   gridCellCount,
   GRID_UNIT,
@@ -72,6 +73,7 @@ export default function BinPage() {
   const [defaultsStatus, setDefaultsStatus] = useState<string | null>(null)
   const defaultsStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const exportRef = useRef<HTMLDivElement>(null)
+  const fitMargin = binFitMargin(config)
 
   const requiredGridSize = useMemo(() => {
     if (!autoSize || placedTools.length === 0) return null
@@ -86,17 +88,15 @@ export default function BinPage() {
       }
     }
 
-    const halfMargin = config.wall_thickness + config.cutout_clearance + 0.25
-    const totalMargin = 2 * halfMargin
     return {
-      x: requiredGridUnits(maxX - minX, totalMargin, config.half_grid_base),
-      y: requiredGridUnits(maxY - minY, totalMargin, config.half_grid_base),
+      x: requiredGridUnits(maxX - minX, fitMargin, config.half_grid_base),
+      y: requiredGridUnits(maxY - minY, fitMargin, config.half_grid_base),
       minX,
       minY,
       maxX,
       maxY,
     }
-  }, [autoSize, placedTools, config.wall_thickness, config.cutout_clearance, config.half_grid_base])
+  }, [autoSize, placedTools, fitMargin, config.half_grid_base])
 
   const requiredGridError = requiredGridSize
     ? getGridSizeError(requiredGridSize.x, requiredGridSize.y)
@@ -332,9 +332,8 @@ export default function BinPage() {
     const toolW = maxX - minX
     const toolH = maxY - minY
 
-    const margin = 2 * config.wall_thickness + 2 * config.cutout_clearance + 0.5;
-    const needX = Math.max(config.grid_x, requiredGridUnits(toolW, margin, config.half_grid_base));
-    const needY = Math.max(config.grid_y, requiredGridUnits(toolH, margin, config.half_grid_base));
+    const needX = Math.max(config.grid_x, requiredGridUnits(toolW, fitMargin, config.half_grid_base));
+    const needY = Math.max(config.grid_y, requiredGridUnits(toolH, fitMargin, config.half_grid_base));
     const candidateIsValid = getGridSizeError(needX, needY) === null
 
     if (candidateIsValid && (needX !== config.grid_x || needY !== config.grid_y)) {
@@ -363,7 +362,7 @@ export default function BinPage() {
     }
 
     setPlacedTools(prev => [...prev, placed])
-  }, [config.grid_x, config.grid_y, config.wall_thickness, config.cutout_clearance, config.half_grid_base])
+  }, [config.grid_x, config.grid_y, fitMargin, config.half_grid_base])
 
   // the retention sweep purges exports, so a stale tab's file may be gone;
   // downloadExport regenerates from saved state and retries before failing

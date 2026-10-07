@@ -108,7 +108,7 @@ from app.services.project_service import (
 )
 from app.services.project_store import ProjectStore
 from app.services.session_store import SessionStore
-from app.services.stl_generator_manifold import STL_GEOMETRY_VERSION, ManifoldSTLGenerator
+from app.services.stl_generator_manifold import STL_GEOMETRY_VERSION, ManifoldSTLGenerator, bin_interior_inset
 from app.services.store_errors import StoreClosedError
 from app.services.tool_namer import name_polygons
 from app.services.tool_store import ToolStore
@@ -574,9 +574,9 @@ def _build_bin_from_tools(
         tool_height = max(all_ys) - min(all_ys)
 
         clearance = bc.cutout_clearance
-        wall = bc.wall_thickness
-        needed_w = tool_width + 2 * clearance + 2 * wall + 0.5
-        needed_h = tool_height + 2 * clearance + 2 * wall + 0.5
+        inset = bin_interior_inset(bc.wall_thickness, bc.stacking_lip)
+        needed_w = tool_width + 2 * clearance + 2 * inset + 0.5
+        needed_h = tool_height + 2 * clearance + 2 * inset + 0.5
 
         # snap to 0.5 units when half-grid is on, whole units otherwise
         if bc.half_grid_base:
