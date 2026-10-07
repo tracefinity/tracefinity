@@ -6,18 +6,18 @@ interface RotatedGeometry {
   interiorRings: Point[][]
 }
 
-// rotate points, finger holes, and interior rings around polygon centroid
+// Rotate around the polygon centroid unless a shared geometry centre is supplied.
 export function rotateGeometry(
   points: Point[],
   fingerHoles: FingerHole[],
   interiorRings: Point[][],
   angleDeg: number,
+  center?: Point,
 ): RotatedGeometry {
   const n = points.length
   if (n === 0) return { points, fingerHoles, interiorRings }
 
-  const cx = points.reduce((s, p) => s + p.x, 0) / n
-  const cy = points.reduce((s, p) => s + p.y, 0) / n
+  const { x: cx, y: cy } = center ?? centroidOf(points)
   const rad = angleDeg * Math.PI / 180
   const cos = Math.cos(rad)
   const sin = Math.sin(rad)
