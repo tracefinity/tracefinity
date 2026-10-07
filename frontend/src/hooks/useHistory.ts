@@ -14,7 +14,6 @@ export function useHistory<T>(
 } {
   const [entries, setEntries] = useState<T[]>(() => [JSON.parse(JSON.stringify(initial))])
   const [index, setIndex] = useState(0)
-  const isUndoRedoRef = useRef(false)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
 
@@ -22,10 +21,6 @@ export function useHistory<T>(
   const canRedo = index < entries.length - 1
 
   const set = useCallback((value: T) => {
-    if (isUndoRedoRef.current) {
-      isUndoRedoRef.current = false
-      return
-    }
     setEntries(prev => {
       const next = prev.slice(0, index + 1)
       next.push(JSON.parse(JSON.stringify(value)))
@@ -37,7 +32,6 @@ export function useHistory<T>(
 
   const undo = useCallback(() => {
     if (!canUndo) return
-    isUndoRedoRef.current = true
     const newIdx = index - 1
     setIndex(newIdx)
     onChangeRef.current(JSON.parse(JSON.stringify(entries[newIdx])))
@@ -45,7 +39,6 @@ export function useHistory<T>(
 
   const redo = useCallback(() => {
     if (!canRedo) return
-    isUndoRedoRef.current = true
     const newIdx = index + 1
     setIndex(newIdx)
     onChangeRef.current(JSON.parse(JSON.stringify(entries[newIdx])))

@@ -19,9 +19,7 @@ guide.
 
 ### Free, open source, and self-hostable
 
-Tracefinity will remain free, open source, and self-hostable. The hosted service
-exists for people who would rather not run it themselves and helps fund the
-project. It will not reserve product features for subscribers.
+Tracefinity will remain free, open source, and self-hostable.
 
 Installing Tracefinity may involve downloading container images, model weights,
 or dependencies. Once it is installed and its local models are available, the
@@ -138,10 +136,6 @@ Security, correctness, data safety, reliability, accessibility, documentation,
 deployment, and maintainability do not need to move a photo through the pipeline
 to belong here. They qualify when they protect or enable the core product without
 introducing a second product mode.
-
-Service-only billing, quotas, monitoring, backups, and abuse controls can exist
-around the hosted deployment. They are operating concerns, not a proprietary
-feature tier in the core application.
 
 ## How we decide
 

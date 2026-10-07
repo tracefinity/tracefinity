@@ -1,3 +1,5 @@
+import type { BinConfig } from '@/types'
+
 export const GRID_UNIT = 42
 export const DISPLAY_SCALE = 8
 export const SNAP_GRID = 5 // default snap increment in mm
@@ -13,6 +15,12 @@ export const DOCS_BASE_URL = 'https://github.com/tracefinity/tracefinity/blob/ma
 export const MIN_GRID_UNITS = 1
 export const MAX_GRID_UNITS = 25
 export const MAX_GRID_CELLS = 100
+
+export function binFitMargin(config: Pick<BinConfig, 'wall_thickness' | 'stacking_lip' | 'cutout_clearance'>): number {
+  // Match bin_interior_inset in stl_generator_manifold.py (LIP_D0 + LIP_D2).
+  const inset = Math.max(config.wall_thickness, config.stacking_lip ? 2.6 : 0)
+  return 2 * (inset + config.cutout_clearance) + 0.5
+}
 
 export function gridCellCount(gridX: number, gridY: number): number {
   return Math.ceil(gridX) * Math.ceil(gridY)

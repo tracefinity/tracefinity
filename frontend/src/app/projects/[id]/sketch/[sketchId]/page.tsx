@@ -165,7 +165,7 @@ export default function ProjectSketchPage() {
 
   const flushRef = useRef(flush)
   useEffect(() => { flushRef.current = flush }, [flush])
-  useEffect(() => () => { flushRef.current() }, [])
+  useEffect(() => () => { void flushRef.current().catch(() => {}) }, [])
 
   async function handleRename(name: string) {
     if (!project || !sketch) return
@@ -594,8 +594,12 @@ export default function ProjectSketchPage() {
           <button
             type="button"
             onClick={async () => {
-              await flush()
-              router.push(`/projects/${project.id}`)
+              try {
+                await flush()
+                router.push(`/projects/${project.id}`)
+              } catch {
+                // The save error stays visible; keep the unsaved plan open.
+              }
             }}
             className="btn-secondary w-full px-2 py-1.5 text-[11px]"
           >

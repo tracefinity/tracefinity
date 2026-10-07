@@ -58,6 +58,8 @@ interface HistoryEntry {
   fingerHoles: FingerHole[]
   interiorRings: Point[][]
   imageTransform: AffineMatrix | null
+  detailBase: Point[]
+  detailLevel: number
 }
 
 export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoothLevel, sourceImageContext, showSourceImage = false, onShowSourceImageChange, sourceImageOpacity = 0.45, onSourceImageOpacityChange, onImageTransformChange, onPointsChange, onFingerHolesChange, onSmoothedChange, onSmoothLevelChange, onInteriorRingsChange, onAutoRotate, autoRotating }: Props) {
@@ -79,6 +81,7 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   // session-scoped "most accurate available" reference the slider re-derives from
   const baseRef = useRef<Point[] | null>(null)
   if (baseRef.current === null && points.length > 0) baseRef.current = points
+  const pointsRef = useRef(points)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [cutoutOpen, setCutoutOpen] = useState(false)
@@ -97,6 +100,9 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
 
   // undo/redo
   const historyOnChange = useCallback((entry: HistoryEntry) => {
+    baseRef.current = entry.detailBase
+    simplifyLevelRef.current = entry.detailLevel
+    setSimplifyLevel(entry.detailLevel)
     onPointsChange(entry.points)
     onFingerHolesChange(entry.fingerHoles)
     onInteriorRingsChange?.(entry.interiorRings)
@@ -111,15 +117,24 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const currentRings = interiorRings ?? []
 
   const { set: pushEntry, undo: handleUndo, redo: handleRedo, canUndo, canRedo } = useHistory<HistoryEntry>(
-    { points, fingerHoles, interiorRings: currentRings, imageTransform: sourceImageContext?.transform ?? null },
+    { points, fingerHoles, interiorRings: currentRings, imageTransform: sourceImageContext?.transform ?? null,
+      detailBase: points, detailLevel: 1 },
     historyOnChange
   )
 
   // every entry snapshots the photo transform alongside the geometry;
   // rotate/flip pass their post-op transform explicitly
   const pushHistory = useCallback(
-    (entry: Omit<HistoryEntry, 'imageTransform'>, imageTransform: AffineMatrix | null = imageTransformRef.current) => {
-      pushEntry({ ...entry, imageTransform })
+    (entry: Omit<HistoryEntry, 'imageTransform' | 'detailBase' | 'detailLevel'>,
+      imageTransform: AffineMatrix | null = imageTransformRef.current,
+      detailBase?: Point[]) => {
+      const outlineChanged = entry.points !== pointsRef.current
+      const nextBase = detailBase ?? (outlineChanged ? entry.points : baseRef.current ?? entry.points)
+      const nextLevel = detailBase !== undefined || !outlineChanged ? simplifyLevelRef.current : 1
+      baseRef.current = nextBase
+      simplifyLevelRef.current = nextLevel
+      setSimplifyLevel(nextLevel)
+      pushEntry({ ...entry, imageTransform, detailBase: nextBase, detailLevel: nextLevel })
     },
     [pushEntry]
   )
@@ -138,7 +153,6 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const displayPoints = previewSmoothed && smoothedPoints ? smoothedPoints : rawDisplayPoints
 
   // refs for stale closure avoidance
-  const pointsRef = useRef(points)
   const holesRef = useRef(fingerHoles)
   const dragPointsRef = useRef(dragPoints)
   const dragHolesRef = useRef(dragHoles)
@@ -332,7 +346,8 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
   const commitSimplify = useCallback(() => {
     const next = deriveSimplified(simplifyLevelRef.current)
     if (!next) return
-    pushHistory({ points: next, fingerHoles: holesRef.current, interiorRings: currentRingsRef.current })
+    pushHistory({ points: next, fingerHoles: holesRef.current, interiorRings: currentRingsRef.current },
+      imageTransformRef.current, baseRef.current ?? next)
     onPointsRef.current(next)
   }, [deriveSimplified, pushHistory])
 
@@ -382,7 +397,8 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     // rotate the photo about the same centre so it stays under the outline
     const m = imageTransformRef.current
     const nextTransform = m ? rotateAround(m, angleDeg * Math.PI / 180, cx, cy) : null
-    pushHistory({ points: rotated.points, fingerHoles: rotated.fingerHoles, interiorRings: rotated.interiorRings }, nextTransform)
+    const detailBase = rotateGeometry(baseRef.current ?? pts, [], [], angleDeg, { x: cx, y: cy }).points
+    pushHistory({ points: rotated.points, fingerHoles: rotated.fingerHoles, interiorRings: rotated.interiorRings }, nextTransform, detailBase)
     onPointsRef.current(rotated.points)
     onHolesRef.current(rotated.fingerHoles)
     onRingsRef.current?.(rotated.interiorRings)
@@ -428,7 +444,8 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
     // mirror the photo about the same axis so it stays under the outline
     const m = imageTransformRef.current
     const nextTransform = m ? flipAround(m, axis, cx, cy) : null
-    pushHistory({ points: newPts, fingerHoles: newHoles, interiorRings: newRings }, nextTransform)
+    const detailBase = (baseRef.current ?? pts).map(flip).reverse()
+    pushHistory({ points: newPts, fingerHoles: newHoles, interiorRings: newRings }, nextTransform, detailBase)
     onPointsRef.current(newPts)
     onHolesRef.current(newHoles)
     onInteriorRingsChange?.(newRings)
@@ -733,7 +750,11 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       const nextTransform = m && rotDrag && rotDrag.delta !== 0
         ? rotateAround(m, rotDrag.delta, rotDrag.cx, rotDrag.cy)
         : m
-      pushHistory({ points: finalPoints, fingerHoles: finalHoles, interiorRings: finalRings }, nextTransform)
+      const detailBase = rotDrag
+        ? rotateGeometry(baseRef.current ?? finalPoints, [], [], rotDrag.delta * 180 / Math.PI,
+          { x: rotDrag.cx, y: rotDrag.cy }).points
+        : undefined
+      pushHistory({ points: finalPoints, fingerHoles: finalHoles, interiorRings: finalRings }, nextTransform, detailBase)
       if (nextTransform && nextTransform !== m) {
         imageTransformRef.current = nextTransform
         onImageTransformRef.current?.(nextTransform)

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  binFitMargin,
   getGridSizeError,
   gridCellCount,
   MAX_GRID_CELLS,
@@ -33,10 +34,20 @@ describe('grid size limits', () => {
   })
 
   it('reports the actual auto-sized requirement instead of clamping to ten', () => {
-    const defaultMargin = 2 * 1.6 + 2 * 1 + 0.5
-    expect(requiredGridUnits(414, defaultMargin, false)).toBe(10)
-    expect(requiredGridUnits(415, defaultMargin, false)).toBe(11)
-    expect(requiredGridUnits(415, defaultMargin, true)).toBe(10.5)
+    const defaultMargin = binFitMargin({ wall_thickness: 1.6, cutout_clearance: 1, stacking_lip: true })
+    expect(requiredGridUnits(412, defaultMargin, false)).toBe(10)
+    expect(requiredGridUnits(413, defaultMargin, false)).toBe(11)
+    expect(requiredGridUnits(413, defaultMargin, true)).toBe(10.5)
+  })
+
+  it.each([
+    [true, false, 1.6, 3],
+    [false, false, 1.6, 2],
+    [true, true, 1.6, 2.5],
+    [true, false, 3, 3],
+  ])('reserves lip/wall space for an 80 mm tool (lip=%s, half-grid=%s, wall=%s)', (stacking_lip, halfGrid, wall_thickness, expected) => {
+    const margin = binFitMargin({ stacking_lip, wall_thickness, cutout_clearance: .1 })
+    expect(requiredGridUnits(80, margin, halfGrid)).toBe(expected)
   })
 
   it('counts fractional dimensions by the cells they occupy', () => {

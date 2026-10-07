@@ -5,9 +5,8 @@ nondegenerate_faces() pass drops the resulting sliver triangle without first
 welding its vertices into their neighbors -- opening a small boundary hole
 that slicers report as non-manifold geometry.
 
-Reproduced on a real customer export (grid_x=6, grid_y=9, stacking_lip off,
-real tool cutouts) and, deterministically without any tool data, on a plain
-stacking-lip bin at grid_y=6 -- see test below.
+Reproduced deterministically on a plain stacking-lip bin at grid_y=6 -- see
+the test below.
 """
 from pathlib import Path
 

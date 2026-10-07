@@ -56,6 +56,13 @@ GitHub Actions has no event for new reactions. Scheduled reaction polling and
 stored baselines are deferred until repository activity justifies that added
 machinery.
 
+## Public writing
+
+Keep all repository content strictly about the core software. Issues, pull
+requests, comments, commit messages and release notes must describe the technical
+problem, reproduction, change and verification directly. Do not include reporter
+details or context from outside the core project.
+
 ## Pull requests
 
 Keep a pull request focused on one concern. Split unrelated UI polish, developer
@@ -85,3 +92,18 @@ If your local environment differs, run the equivalent complete backend and
 frontend suites and say exactly what you ran in the pull request. Compilation or
 `py_compile` alone is not test evidence. Tests should assert the behaviour being
 changed, not just that some output was produced.
+
+For changes to calibration, tracing coordinates or export dimensions, also run
+`make test-e2e-accuracy`. Install Chromium first with
+`cd frontend && pnpm exec playwright install chromium`.
+
+These tests upload a photo of a known flat 80 × 30 mm rectangle and measure the
+STL downloaded through the browser. Accurate output must stay within 1 mm of
+the expected dimensions and boundary, including clearance. Smooth output must
+stay within 1 mm on dimensions and fit the whole physical tool.
+
+The suite starts isolated servers on ports 8011 and 4011 with temporary storage.
+Segmentation uses the submitted pixels in place of a hosted model, and U2-Net
+is disabled. Calibration, tracing and STL generation run normally. This checks
+software accuracy; it does not measure model quality or perspective enlargement
+of objects raised above the paper. CI runs it alongside the workflow tests.
