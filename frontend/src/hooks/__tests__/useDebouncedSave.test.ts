@@ -122,3 +122,67 @@ describe('useDebouncedSave', () => {
     expect(result.current.saveCount).toBe(1)
   })
 })
+
+it('flush serializes an in-flight save and coalesces newer edits', async () => {
+  vi.useFakeTimers()
+  let releaseFirst!: () => void
+  const firstRequest = new Promise<void>(resolve => { releaseFirst = resolve })
+  const writes: number[] = []
+  const save = vi.fn(async (value: number) => {
+    if (value === 1) await firstRequest
+    writes.push(value)
+  })
+  const { result, rerender } = renderHook(({ value }) =>
+    useDebouncedSave(() => save(value), [value], 1000),
+  { initialProps: { value: 1 } })
+
+  let first!: Promise<void>
+  act(() => { first = result.current.flush() })
+  await act(async () => { await Promise.resolve() })
+  expect(save).toHaveBeenCalledTimes(1)
+
+  rerender({ value: 2 })
+  let second!: Promise<void>
+  act(() => { second = result.current.flush() })
+  rerender({ value: 3 })
+  let third!: Promise<void>
+  act(() => { third = result.current.flush() })
+  expect(save).toHaveBeenCalledTimes(1)
+  expect(result.current.saving).toBe(true)
+
+  await act(async () => {
+    releaseFirst()
+    await Promise.all([first, second, third])
+  })
+  expect(writes).toEqual([1, 3])
+  expect(result.current.saving).toBe(false)
+  expect(result.current.saved).toBe(true)
+  vi.useRealTimers()
+})
+
+it('flush rejects a failed save so dependent work cannot continue', async () => {
+  vi.useFakeTimers()
+  const save = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
+  const { result } = renderHook(() => useDebouncedSave(save, [], 1000))
+
+  await act(async () => {
+    await expect(result.current.flush()).rejects.toThrow('offline')
+  })
+  expect(result.current.error?.message).toBe('offline')
+  expect(result.current.saved).toBe(false)
+  await act(async () => { await result.current.flush() })
+  expect(result.current.error).toBeNull()
+  expect(result.current.saved).toBe(true)
+  vi.useRealTimers()
+})
+
+it('an idle flush does not overwrite storage, while generation can explicitly save current state', async () => {
+  const save = vi.fn().mockResolvedValue(undefined)
+  const { result } = renderHook(() => useDebouncedSave(save, [], 1000, { skipInitial: true }))
+  await act(async () => { await result.current.flush() })
+  expect(save).not.toHaveBeenCalled()
+  await act(async () => { await result.current.flush({ force: true }) })
+  expect(save).toHaveBeenCalledTimes(1)
+  await act(async () => { await result.current.flush() })
+  expect(save).toHaveBeenCalledTimes(1)
+})
