@@ -83,6 +83,7 @@ from app.models.schemas import (
 from app.services.ai_tracer import AITracer
 from app.services.bin_service import sync_placed_tools
 from app.services.bin_store import BinStore
+from app.services.generation_lock import generation_lock
 from app.services.geometry import optimal_rotation_angle as _optimal_rotation_angle
 from app.services.image_ingest import ImageTooLargeError, ingest_image
 from app.services.image_processor import ImageProcessor
@@ -1299,6 +1300,12 @@ async def update_polygons(request: Request, session_id: str, req: PolygonsReques
 def generate_stl(request: Request, session_id: str, req: GenerateRequest, user_id: str = Depends(get_user_id)):
     user_sessions, _, _ = get_stores(user_id)
     up = _user_path(user_id)
+    with generation_lock(up, session_id):
+        user_sessions.ensure_open()
+        return _generate_session_stl(session_id, req, user_id, user_sessions, up)
+
+
+def _generate_session_stl(session_id: str, req: GenerateRequest, user_id: str, user_sessions: SessionStore, up: Path):
     session = user_sessions.get(session_id)
     if not session or not session.scale_factor:
         raise HTTPException(status_code=400, detail="must trace tools first")
@@ -2184,6 +2191,12 @@ async def delete_bin(request: Request, bin_id: str, user_id: str = Depends(get_u
 def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_user_id)):
     _, user_tools, user_bins = get_stores(user_id)
     up = _user_path(user_id)
+    with generation_lock(up, bin_id):
+        user_bins.ensure_open()
+        return _generate_bin_stl(bin_id, user_id, user_tools, user_bins, up)
+
+
+def _generate_bin_stl(bin_id: str, user_id: str, user_tools: ToolStore, user_bins: BinStore, up: Path):
     bin_data = user_bins.get(bin_id)
     if not bin_data:
         raise HTTPException(status_code=404, detail="bin not found")
