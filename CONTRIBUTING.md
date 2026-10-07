@@ -56,6 +56,13 @@ GitHub Actions has no event for new reactions. Scheduled reaction polling and
 stored baselines are deferred until repository activity justifies that added
 machinery.
 
+## Public writing
+
+Keep all repository content strictly about the core software. Issues, pull
+requests, comments, commit messages and release notes must describe the technical
+problem, reproduction, change and verification directly. Do not include reporter
+details or context from outside the core project.
+
 ## Pull requests
 
 Keep a pull request focused on one concern. Split unrelated UI polish, developer

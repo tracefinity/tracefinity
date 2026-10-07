@@ -117,6 +117,6 @@ When `TOOL_LABEL_PROVIDER=ollama`, `tool_namer.py` runs after contour extraction
 
 `routes.py` uses shared helpers to avoid duplication:
 - `_run_generate()` -- cache check, STL generation, split, zip, response. Used by both session and bin generation endpoints.
-- `generation_lock()` -- per-entity serialization around both generation endpoints, including the saved-geometry read. Different bins and users can still generate concurrently. Locks are process-local; the shipped backend runs one Uvicorn worker, as required by its in-memory JSON stores.
+- `generation_lock()` -- per-entity serialization around both generation endpoints, including the saved-geometry read. Different bins can still generate concurrently. Locks are process-local; the shipped backend runs one Uvicorn worker, as required by its in-memory JSON stores.
 - `_translate_points()` / `_translate_finger_holes()` -- offset points/holes by (dx, dy). Used when placing tools in bins.
 - `BinParams` base model in `schemas.py` -- shared fields and validators inherited by `BinConfig` and `GenerateRequest`.

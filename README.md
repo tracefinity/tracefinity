@@ -28,8 +28,6 @@
 
 ## Quick Start
 
-Try it at [tracefinity.net](https://tracefinity.net) without installing anything, or self-host:
-
 ### Docker
 
 ```bash

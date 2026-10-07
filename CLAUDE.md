@@ -5,6 +5,9 @@ For feature requests, substantial product changes, or issue/PR scope decisions,
 also read [CONSTITUTION.md](CONSTITUTION.md) and use the `scope-triage` skill.
 Read [DESIGN.md](DESIGN.md) before making architectural changes.
 
+Before writing public issues, PRs, comments, commit messages or release notes,
+follow [the public writing rules](CONTRIBUTING.md#public-writing).
+
 Tracefinity turns photos or scans of physical objects into fitted,
 Gridfinity-compatible storage. The backend is Python/FastAPI with OpenCV and
 manifold3d; the frontend is Next.js/React/TypeScript with react-three-fiber.

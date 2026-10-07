@@ -198,14 +198,6 @@ comments.
   preferred local model, while later resource and provider work changed the
   available/default set. That is consistent with capability-over-brand and
   evidence-based defaults; the constitution should not freeze a model name.
-- **The paid-hosting history is ambiguous.** Closed issue
-  [#14](https://github.com/tracefinity/tracefinity/issues/14) and its
-  [support comment](https://github.com/tracefinity/tracefinity/issues/14#issuecomment-4093626330)
-  show that a “Pro Subscription” and “free tier” existed, but do not show
-  whether the distinction was hosted quota/capacity or subscriber-only product
-  functionality. Quotas fit the constitution; withholding core product
-  features would not. #14 supplies no product rationale and must not be cited as
-  precedent for either interpretation without further first-party evidence.
 - **Demand mechanics are more formal than the history.** PR #134 supports
   reconsideration when demand appears, but the exact reactions/comments/
   duplicates workflow in the constitution is a new operating convention. It is
