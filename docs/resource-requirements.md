@@ -19,7 +19,7 @@ RAM figures are measured in Linux containers with both models loaded. Models loa
 Any modern x86-64 processor with AVX support. All local models (including U2-Net paper detection) use ONNX Runtime, which requires AVX instructions.
 
 On CPUs without AVX (some older VMs, Atoms, low-power NAS boxes):
-- U2-Net paper detection falls back to OpenCV-only brightness thresholding. Less accurate -- users may need to adjust corners manually more often.
+- U2-Net paper detection falls back to OpenCV-only edge and brightness detection. Less accurate -- users may need to adjust corners manually more often.
 - Local ONNX tracers (`isnet`, `birefnet-lite`, `inspyrenet`) are unavailable.
 - Remote tracers (`gemini`, `replicate`, `fal`) work normally.
 - AVX availability is detected at startup (CPU flags + subprocess probe). A warning is logged when ONNX is unavailable.
