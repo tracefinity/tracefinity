@@ -18,7 +18,7 @@
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "lucide-react": "0.474.0",
-    "next": "^16.3.6",
+    "next": "^16.4.3",
     "qrcode.react": "^4.2.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -40,11 +40,11 @@
     ],
     "overrides": {
       "postcss": ">=8.5.23",
-      "js-yaml": ">=4.3.1",
-      "undici": ">=7.29.0",
-      "jsdom@29>undici": "7.29.0",
-      "brace-expansion@1": "1.1.18",
-      "brace-expansion@2": "2.1.4"
+      "js-yaml": ">=5.4.1",
+      "undici": ">=7.30.1",
+      "jsdom@29>undici": "^7.30.1",
+      "brace-expansion@1": "^1.1.21",
+      "brace-expansion@2": "^2.1.7"
     }
   },
   "devDependencies": {
@@ -62,7 +62,7 @@
     "postcss": "8.5.23",
     "tailwindcss": "3.4.17",
     "typescript": "5.7.3",
-    "vite": "^8.0.16",
-    "vitest": "^4.1.11"
+    "vite": "^8.1.6",
+    "vitest": "^4.1.12"
   }
 }

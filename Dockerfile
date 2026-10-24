@@ -9,7 +9,7 @@ FROM node:20-slim AS frontend-build
 RUN corepack enable pnpm
 
 WORKDIR /frontend
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
 ENV NEXT_PUBLIC_API_URL=
