@@ -14,7 +14,7 @@ pydantic-settings>=2.1.0
 bcrypt>=4.0.0  # verify-only for imported credentials
 cryptography>=42.0.0  # AES-256-GCM for secrets at rest; pins an existing transitive dep
 aiofiles>=23.2.0
-Pillow>=10.0.0
+Pillow>=13.0.0
 pillow-heif>=0.16.0
 # local model support
 transparent-background>=1.3.0  # inspyrenet
