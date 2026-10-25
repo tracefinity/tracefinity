@@ -1,4 +1,5 @@
 import type { BinProject, BinProjectSummary, BinSummary, ProjectStatus, ToolSummary } from '@/types'
+import { libraryTags, matchesToolTags } from './toolTags'
 
 export const projectStatusLabels: Record<ProjectStatus, string> = {
   active: 'Active',
@@ -52,6 +53,8 @@ export function getProjectCollections(
     addToolSearch: string
     statusFilter: ProjectToolFilter
     allowReassignBins: boolean
+    projectTags?: string[]
+    addToolTags?: string[]
   },
 ) {
   const projectToolIds = new Set(project?.tool_ids || [])
@@ -64,7 +67,7 @@ export function getProjectCollections(
   const projectBinIds = new Set(projectBins.map(bin => bin.id))
   const toolById = new Map(tools.map(tool => [tool.id, tool]))
 
-  let filteredProjectTools = projectTools
+  let filteredProjectTools = projectTools.filter(tool => matchesToolTags(tool, options.projectTags || []))
   if (options.statusFilter === 'unplaced') {
     filteredProjectTools = filteredProjectTools.filter(tool => unplacedToolIds.has(tool.id))
   }
@@ -90,6 +93,8 @@ export function getProjectCollections(
   ))
 
   let availableTools = tools.filter(tool => !projectToolIds.has(tool.id))
+  const availableToolTags = libraryTags(availableTools)
+  availableTools = availableTools.filter(tool => matchesToolTags(tool, options.addToolTags || []))
   if (options.addToolSearch.trim()) {
     const q = options.addToolSearch.toLowerCase()
     availableTools = availableTools.filter(tool => tool.name.toLowerCase().includes(q))
@@ -106,6 +111,7 @@ export function getProjectCollections(
     placedToolIds,
     unplacedToolIds,
     projectTools,
+    projectToolTags: libraryTags(projectTools),
     filteredProjectTools,
     projectBins,
     projectBinIds,
@@ -113,6 +119,7 @@ export function getProjectCollections(
     toolBins,
     existingBinOptions,
     availableTools,
+    availableToolTags,
     actionableVisibleToolIds,
   }
 }

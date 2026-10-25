@@ -7,6 +7,7 @@ Every tool you save from a trace session goes into your library on the app home 
 - **Open the editor** -- click a tool to edit its outline, add cutouts, or transform it.
 - **Search** -- filter tools by name (case-insensitive).
 - **Sort** -- by date created or alphabetically.
+- **Tags** -- click **Tags** beside the placement-status filters to search and select tags. Tools matching any selected tag are shown, combined with name search and status. **Clear tags** removes only the tag filter. Tags appear on tool cards; edit them in the tool editor.
 - **Rename** -- click the tool name to edit it inline.
 - **Delete** -- remove the tool permanently.
 

@@ -73,4 +73,44 @@ describe('project selectors', () => {
 
     expect(collections.toolBins.get(toolOne.id)?.map(item => item.id)).toEqual(['bin-1'])
   })
+
+  const taggedTools = [
+    { ...tool('tool-1'), name: 'Short key', tags: ['Hex keys'] },
+    { ...tool('tool-2'), name: 'Long key', tags: ['HEX KEYS', 'Metric'] },
+    { ...tool('tool-3'), name: 'Metric driver', tags: ['Screwdrivers', 'Metric'] },
+    { ...tool('tool-4'), name: 'Pliers', tags: ['Pliers'] },
+    tool('tool-5'),
+  ]
+  const filters = { projectSearch: '', addToolSearch: '', statusFilter: 'all' as const, allowReassignBins: false }
+
+  it('composes project tag, name and placement filters without changing project membership or available tools', () => {
+    const collections = getProjectCollections(project, taggedTools, [], {
+      ...filters, projectTags: ['hex keys'], projectSearch: 'long', statusFilter: 'unplaced',
+    })
+    expect(collections.filteredProjectTools.map(item => item.id)).toEqual(['tool-2'])
+    expect(collections.actionableVisibleToolIds).toEqual(['tool-2'])
+    expect(collections.projectTools).toHaveLength(2)
+    expect(collections.availableTools.map(item => item.id)).toEqual(['tool-3', 'tool-4', 'tool-5'])
+    expect(collections.projectToolTags).toEqual(['Hex keys', 'Metric'])
+  })
+
+  it('filters available tools by any selected tag and name, excluding assigned tools', () => {
+    const collections = getProjectCollections(project, taggedTools, [], {
+      ...filters, addToolTags: ['METRIC', 'Pliers'], addToolSearch: 'driver',
+    })
+    expect(collections.availableTools.map(item => item.id)).toEqual(['tool-3'])
+    expect(collections.filteredProjectTools).toHaveLength(2)
+    expect(collections.availableToolTags).toEqual(['Metric', 'Pliers', 'Screwdrivers'])
+  })
+
+  it('keeps selection limited to visible unplaced tools and restores untagged tools after clearing', () => {
+    const matching = getProjectCollections(project, taggedTools, [], { ...filters, projectTags: ['hex keys'] })
+    expect(matching.filteredProjectTools).toHaveLength(2)
+    expect(matching.actionableVisibleToolIds).toEqual(['tool-2'])
+    const missing = getProjectCollections(project, taggedTools, [], { ...filters, projectTags: ['missing'], addToolTags: ['missing'] })
+    expect(missing.filteredProjectTools).toEqual([])
+    expect(missing.availableTools).toEqual([])
+    const cleared = getProjectCollections(project, taggedTools, [], { ...filters, projectTags: [], addToolTags: [] })
+    expect(cleared.availableTools.map(item => item.id)).toContain('tool-5')
+  })
 })
