@@ -37,6 +37,8 @@ Every `BufferGeometry` and `EdgesGeometry` must be `.dispose()`d on React unmoun
 
 Single container runs both frontend and backend via supervisor. Key details:
 
+- One backend process and one application instance may write each storage volume. The image pins `--workers 1` even when `WEB_CONCURRENCY` is set; source launches must also use one worker. JSON stores keep independent in-memory snapshots and process-local locks, so multiple writers can silently overwrite acknowledged saves. The Helm chart rejects multiple replicas and requires Recreate during upgrades; RollingUpdate can overlap pods even with one replica and a ReadWriteOnce volume. See [#155](https://github.com/tracefinity/tracefinity/issues/155) and [resource requirements](resource-requirements.md#one-process-per-storage-volume).
+
 - CORS origins in `backend/.env` override the Python defaults -- if you change the frontend port, update `.env` too
 - `NEXT_TELEMETRY_DISABLED=1` is set in the Dockerfile build stage
 - `.dockerignore` excludes `docs/`, `node_modules/`, `venv/`, `storage/`, `.claude/`

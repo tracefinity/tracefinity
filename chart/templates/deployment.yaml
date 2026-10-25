@@ -1,3 +1,6 @@
+{{- if gt (int .Values.replicaCount) 1 }}
+{{- fail "Tracefinity requires replicaCount <= 1: concurrent processes sharing storage can lose data (see tracefinity/tracefinity#155)." }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,6 +10,8 @@ metadata:
 spec:
   replicas: {{ .Values.replicaCount }}
   strategy:
+    # RollingUpdate can run two pods against the same volume, even with
+    # one replica and ReadWriteOnce. Keep one writer during upgrades (#155).
     type: Recreate
   selector:
     matchLabels:
