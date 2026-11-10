@@ -1,6 +1,7 @@
 """Route-level tests for photo warnings on upload and corner correction."""
 
 import io
+import json
 
 from fastapi.testclient import TestClient
 from PIL import ExifTags, Image, ImageFile
@@ -179,3 +180,58 @@ def test_corners_succeeds_when_photo_checks_raise(tmp_path, monkeypatch):
     assert resp.status_code == 200
     assert resp.json()["warnings"] == []
     assert sessions.get("s1").photo_warnings is None
+
+
+def test_upload_of_cropped_photo_stores_no_focal_length(tmp_path, monkeypatch):
+    """exif that records a larger frame than the file holds means the photo
+    was cropped, so its focal length no longer describes what is in frame."""
+    client = _client(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        routes.image_processor, "detect_paper_corners", lambda path: None
+    )
+    exif = Image.Exif()
+    ifd = exif.get_ifd(ExifTags.IFD.Exif)
+    ifd[ExifTags.Base.FocalLengthIn35mmFilm] = 23
+    ifd[ExifTags.Base.ExifImageWidth] = 3072
+    ifd[ExifTags.Base.ExifImageHeight] = 4096
+    buf = io.BytesIO()
+    Image.new("RGB", (887, 1089), "white").save(buf, format="JPEG", exif=exif)
+
+    resp = client.post(
+        "/api/upload",
+        files={"image": ("photo.jpg", buf.getvalue(), "image/jpeg")},
+    )
+
+    assert resp.status_code == 200
+    sessions, _, _ = routes.get_stores("default")
+    assert sessions.get(resp.json()["session_id"]).focal_length_35mm is None
+
+
+def test_capture_crop_does_not_trigger_camera_warning(tmp_path, monkeypatch):
+    """the camera height estimate needs the full frame; a capture crop keeps
+    only part of it."""
+    client = _client(tmp_path, monkeypatch)
+    monkeypatch.setattr(routes.settings, "photo_stations", True)
+    monkeypatch.setattr(
+        routes.image_processor, "detect_paper_corners", lambda path: None
+    )
+    crop = {"x": 0.25, "y": 0.25, "width": 0.5, "height": 0.5}
+    uploaded = client.post(
+        "/api/upload",
+        files={"image": ("photo.jpg", _jpeg_bytes(2000, 1500, 26.0), "image/jpeg")},
+        data={"capture_crop": json.dumps(crop)},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    # a sheet shot from 70 cm, in the coordinates of the kept centre half
+    corners = [
+        {"x": x - 500, "y": y - 375}
+        for x, y in corners_for_height(700.0, 26.0, 2000, 1500)
+    ]
+
+    resp = client.post(
+        f"/api/sessions/{uploaded.json()['session_id']}/corners",
+        json={"corners": corners, "paper_size": "a4"},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert "camera_too_close" not in [w["code"] for w in resp.json()["warnings"]]

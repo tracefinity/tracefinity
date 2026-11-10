@@ -13,7 +13,7 @@ import math
 from PIL import ExifTags, Image
 
 from app.constants import PAPER_SIZES, PaperSize
-from app.models.schemas import PhotoWarning
+from app.models.schemas import CaptureCrop, PhotoWarning
 
 logger = logging.getLogger(__name__)
 
@@ -30,22 +30,53 @@ EDGE_MARGIN_PX = 2.0
 # opposite-side length ratio above this indicates a strong keystone
 MAX_OPPOSITE_SIDE_RATIO = 1.35
 
+# exif and file pixel sizes further apart than this mean the photo was edited
+EXIF_SIZE_TOLERANCE = 0.01
+
 Corners = list[tuple[float, float]]
 
 
+def _is_camera_frame(size: tuple[int, int], exif_ifd: dict) -> bool:
+    """false when exif records a different pixel size than the file has.
+
+    a photo cropped or resized after capture keeps its focal length, which
+    still describes the frame the camera took, not what is left of it."""
+    try:
+        recorded = sorted((
+            float(exif_ifd[ExifTags.Base.ExifImageWidth]),
+            float(exif_ifd[ExifTags.Base.ExifImageHeight]),
+        ))
+    except (KeyError, TypeError, ValueError):
+        return True
+    if not all(math.isfinite(side) and side > 0 for side in recorded):
+        return True
+    # sorted: exif may record the size before or after rotation
+    return all(
+        abs(actual - side) <= side * EXIF_SIZE_TOLERANCE
+        for actual, side in zip(sorted(size), recorded)
+    )
+
+
 def extract_focal_length_35mm(content: bytes) -> float | None:
-    """read FocalLengthIn35mmFilm from image bytes; None when absent."""
+    """read FocalLengthIn35mmFilm from image bytes; None when absent, or when
+    the file is no longer the frame the camera took."""
     try:
         img = Image.open(io.BytesIO(content))
         exif = img.getexif()
-        value = exif.get_ifd(ExifTags.IFD.Exif).get(ExifTags.Base.FocalLengthIn35mmFilm)
+        exif_ifd = exif.get_ifd(ExifTags.IFD.Exif)
+        value = exif_ifd.get(ExifTags.Base.FocalLengthIn35mmFilm)
         if value is None:
             value = exif.get(ExifTags.Base.FocalLengthIn35mmFilm)
         if value is None:
             return None
         focal = float(value)
         # crafted exif can yield inf/nan; keep those out of sessions.json
-        return focal if math.isfinite(focal) and focal > 0 else None
+        if not math.isfinite(focal) or focal <= 0:
+            return None
+        if not _is_camera_frame(img.size, exif_ifd):
+            logger.info("exif pixel size differs from the image; skipping the camera distance check")
+            return None
+        return focal
     except Exception:
         return None
 
@@ -61,7 +92,8 @@ def estimate_camera_height_mm(
 
     pinhole model against the 35mm-equivalent frame: the image diagonal maps
     to the full-frame diagonal, so the paper's pixel diagonal gives its size
-    on the virtual sensor and D = f35 * real / projected.
+    on the virtual sensor and D = f35 * real / projected. image_w and image_h
+    must be the whole frame the camera took.
     """
     if not focal_length_35mm or focal_length_35mm <= 0 or len(corners) != 4:
         return None
@@ -150,11 +182,18 @@ def check_photo(
     image_h: float,
     paper_size: PaperSize,
     focal_length_35mm: float | None,
+    capture_crop: CaptureCrop | None = None,
 ) -> list[PhotoWarning]:
-    """run all photo checks; each degrades to a no-op if it cannot run."""
+    """run all photo checks; each degrades to a no-op if it cannot run.
+    capture_crop is the part of the camera's frame the image kept, if not all."""
+    # the height estimate needs the whole frame, not the kept part of it
+    frame_w, frame_h = image_w, image_h
+    if capture_crop is not None:
+        frame_w, frame_h = image_w / capture_crop.width, image_h / capture_crop.height
+
     warnings: list[PhotoWarning] = []
     for check in (
-        lambda: _check_camera_height(corners, image_w, image_h, paper_size, focal_length_35mm),
+        lambda: _check_camera_height(corners, frame_w, frame_h, paper_size, focal_length_35mm),
         lambda: _check_paper_in_frame(corners, image_w, image_h),
         lambda: _check_perspective(corners),
     ):

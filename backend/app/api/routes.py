@@ -915,7 +915,7 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
         with Image.open(_abs(session.original_image_path)) as im:
             img_w, img_h = im.size
         photo_warnings = check_photo(
-            corners, img_w, img_h, req.paper_size, session.focal_length_35mm
+            corners, img_w, img_h, req.paper_size, session.focal_length_35mm, session.capture_crop
         )
     except Exception:
         logger.exception("photo checks skipped")

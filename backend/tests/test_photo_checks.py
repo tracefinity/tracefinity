@@ -6,6 +6,7 @@ import pytest
 from PIL import ExifTags, Image
 
 import app.services.photo_checks as photo_checks
+from app.models.schemas import CaptureCrop
 from app.services.photo_checks import (
     MIN_CAMERA_HEIGHT_MM,
     check_photo,
@@ -60,6 +61,20 @@ class TestCheckPhoto:
         corners = corners_for_height(250.0, 26.0, 4000, 3000)
         warnings = check_photo(corners, 4000, 3000, "a4", None)
         assert "camera_too_close" not in [w.code for w in warnings]
+
+    def test_capture_crop_does_not_shorten_the_camera_height(self):
+        # the stored image is the centre half of a frame shot from 70 cm
+        corners = [(x - 1000, y - 750) for x, y in corners_for_height(700.0, 26.0, 4000, 3000)]
+        crop = CaptureCrop(x=0.25, y=0.25, width=0.5, height=0.5)
+        warnings = check_photo(corners, 2000, 1500, "a4", 26.0, crop)
+        assert "camera_too_close" not in [w.code for w in warnings]
+
+    def test_capture_crop_still_warns_when_the_camera_is_close(self):
+        corners = [(x - 1000, y - 750) for x, y in corners_for_height(250.0, 26.0, 4000, 3000)]
+        crop = CaptureCrop(x=0.25, y=0.25, width=0.5, height=0.5)
+        warnings = check_photo(corners, 2000, 1500, "a4", 26.0, crop)
+        msg = next(w.message for w in warnings if w.code == "camera_too_close")
+        assert "25 cm" in msg
 
     def test_warns_when_paper_touches_edge(self):
         corners = [(0.0, 500.0), (1500.0, 480.0), (1520.0, 1600.0), (30.0, 1620.0)]
@@ -139,3 +154,33 @@ class TestExtractFocalLength:
 
     def test_none_for_garbage_bytes(self):
         assert extract_focal_length_35mm(b"not an image") is None
+
+    def _jpeg_with_exif_size(self, size: tuple[int, int], exif_size: tuple[int, int]) -> bytes:
+        exif = Image.Exif()
+        ifd = exif.get_ifd(ExifTags.IFD.Exif)
+        ifd[ExifTags.Base.FocalLengthIn35mmFilm] = 23
+        ifd[ExifTags.Base.ExifImageWidth], ifd[ExifTags.Base.ExifImageHeight] = exif_size
+        buf = io.BytesIO()
+        Image.new("RGB", size, "white").save(buf, format="JPEG", exif=exif)
+        return buf.getvalue()
+
+    def test_none_when_exif_size_shows_the_photo_was_cropped(self):
+        # the focal length describes the 3072x4096 frame, not the part kept
+        content = self._jpeg_with_exif_size((887, 1089), (3072, 4096))
+        assert extract_focal_length_35mm(content) is None
+
+    def test_none_when_exif_size_shows_the_photo_was_resized(self):
+        content = self._jpeg_with_exif_size((400, 300), (4000, 3000))
+        assert extract_focal_length_35mm(content) is None
+
+    def test_kept_when_exif_size_matches_the_file(self):
+        content = self._jpeg_with_exif_size((64, 48), (64, 48))
+        assert extract_focal_length_35mm(content) == pytest.approx(23.0)
+
+    def test_kept_when_exif_size_is_the_file_rotated(self):
+        content = self._jpeg_with_exif_size((64, 48), (48, 64))
+        assert extract_focal_length_35mm(content) == pytest.approx(23.0)
+
+    def test_kept_when_exif_size_is_unusable(self):
+        content = self._jpeg_with_exif_size((64, 48), (0, 0))
+        assert extract_focal_length_35mm(content) == pytest.approx(23.0)

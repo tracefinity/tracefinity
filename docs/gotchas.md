@@ -37,6 +37,10 @@ The corrected image covers the whole visible frame, not just the sheet, so the a
 
 `ingest_image` checks `MAX_IMAGE_PIXELS` before pixel data is decoded, so nothing may open an upload ahead of it. Pillow decodes a whole PNG to look for its EXIF; reading the focal length first decoded images the limit was about to reject. Pillow also refuses anything over twice its own cap whatever limit is configured. `ingest_image` lifts that cap to a higher limit and never lowers it, because stored images outgrow a small upload limit.
 
+## Camera distance check
+
+The estimate treats the image as the whole frame the camera took. A capture crop is undone from the session's `capture_crop`. A photo cropped or resized elsewhere keeps its focal length, so the check is skipped when the EXIF pixel size differs from the file's.
+
 ## Three.js memory leaks
 
 Every `BufferGeometry` and `EdgesGeometry` must be `.dispose()`d on React unmount. STL regeneration creates new geometries each time -- if the old ones aren't disposed, the browser will OOM. Same applies to `Image` objects created in useEffect (use a `cancelled` flag in cleanup).
