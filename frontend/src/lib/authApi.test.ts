@@ -19,6 +19,14 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+// what a reverse proxy sends when it answers instead of the backend
+function htmlResponse(status: number) {
+  return new Response('<html><body><h1>proxy error</h1></body></html>', {
+    status,
+    headers: { 'Content-Type': 'text/html' },
+  })
+}
+
 const fetchMock = vi.fn()
 
 beforeEach(() => {
@@ -142,6 +150,69 @@ describe('401 handling', () => {
     fetchMock.mockResolvedValue(jsonResponse({ detail: 'not authenticated' }, 401))
     await expect(listSessions()).rejects.toBeInstanceOf(ApiError)
     expect(toLogin).not.toHaveBeenCalled()
+  })
+
+  it('still redirects when the 401 carries no detail', async () => {
+    const toLogin = vi.spyOn(navigation, 'toLogin').mockImplementation(() => {})
+    window.history.pushState({}, '', '/tools/t1')
+    fetchMock.mockResolvedValue(htmlResponse(401))
+    await expect(listSessions()).rejects.toThrowError(new ApiError('request failed (HTTP 401)', 401))
+    expect(toLogin).toHaveBeenCalled()
+  })
+})
+
+describe('errors with no usable detail', () => {
+  it.each([
+    [502, 'server unavailable (HTTP 502)'],
+    [503, 'server unavailable (HTTP 503)'],
+    [504, 'server timed out (HTTP 504)'],
+    [500, 'request failed (HTTP 500)'],
+  ])('names the status of a %i error page from the proxy', async (status, message) => {
+    fetchMock.mockResolvedValue(htmlResponse(status))
+    await expect(getAuthStatus()).rejects.toThrowError(new ApiError(message, status))
+  })
+
+  it('names an upload the proxy refused as too large', async () => {
+    fetchMock.mockResolvedValue(htmlResponse(413))
+    await expect(uploadImage(new File(['x'], 'x.png'))).rejects.toThrowError(
+      new ApiError('file too large for the server (HTTP 413)', 413),
+    )
+  })
+
+  it('names the status when the body is empty', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 504 }))
+    await expect(getAuthStatus()).rejects.toThrowError(new ApiError('server timed out (HTTP 504)', 504))
+  })
+
+  it.each([
+    ['no detail', { error: 'nope' }],
+    ['an empty detail', { detail: '' }],
+    ['a detail that is not text', { detail: 404 }],
+    ['a validation list for a detail', { detail: [{ loc: ['body', 'email'], msg: 'field required' }] }],
+  ])('names the status when the json body has %s', async (_label, body) => {
+    fetchMock.mockResolvedValue(jsonResponse(body, 422))
+    await expect(getAuthStatus()).rejects.toThrowError(new ApiError('request failed (HTTP 422)', 422))
+  })
+
+  it('keeps the code of a structured detail that has no message', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ detail: { code: 'rate_limited' } }, 429))
+    await expect(getAuthStatus()).rejects.toThrowError(
+      new ApiError('request failed (HTTP 429)', 429, 'rate_limited'),
+    )
+  })
+
+  it('prefers a string detail over the status wording', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ detail: 'model is still loading' }, 503))
+    await expect(getAuthStatus()).rejects.toThrowError(new ApiError('model is still loading', 503))
+  })
+
+  it('prefers a structured detail over the status wording', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ detail: { code: 'upstream_busy', message: 'try again shortly' } }, 502),
+    )
+    await expect(getAuthStatus()).rejects.toThrowError(
+      new ApiError('try again shortly', 502, 'upstream_busy'),
+    )
   })
 })
 

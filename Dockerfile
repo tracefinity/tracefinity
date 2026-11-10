@@ -93,8 +93,10 @@ server {
 }
 NGINX_EOF
 
-# nginx non-root: pid in /tmp, disable default error_log (supervisor captures it)
+# nginx non-root: pid in /tmp, errors to stderr so supervisor passes them to the container log
 RUN sed -i 's|pid /run/nginx.pid;|pid /tmp/nginx/nginx.pid;|' /etc/nginx/nginx.conf && \
+    sed -i 's|^error_log .*;|error_log stderr;|' /etc/nginx/nginx.conf && \
+    grep -q '^error_log stderr;' /etc/nginx/nginx.conf && \
     sed -i '/^user /d' /etc/nginx/nginx.conf
 
 # supervisor config
