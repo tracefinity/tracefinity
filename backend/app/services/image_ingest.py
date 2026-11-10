@@ -64,6 +64,12 @@ def ingest_image(
     the long edge is capped at max_dim. ratio is <1 when shrunk;
     the long edge lands exactly on max_dim so the ratio is exact for it and
     within half a pixel for the short edge (dimensions are rounded)."""
+    # pillow refuses anything over twice its own cap whatever max_pixels allows.
+    # lift the cap to a higher limit, never lower it: stored images are larger
+    # than a small upload limit and must stay readable
+    if Image.MAX_IMAGE_PIXELS is not None and max_pixels > Image.MAX_IMAGE_PIXELS:
+        Image.MAX_IMAGE_PIXELS = max_pixels
+
     try:
         img = Image.open(io.BytesIO(content))
     except Image.DecompressionBombError as exc:

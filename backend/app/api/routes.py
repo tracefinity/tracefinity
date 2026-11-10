@@ -829,9 +829,6 @@ async def upload_image(
     if len(content) > max_bytes:
         raise HTTPException(status_code=413, detail=f"file too large (max {settings.max_upload_mb}MB)")
 
-    # exif is dropped when the image is re-encoded, so read it first
-    focal_length = extract_focal_length_35mm(content)
-
     station = None
     if station_id:
         station = get_photo_station_store(user_id).get(station_id)
@@ -842,9 +839,14 @@ async def upload_image(
     applied_crop = requested_crop if requested_crop is not None else station.capture_crop if station else None
 
     ingest_crop = None if _is_full_capture_crop(applied_crop) else applied_crop
+    # exif is dropped when the image is re-encoded, so it is read from the
+    # upload itself, and only once ingest has checked the pixel limit: pillow
+    # decodes a png to look for its exif
+    upload = content
     content, ext, _ = _ingest_with_limits(
-        content, ext, MAX_UPLOAD_DIM, capture_crop=ingest_crop
+        upload, ext, MAX_UPLOAD_DIM, capture_crop=ingest_crop
     )
+    focal_length = extract_focal_length_35mm(upload)
     image_width, image_height = _image_dimensions(content)
     image_path = up / "uploads" / f"{session_id}{ext}"
 

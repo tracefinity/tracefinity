@@ -3,7 +3,7 @@
 import io
 
 from fastapi.testclient import TestClient
-from PIL import ExifTags, Image
+from PIL import ExifTags, Image, ImageFile
 
 import app.api.routes as routes
 from app.config import ensure_user_dirs
@@ -72,6 +72,28 @@ def test_upload_rejects_image_over_pixel_limit(tmp_path, monkeypatch):
 
     assert resp.status_code == 413
     assert resp.json() == {"detail": "image has 110 pixels; maximum is 100"}
+
+
+def test_upload_over_pixel_limit_is_rejected_before_decoding(tmp_path, monkeypatch):
+    """pillow decodes a png to look for its exif, so nothing may read the
+    upload before the limit is checked."""
+    client = _client(tmp_path, monkeypatch)
+    monkeypatch.setattr(routes.settings, "max_image_pixels", 100)
+    decoded = []
+    load = ImageFile.ImageFile.load
+
+    def spy(self, *args, **kwargs):
+        decoded.append(self.size)
+        return load(self, *args, **kwargs)
+
+    monkeypatch.setattr(ImageFile.ImageFile, "load", spy)
+    buf = io.BytesIO()
+    Image.new("RGB", (11, 10), "white").save(buf, format="PNG")
+
+    resp = client.post("/api/upload", files={"image": ("photo.png", buf.getvalue(), "image/png")})
+
+    assert resp.status_code == 413
+    assert decoded == []
 
 
 def test_upload_focal_length_survives_downscale(tmp_path, monkeypatch):

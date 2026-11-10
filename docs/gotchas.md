@@ -33,6 +33,10 @@ cv2 ignores EXIF orientation, browsers apply it. `ingest_image` bakes orientatio
 
 The corrected image covers the whole visible frame, not just the sheet, so the area it spans grows as the sheet shrinks in the photo. A sheet filling a quarter of the frame is over 100 megapixels at 10 px/mm. `apply_perspective_correction` warps straight to the stored size and returns the matching scale. Rendering at a fixed px/mm and shrinking afterwards, or applying the upload pixel limit to the result, rejects photos taken from the recommended distance or exhausts memory on them (#244).
 
+## Upload pixel limit
+
+`ingest_image` checks `MAX_IMAGE_PIXELS` before pixel data is decoded, so nothing may open an upload ahead of it. Pillow decodes a whole PNG to look for its EXIF; reading the focal length first decoded images the limit was about to reject. Pillow also refuses anything over twice its own cap whatever limit is configured. `ingest_image` lifts that cap to a higher limit and never lowers it, because stored images outgrow a small upload limit.
+
 ## Three.js memory leaks
 
 Every `BufferGeometry` and `EdgesGeometry` must be `.dispose()`d on React unmount. STL regeneration creates new geometries each time -- if the old ones aren't disposed, the browser will OOM. Same applies to `Image` objects created in useEffect (use a `cancelled` flag in cleanup).
