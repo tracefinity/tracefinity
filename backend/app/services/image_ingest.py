@@ -38,6 +38,18 @@ def _crop_bounds(width: int, height: int, crop: CaptureCrop) -> tuple[int, int, 
     bottom = max(top + 4, min(height, int(round((crop.y + crop.height) * height))))
     return left, top, right, bottom
 
+
+def encode_image(img: Image.Image, ext: str) -> tuple[bytes, str]:
+    """encode for storage, returns (bytes, ext). jpeg stays jpeg, anything else becomes png."""
+    buf = io.BytesIO()
+    if ext in (".jpg", ".jpeg"):
+        img.convert("RGB").save(buf, format="JPEG", quality=90)
+    else:
+        ext = ".png"
+        img.save(buf, format="PNG")
+    return buf.getvalue(), ext
+
+
 def ingest_image(
     content: bytes,
     ext: str,
@@ -93,10 +105,5 @@ def ingest_image(
     if not changed:
         return content, new_ext, ratio
 
-    buf = io.BytesIO()
-    if new_ext in (".jpg", ".jpeg"):
-        img.convert("RGB").save(buf, format="JPEG", quality=90)
-    else:
-        new_ext = ".png"
-        img.save(buf, format="PNG")
-    return buf.getvalue(), new_ext, ratio
+    encoded, new_ext = encode_image(img, new_ext)
+    return encoded, new_ext, ratio

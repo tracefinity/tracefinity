@@ -8,7 +8,8 @@ import numpy as np
 from PIL import Image
 
 
-def synthetic_photo(paper_mm, landscape=False, exif_rotated=False):
+def synthetic_photo(paper_mm, landscape=False, exif_rotated=False, sheet_scale=1.0):
+    """sheet_scale below 1 shrinks the sheet towards the frame centre, as a more distant shot does."""
     width_mm, height_mm = paper_mm
     if landscape:
         width_mm, height_mm = height_mm, width_mm
@@ -20,6 +21,8 @@ def synthetic_photo(paper_mm, landscape=False, exif_rotated=False):
     photo_size = (3600, 2800) if landscape else (2800, 3600)
     w, h = photo_size
     corners = np.float32([(w * .12, h * .15), (w * .85, h * .08), (w * .91, h * .86), (w * .08, h * .91)])
+    centre = np.float32([w / 2, h / 2])
+    corners = centre + (corners - centre) * np.float32(sheet_scale)
     source = np.float32([(0, 0), (paper.shape[1], 0), (paper.shape[1], paper.shape[0]), (0, paper.shape[0])])
     transform = cv2.getPerspectiveTransform(source, corners)
     photo = Image.fromarray(cv2.warpPerspective(paper, transform, photo_size, borderValue=(100, 70, 40)))

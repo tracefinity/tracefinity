@@ -919,17 +919,8 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
         logger.exception("photo checks skipped")
 
     output_path, scale_factor = image_processor.apply_perspective_correction(
-        _abs(session.original_image_path), corners, req.paper_size
+        _abs(session.original_image_path), corners, req.paper_size, MAX_UPLOAD_DIM
     )
-
-    # resize the corrected image to save storage; adjust scale_factor so
-    # pixel→mm conversion stays correct after the image shrinks.
-    corrected_bytes = Path(output_path).read_bytes()
-    ext = Path(output_path).suffix
-    corrected_bytes, _, ds_ratio = _ingest_with_limits(corrected_bytes, ext, MAX_UPLOAD_DIM)
-    Path(output_path).write_bytes(corrected_bytes)
-    if ds_ratio < 1.0:
-        scale_factor /= ds_ratio
 
     up = _user_path(user_id)
     orig_path = _abs(session.original_image_path)

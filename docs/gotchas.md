@@ -27,7 +27,11 @@ auto-size enabled. Manually selected undersized grids can still clip pockets.
 
 ## EXIF orientation
 
-cv2 ignores EXIF orientation, browsers apply it. `ingest_image` bakes orientation into the pixels at upload -- without it, corner coordinates from the UI land in a different frame than the backend warps. All image ingest (upload, corrected downscale, mask upload) must go through it.
+cv2 ignores EXIF orientation, browsers apply it. `ingest_image` bakes orientation into the pixels at upload -- without it, corner coordinates from the UI land in a different frame than the backend warps. Every user-supplied image (upload, mask upload) must go through it.
+
+## Corrected image size
+
+The corrected image covers the whole visible frame, not just the sheet, so the area it spans grows as the sheet shrinks in the photo. A sheet filling a quarter of the frame is over 100 megapixels at 10 px/mm. `apply_perspective_correction` warps straight to the stored size and returns the matching scale. Rendering at a fixed px/mm and shrinking afterwards, or applying the upload pixel limit to the result, rejects photos taken from the recommended distance or exhausts memory on them (#244).
 
 ## Three.js memory leaks
 
