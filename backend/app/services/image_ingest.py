@@ -38,6 +38,18 @@ def _crop_bounds(width: int, height: int, crop: CaptureCrop) -> tuple[int, int, 
     bottom = max(top + 4, min(height, int(round((crop.y + crop.height) * height))))
     return left, top, right, bottom
 
+
+def encode_image(img: Image.Image, ext: str) -> tuple[bytes, str]:
+    """encode for storage, returns (bytes, ext). jpeg stays jpeg, anything else becomes png."""
+    buf = io.BytesIO()
+    if ext in (".jpg", ".jpeg"):
+        img.convert("RGB").save(buf, format="JPEG", quality=90)
+    else:
+        ext = ".png"
+        img.save(buf, format="PNG")
+    return buf.getvalue(), ext
+
+
 def ingest_image(
     content: bytes,
     ext: str,
@@ -52,6 +64,12 @@ def ingest_image(
     the long edge is capped at max_dim. ratio is <1 when shrunk;
     the long edge lands exactly on max_dim so the ratio is exact for it and
     within half a pixel for the short edge (dimensions are rounded)."""
+    # pillow refuses anything over twice its own cap whatever max_pixels allows.
+    # lift the cap to a higher limit, never lower it: stored images are larger
+    # than a small upload limit and must stay readable
+    if Image.MAX_IMAGE_PIXELS is not None and max_pixels > Image.MAX_IMAGE_PIXELS:
+        Image.MAX_IMAGE_PIXELS = max_pixels
+
     try:
         img = Image.open(io.BytesIO(content))
     except Image.DecompressionBombError as exc:
@@ -93,10 +111,5 @@ def ingest_image(
     if not changed:
         return content, new_ext, ratio
 
-    buf = io.BytesIO()
-    if new_ext in (".jpg", ".jpeg"):
-        img.convert("RGB").save(buf, format="JPEG", quality=90)
-    else:
-        new_ext = ".png"
-        img.save(buf, format="PNG")
-    return buf.getvalue(), new_ext, ratio
+    encoded, new_ext = encode_image(img, new_ext)
+    return encoded, new_ext, ratio

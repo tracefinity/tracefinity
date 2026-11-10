@@ -81,6 +81,25 @@ class TestDownscale:
         ):
             ingest_image(content, ".jpg", max_dim=8, max_pixels=100)
 
+    def test_limit_above_pillows_own_cap_is_honoured(self, monkeypatch):
+        # pillow refuses anything over twice its cap; a low cap stands in for
+        # the default, which only a 179 megapixel image would reach
+        monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)
+        content = _jpeg(60, 60)
+
+        result, _, _ = ingest_image(content, ".jpg", max_pixels=5000)
+
+        assert _open(result).size == (60, 60)
+
+    def test_low_limit_does_not_lower_pillows_cap(self, monkeypatch):
+        # stored images are larger than a small upload limit and must stay readable
+        monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)
+
+        with pytest.raises(ImageTooLargeError):
+            ingest_image(_jpeg(11, 10), ".jpg", max_pixels=100)
+
+        assert Image.MAX_IMAGE_PIXELS == 1000
+
     def test_ratio_matches_actual_resize(self):
         content = _jpeg(2402, 3300)
 

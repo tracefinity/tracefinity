@@ -27,7 +27,19 @@ auto-size enabled. Manually selected undersized grids can still clip pockets.
 
 ## EXIF orientation
 
-cv2 ignores EXIF orientation, browsers apply it. `ingest_image` bakes orientation into the pixels at upload -- without it, corner coordinates from the UI land in a different frame than the backend warps. All image ingest (upload, corrected downscale, mask upload) must go through it.
+cv2 ignores EXIF orientation, browsers apply it. `ingest_image` bakes orientation into the pixels at upload -- without it, corner coordinates from the UI land in a different frame than the backend warps. Every user-supplied image (upload, mask upload) must go through it.
+
+## Corrected image size
+
+The corrected image covers the whole visible frame, not just the sheet, so the area it spans grows as the sheet shrinks in the photo. A sheet filling a quarter of the frame is over 100 megapixels at 10 px/mm. `apply_perspective_correction` warps straight to the stored size and returns the matching scale. Rendering at a fixed px/mm and shrinking afterwards, or applying the upload pixel limit to the result, rejects photos taken from the recommended distance or exhausts memory on them (#244).
+
+## Upload pixel limit
+
+`ingest_image` checks `MAX_IMAGE_PIXELS` before pixel data is decoded, so nothing may open an upload ahead of it. Pillow decodes a whole PNG to look for its EXIF; reading the focal length first decoded images the limit was about to reject. Pillow also refuses anything over twice its own cap whatever limit is configured. `ingest_image` lifts that cap to a higher limit and never lowers it, because stored images outgrow a small upload limit.
+
+## Camera distance check
+
+The estimate treats the image as the whole frame the camera took. A capture crop is undone from the session's `capture_crop`. A photo cropped or resized elsewhere keeps its focal length, so the check is skipped when the EXIF pixel size differs from the file's.
 
 ## Three.js memory leaks
 
@@ -40,6 +52,7 @@ Single container runs both frontend and backend via supervisor. Key details:
 - CORS origins in `backend/.env` override the Python defaults -- if you change the frontend port, update `.env` too
 - `NEXT_TELEMETRY_DISABLED=1` is set in the Dockerfile build stage
 - `.dockerignore` excludes `docs/`, `node_modules/`, `venv/`, `storage/`, `.claude/`
+- nginx logs errors to stderr, which supervisor passes to the container log. A 502 while the backend starts or after it dies, a 504 or a 413 answered by nginx would otherwise only reach a file inside the container
 - Container runs as non-root user `tracefinity` (UID 1000) by default. Supports `--user "$(id -u):$(id -g)"` for arbitrary UIDs. Runtime-writable dirs (`/app/storage`, `/app/.u2net`, `/app/.next`, `/tmp/nginx`, `/tmp/supervisor`, `/var/lib/nginx`) are world-writable. `U2NET_HOME` and `HOME` are set to `/app` paths so model downloads and nginx/supervisor state work without root.
 
 ## Manifold3d boolean performance

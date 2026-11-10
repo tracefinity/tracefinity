@@ -829,9 +829,6 @@ async def upload_image(
     if len(content) > max_bytes:
         raise HTTPException(status_code=413, detail=f"file too large (max {settings.max_upload_mb}MB)")
 
-    # exif is dropped when the image is re-encoded, so read it first
-    focal_length = extract_focal_length_35mm(content)
-
     station = None
     if station_id:
         station = get_photo_station_store(user_id).get(station_id)
@@ -842,9 +839,14 @@ async def upload_image(
     applied_crop = requested_crop if requested_crop is not None else station.capture_crop if station else None
 
     ingest_crop = None if _is_full_capture_crop(applied_crop) else applied_crop
+    # exif is dropped when the image is re-encoded, so it is read from the
+    # upload itself, and only once ingest has checked the pixel limit: pillow
+    # decodes a png to look for its exif
+    upload = content
     content, ext, _ = _ingest_with_limits(
-        content, ext, MAX_UPLOAD_DIM, capture_crop=ingest_crop
+        upload, ext, MAX_UPLOAD_DIM, capture_crop=ingest_crop
     )
+    focal_length = extract_focal_length_35mm(upload)
     image_width, image_height = _image_dimensions(content)
     image_path = up / "uploads" / f"{session_id}{ext}"
 
@@ -913,23 +915,14 @@ async def set_corners(request: Request, session_id: str, req: CornersRequest, us
         with Image.open(_abs(session.original_image_path)) as im:
             img_w, img_h = im.size
         photo_warnings = check_photo(
-            corners, img_w, img_h, req.paper_size, session.focal_length_35mm
+            corners, img_w, img_h, req.paper_size, session.focal_length_35mm, session.capture_crop
         )
     except Exception:
         logger.exception("photo checks skipped")
 
     output_path, scale_factor = image_processor.apply_perspective_correction(
-        _abs(session.original_image_path), corners, req.paper_size
+        _abs(session.original_image_path), corners, req.paper_size, MAX_UPLOAD_DIM
     )
-
-    # resize the corrected image to save storage; adjust scale_factor so
-    # pixel→mm conversion stays correct after the image shrinks.
-    corrected_bytes = Path(output_path).read_bytes()
-    ext = Path(output_path).suffix
-    corrected_bytes, _, ds_ratio = _ingest_with_limits(corrected_bytes, ext, MAX_UPLOAD_DIM)
-    Path(output_path).write_bytes(corrected_bytes)
-    if ds_ratio < 1.0:
-        scale_factor /= ds_ratio
 
     up = _user_path(user_id)
     orig_path = _abs(session.original_image_path)

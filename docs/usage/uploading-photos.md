@@ -19,7 +19,7 @@ The paper is for scale only. Tools can overflow the paper edges. The full visibl
 
 After you confirm the paper corners, Tracefinity checks the photo and flags problems that reduce trace accuracy:
 
-- **Camera too close** -- estimated from the photo's EXIF data. Close shots exaggerate outlines of thick tools (a 15 mm-thick tool shot from 25 cm traces roughly 6% oversized). Shoot from 60 cm or higher. Skipped when the photo has no EXIF data (e.g. screenshots or edited images).
+- **Camera too close** -- estimated from the photo's EXIF data. Close shots exaggerate outlines of thick tools (a 15 mm-thick tool shot from 25 cm traces roughly 6% oversized). Shoot from 60 cm or higher. Skipped when the photo has no EXIF data (e.g. screenshots), or when its EXIF records a different pixel size than the file has, as after a crop or resize. An editor that rewrites the EXIF size hides the crop, and the estimate then reads too close.
 - **Paper cut off** -- a paper corner sits at or beyond the photo edge.
 - **Extreme perspective** -- a strong camera angle degrades edge accuracy even after correction.
 

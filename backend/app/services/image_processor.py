@@ -6,11 +6,14 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from PIL import Image
 
 from app.constants import PAPER_SIZES, PaperSize
+from app.services.image_ingest import encode_image
 
 logger = logging.getLogger(__name__)
 
+# resolution ceiling for the corrected image; the stored size usually caps it lower
 PX_PER_MM = 10
 # a saliency mask this large is the sheet, not a tool lying on it (#213)
 TOOL_MASK_MAX_FRACTION = 0.4
@@ -124,7 +127,6 @@ class ImageProcessor:
 
     def _get_tool_mask(self, image_path: str) -> np.ndarray:
         """get a rough tool mask via U2-Net Portable for paper detection."""
-        from PIL import Image
         from rembg import remove
 
         img = Image.open(image_path).convert("RGB")
@@ -379,10 +381,12 @@ class ImageProcessor:
         image_path: str,
         corners: list[tuple[float, float]],
         paper_size: PaperSize,
+        max_dim: int,
     ) -> tuple[str, float]:
-        """warp image to top-down view and return output path + scale factor.
-        includes the full visible area beyond the paper so oversized tools
-        are captured. paper is used for scale only."""
+        """warp image to top-down view and return output path + scale factor
+        (mm per px). includes the full visible area beyond the paper so
+        oversized tools are captured. paper is used for scale only. the long
+        edge is capped at max_dim."""
         img = cv2.imread(image_path)
         src = np.array(corners, dtype="float32")
 
@@ -427,20 +431,27 @@ class ImageProcessor:
         # translate so all coords are positive
         tx, ty = -min_x, -min_y
         T = np.array([[1, 0, tx], [0, 1, ty], [0, 0, 1]], dtype="float64")
-        M_full = T @ M
 
-        out_w = int(np.ceil(max_x + tx))
-        out_h = int(np.ceil(max_y + ty))
+        # the visible area grows as the sheet shrinks in the frame; at
+        # PX_PER_MM a distant sheet spans hundreds of megapixels. warp
+        # straight to the stored size, scaling about the pixel edges
+        extent_w, extent_h = max_x + tx, max_y + ty
+        scale = min(1.0, max_dim / max(extent_w, extent_h))
+        offset = (scale - 1) / 2
+        S = np.array([[scale, 0, offset], [0, scale, offset], [0, 0, 1]], dtype="float64")
+        out_w = round(extent_w * scale)
+        out_h = round(extent_h * scale)
 
-        warped = cv2.warpPerspective(img, M_full, (out_w, out_h))
+        warped = cv2.warpPerspective(img, S @ T @ M, (out_w, out_h))
 
         base = Path(image_path)
         output_dir = base.parent.parent / "processed"
         output_path = output_dir / f"{base.stem}_corrected{base.suffix}"
-        cv2.imwrite(str(output_path), warped)
+        corrected = Image.fromarray(cv2.cvtColor(warped, cv2.COLOR_BGR2RGB))
+        encoded, _ = encode_image(corrected, base.suffix.lower())
+        output_path.write_bytes(encoded)
 
-        scale_factor = 1.0 / PX_PER_MM
-        return str(output_path), scale_factor
+        return str(output_path), 1.0 / (PX_PER_MM * scale)
 
     def debug_contour_detection(
         self, image_path: str, output_dir: Path

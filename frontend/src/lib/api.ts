@@ -74,16 +74,28 @@ function redirectToLogin() {
   navigation.toLogin()
 }
 
+// wording for an error body with no detail to show, such as the html page a
+// proxy sends when the backend is down or slow, or an upload is over its limit
+function statusMessage(status: number): string {
+  if (status === 413) return `file too large for the server (HTTP ${status})`
+  if (status === 502 || status === 503) return `server unavailable (HTTP ${status})`
+  if (status === 504) return `server timed out (HTTP ${status})`
+  return `request failed (HTTP ${status})`
+}
+
 async function throwApiError(res: Response): Promise<never> {
   if (res.status === 401) redirectToLogin()
-  const error = await res.json().catch(() => ({ detail: 'request failed' }))
+  const error = await res.json().catch(() => null)
   // detail is a plain string on most endpoints; the auth flow sends
   // { code, message } where the client needs to tell failures apart
   const detail = error?.detail
-  if (detail && typeof detail === 'object') {
-    throw new ApiError(detail.message || 'request failed', res.status, detail.code)
-  }
-  throw new ApiError(detail || 'request failed', res.status)
+  const structured = detail !== null && typeof detail === 'object'
+  const message = structured ? detail.message : detail
+  throw new ApiError(
+    typeof message === 'string' && message ? message : statusMessage(res.status),
+    res.status,
+    structured ? detail.code : undefined,
+  )
 }
 
 async function fetchApi<T>(
