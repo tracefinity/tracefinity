@@ -125,16 +125,16 @@ For NxM bins multiply grid centres by `(ix - (N-1)/2) * 42`.
 ## Bin Auto-Sizing
 
 ```
-inset = max(wall_thickness, 2.6 if stacking_lip else 0)
-grid_units = ceil((tool_dimension + 2*inset + 2*clearance + 0.5) / 42)
+grid_units = ceil((tool_dimension + 2*wall_thickness + 2*clearance + 0.5) / 42)
 ```
 
 Half-grid bins round up to the next 0.5 unit instead. Creation, browser
-auto-size, and adding tools reserve the same wall/lip inset used by pocket
-clipping. With the stacking lip enabled, an 80 mm tool at 0.1 mm clearance
-needs 3 whole units (2.5 with half-grid): a 2-unit bin has only 78.3 mm of
-usable interior and would shorten its cavity. Without the lip and with
-1.6 mm walls, that tool fits in 2 units.
+auto-size, and adding tools reserve the configured wall thickness. A pocket
+extends through any overlapping part of the stacking lip or raised rim,
+while the rounded inner wall limits the cutter and its chamfer. The rest
+of the stacking profile is unchanged. Pocket depth remains measured from
+the wall top. An 80 mm tool at 0.1 mm clearance fits in 2 units with a
+1.6 mm wall, including when the lip is enabled.
 
 Each axis is limited to 25 grid units and the footprint to
 `ceil(grid_x) * ceil(grid_y) <= 100`. The footprint limit bounds geometry
