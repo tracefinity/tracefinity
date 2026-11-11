@@ -25,6 +25,7 @@ import { BinConfigurator } from '@/components/BinConfigurator'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { SectionHeader } from '@/components/SectionHeader'
 import { ToolSummaryButton, ToolSummaryItem } from '@/components/ToolSummaryItem'
+import { ToolTagFilter } from '@/components/ToolTags'
 import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation'
 import { binDefaultsFromConfig, buildBinConfig, getDefaultBinConfig, getDefaultBinDefaults } from '@/lib/binDefaults'
 import { projectScopedHref } from '@/lib/projectNavigation'
@@ -37,7 +38,7 @@ import {
   toolProjectLabel,
   type ProjectToolFilter,
 } from '@/lib/projectSelectors'
-import { AlertTriangle, ArrowLeft, CheckSquare, ChevronDown, ChevronRight, LayoutGrid, Loader2, Package, Plus, Search, Square, Trash2, Unlink } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckSquare, ChevronDown, ChevronRight, LayoutGrid, Loader2, Package, Plus, Square, Trash2, Unlink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/hooks/useTheme'
 
@@ -78,6 +79,8 @@ export default function ProjectPage() {
   const [expandedBinIds, setExpandedBinIds] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [projectSearch, setProjectSearch] = useState('')
+  const [projectTags, setProjectTags] = useState<string[]>([])
+  const [addToolTags, setAddToolTags] = useState<string[]>([])
   const [statusFilter, setStatusFilter] = useState<ProjectToolFilter>('all')
   const [addToolsOpen, setAddToolsOpen] = useState(true)
   const [addBinsOpen, setAddBinsOpen] = useState(false)
@@ -132,6 +135,7 @@ export default function ProjectPage() {
   const {
     projectToolIds,
     projectTools,
+    projectToolTags,
     unplacedToolIds,
     filteredProjectTools,
     projectBins,
@@ -140,12 +144,15 @@ export default function ProjectPage() {
     existingBinOptions,
     actionableVisibleToolIds,
     availableTools,
+    availableToolTags,
   } = useMemo(() => getProjectCollections(project, tools, bins, {
     projectSearch,
     addToolSearch: search,
     statusFilter,
     allowReassignBins,
-  }), [project, tools, bins, projectSearch, search, statusFilter, allowReassignBins])
+    projectTags,
+    addToolTags,
+  }), [project, tools, bins, projectSearch, search, statusFilter, allowReassignBins, projectTags, addToolTags])
   const projectNameById = useMemo(() => projectNameMap(projects), [projects])
 
   function toggleSelected(toolId: string) {
@@ -543,42 +550,20 @@ export default function ProjectPage() {
         </section>
       )}
 
-      <section>
+      <section aria-label="Project tools">
         <SectionHeader
           title="Project tools"
           count={projectTools.length}
+          search={projectSearch}
+          onSearchChange={setProjectSearch}
           collapsed={collapsedSections.projectTools}
           onToggleCollapsed={() => setSectionCollapsed('projectTools', !collapsedSections.projectTools)}
+          beforeSearch={!collapsedSections.projectTools && projectTools.length > 0 && (
+            <span className="whitespace-nowrap text-[11px] text-text-muted">{selectedBinToolIds.size} selected for bin</span>
+          )}
         >
           {!collapsedSections.projectTools && projectTools.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted" />
-                <input
-                  value={projectSearch}
-                  onChange={e => setProjectSearch(e.target.value)}
-                  placeholder="Find in project..."
-                  className="w-36 pl-6 pr-2 py-1 text-[11px] bg-elevated border border-border-subtle rounded-[7px] text-text-primary outline-none focus:border-accent"
-                />
-              </div>
-              {[
-                ['all', `All ${projectTools.length}`],
-                ['unplaced', `Unplaced ${project.unplaced_tool_ids.length}`],
-                ['placed', `Placed ${project.placed_tool_ids.length}`],
-              ].map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setStatusFilter(key as ProjectToolFilter)}
-                  className={`glass-sm rounded-[7px] px-2 py-1 text-[11px] transition-colors cursor-pointer ${
-                    statusFilter === key
-                      ? 'bg-accent-muted text-accent'
-                      : 'text-text-secondary hover:bg-glass-hover'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-              <span className="text-[11px] text-text-muted">{selectedBinToolIds.size} selected for bin</span>
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <button
                 onClick={() => setSelectedBinToolIds(new Set(project.tool_ids))}
                 className="btn-secondary px-2 py-1 text-[11px]"
@@ -602,6 +587,28 @@ export default function ProjectPage() {
             </div>
           )}
         </SectionHeader>
+        {!collapsedSections.projectTools && projectTools.length > 0 && (
+          <div className="mb-3 flex items-center gap-2 flex-wrap">
+            {[
+              ['all', `All ${projectTools.length}`],
+              ['unplaced', `Unplaced ${project.unplaced_tool_ids.length}`],
+              ['placed', `Placed ${project.placed_tool_ids.length}`],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setStatusFilter(key as ProjectToolFilter)}
+                className={`glass-sm rounded-[7px] px-2 py-1 text-[11px] transition-colors cursor-pointer ${
+                  statusFilter === key
+                    ? 'bg-accent-muted text-accent'
+                    : 'text-text-secondary hover:bg-glass-hover'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            <ToolTagFilter tags={projectToolTags} value={projectTags} onChange={setProjectTags} />
+          </div>
+        )}
         {!collapsedSections.projectTools && (
           projectTools.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -675,27 +682,17 @@ export default function ProjectPage() {
         )}
       </section>
 
-      <section>
-        <div className="flex h-[32px] items-center justify-between gap-3 mb-3">
-          <button
-            onClick={() => setAddToolsOpenPersisted(!addToolsOpen)}
-            className="flex items-center gap-1.5 text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px] hover:text-text-secondary transition-colors cursor-pointer"
-          >
-            {addToolsOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            Add tools
-            <span className="tracking-normal normal-case font-normal">({availableTools.length})</span>
-          </button>
+      <section aria-label="Add tools">
+        <SectionHeader
+          title="Add tools"
+          count={availableTools.length}
+          search={search}
+          onSearchChange={setSearch}
+          collapsed={!addToolsOpen}
+          onToggleCollapsed={() => setAddToolsOpenPersisted(!addToolsOpen)}
+        >
           {addToolsOpen && (
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted" />
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Filter tools..."
-                  className="w-40 pl-6 pr-2 py-1 text-[11px] bg-elevated border border-border-subtle rounded-[7px] text-text-primary outline-none focus:border-accent"
-                />
-              </div>
               <button
                 onClick={() => setSelected(new Set(availableTools.map(tool => tool.id)))}
                 disabled={availableTools.length === 0}
@@ -720,9 +717,12 @@ export default function ProjectPage() {
               </button>
             </div>
           )}
-        </div>
+        </SectionHeader>
         {addToolsOpen && (
           <>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <ToolTagFilter tags={availableToolTags} value={addToolTags} onChange={setAddToolTags} />
+            </div>
             {availableTools.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {availableTools.map(tool => {

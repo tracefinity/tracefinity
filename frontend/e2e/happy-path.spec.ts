@@ -133,6 +133,29 @@ test.describe.serial('happy path', () => {
     await expect(page.getByText(/\d+ vertices/)).toBeVisible()
   })
 
+  test('tag edits persist and filter the library', async () => {
+    await page.getByLabel('Tags', { exact: true }).fill('E2E hex keys')
+    await page.getByRole('button', { name: 'Add tag', exact: true }).click()
+    await page.getByRole('link', { name: 'Tools', exact: true }).click()
+    await expect.poll(async () => (await (await page.request.get(`/api/tools/${toolId}`)).json()).tags)
+      .toEqual(['E2E hex keys'])
+    await page.goto(`/tools/${toolId}`)
+    await expect(page.getByRole('button', { name: 'Remove tag E2E hex keys' })).toBeVisible()
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Tags', exact: true }).click()
+    await page.getByRole('searchbox', { name: 'Search tags' }).fill('hex')
+    await page.getByRole('checkbox', { name: 'E2E hex keys', exact: true }).check()
+    await page.getByRole('button', { name: 'Close tag filter' }).click()
+    await expect(page.getByText('hacksaw', { exact: true }).first()).toBeVisible()
+    await page.getByRole('button', { name: 'Tags (1 selected)', exact: true }).click()
+    await page.getByRole('button', { name: 'Clear tags' }).click()
+    await page.getByRole('button', { name: 'Close tag filter' }).click()
+    await page.goto(`/tools/${toolId}`)
+    await page.getByRole('button', { name: 'Remove tag E2E hex keys' }).click()
+    await expect.poll(async () => (await (await page.request.get(`/api/tools/${toolId}`)).json()).tags)
+      .toEqual([])
+  })
+
   test('toggle smooth', async () => {
     // the editor always opens in the accurate view, independently of the
     // tool's saved output preference

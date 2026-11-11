@@ -21,7 +21,7 @@ Change the status from the dropdown in the project header.
 
 ## Adding tools
 
-The **Add tools** section shows all tools not yet assigned to the project. Select tools using checkboxes and click **Add**. Use the search field to filter by name. Select all / select none buttons are available.
+The **Add tools** section shows all tools not yet assigned to the project. Select tools using checkboxes and click **Add**. Use the search field to filter by name and **Tags** to search and select tags. Tools matching any selected tag are shown. Select all / select none buttons are available; select all selects the currently filtered list.
 
 Tools can belong to multiple projects.
 
@@ -37,7 +37,7 @@ The project tools list has filter buttons:
 - **Unplaced** shows tools not yet placed in any bin.
 - **Placed** shows tools already assigned to a bin.
 
-A search field filters by name within the current filter.
+A search field filters by name within the current filter. **Tags** searches and selects tags alongside these controls. Tools must match the name and placement filter plus any selected tag. **Clear tags** preserves the other filters. The Project tools and Add tools tag selections are independent; their choices come from their respective tool lists.
 
 ## Creating a bin from a project
 

@@ -2,6 +2,14 @@
 
 Open the editor by clicking a tool in your library. The toolbar controls what happens when you click or drag on the canvas.
 
+## Tags
+
+Enter a free-form tag in the side panel and press Enter or **Add tag**. Spaces
+inside a tag are allowed. Surrounding spaces and duplicate tags (ignoring case)
+are removed when adding. Use the remove button beside a tag to delete it.
+Changes save automatically; a failed save stays visible with **Retry save**.
+Tags organise tools across projects and can be filtered in the library.
+
 ## Editing modes
 
 **Select** -- drag vertices and cutouts to reposition them.

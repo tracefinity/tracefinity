@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, Check, Download, Folder } from 'lucide-react'
@@ -9,13 +9,31 @@ import { useDebouncedSave } from '@/hooks/useDebouncedSave'
 import { useProjectSource } from '@/hooks/useProjectSource'
 import { projectNameMap } from '@/lib/projectSelectors'
 import { ToolEditor } from '@/components/ToolEditor'
+import { ToolTagsEditor } from '@/components/ToolTags'
 import { Alert } from '@/components/Alert'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import type { Tool, Point, FingerHole, AffineMatrix, BinProjectSummary } from '@/types'
 
+function editPayload(tool: Tool, name: string) {
+  return {
+    name,
+    tags: tool.tags,
+    points: tool.points,
+    finger_holes: tool.finger_holes,
+    interior_rings: tool.interior_rings,
+    smoothed: tool.smoothed,
+    smooth_level: tool.smooth_level,
+    ...(tool.image_context ? { source_image_transform: tool.image_context.transform } : {}),
+  }
+}
+
 export default function ToolPage() {
   const params = useParams()
   const toolId = params.id as string
+  return <ToolDetail key={toolId} toolId={toolId} />
+}
+
+function ToolDetail({ toolId }: { toolId: string }) {
   const projectSource = useProjectSource('Tools')
 
   const [tool, setTool] = useState<Tool | null>(null)
@@ -26,6 +44,7 @@ export default function ToolPage() {
   const [autoRotating, setAutoRotating] = useState(false)
   const [showSourceImage, setShowSourceImage] = useState(false)
   const [sourceImageOpacity, setSourceImageOpacity] = useState(0.45)
+  const lastSavedRef = useRef('')
 
   const sourceImageContext = useMemo(
     () => tool?.image_context
@@ -49,6 +68,7 @@ export default function ToolPage() {
     async function load() {
       try {
         const [t, p] = await Promise.all([getTool(toolId), listProjects().catch(() => [])])
+        lastSavedRef.current = JSON.stringify(editPayload(t, t.name))
         setTool(t)
         setProjects(p)
         setName(t.name)
@@ -61,23 +81,22 @@ export default function ToolPage() {
     load()
   }, [toolId])
 
-  const { saving, saved, saveCount } = useDebouncedSave(
+  const { saving, saved, saveCount, error: saveError, flush } = useDebouncedSave(
     async () => {
       if (!tool) return
-      await updateTool(toolId, {
-        name,
-        points: tool.points,
-        finger_holes: tool.finger_holes,
-        interior_rings: tool.interior_rings,
-        smoothed: tool.smoothed,
-        smooth_level: tool.smooth_level,
-        ...(tool.image_context ? { source_image_transform: tool.image_context.transform } : {}),
-      })
+      const payload = editPayload(tool, name)
+      const serialized = JSON.stringify(payload)
+      if (serialized === lastSavedRef.current) return
+      await updateTool(toolId, payload)
+      lastSavedRef.current = serialized
     },
     [tool, name, toolId],
-    150,
-    { skipInitial: true }
+    150
   )
+
+  useEffect(() => () => {
+    void flush().catch(failure => console.warn('Could not save tool changes when leaving the editor.', failure))
+  }, [flush])
 
   const handlePointsChange = useCallback((points: Point[]) => {
     setTool(prev => prev ? { ...prev, points } : null)
@@ -171,7 +190,15 @@ export default function ToolPage() {
         </a>
       </div>
 
-      <div className="absolute top-14 left-3.5 z-20 glass-toolbar px-3 py-2 min-w-[220px] max-w-[280px]">
+      <div className="absolute top-14 left-3.5 z-20 glass-toolbar px-3 py-2 min-w-[220px] max-w-[280px] max-h-[calc(100%_-_72px)] overflow-y-auto">
+        <ToolTagsEditor tags={tool.tags} onChange={tags => setTool(prev => prev ? { ...prev, tags } : prev)} />
+        {saveError && (
+          <div role="alert" className="my-2 text-xs text-text-primary">
+            Changes could not be saved.
+            <button type="button" onClick={() => { void flush().catch(() => {}) }} className="ml-2 text-accent underline">Retry save</button>
+          </div>
+        )}
+        <div className="my-2 border-t border-border-subtle" />
         <div className="flex items-center gap-1.5 text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px]">
           <Folder className="w-3 h-3" />
           Projects

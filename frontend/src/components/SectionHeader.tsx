@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ArrowUpDown, ChevronDown, ChevronRight, Search } from 'lucide-react'
 
-export function SectionHeader({ title, count, search, onSearchChange, sortKey, onSortChange, collapsed, onToggleCollapsed, children }: {
+export function SectionHeader({ title, count, search, onSearchChange, sortKey, onSortChange, collapsed, onToggleCollapsed, beforeSearch, children }: {
   title: string
   count?: number
   search?: string
@@ -13,6 +13,7 @@ export function SectionHeader({ title, count, search, onSearchChange, sortKey, o
   onSortChange?: (v: string) => void
   collapsed?: boolean
   onToggleCollapsed?: () => void
+  beforeSearch?: ReactNode
   children?: ReactNode
 }) {
   const [searchOpen, setSearchOpen] = useState(false)
@@ -23,7 +24,7 @@ export function SectionHeader({ title, count, search, onSearchChange, sortKey, o
   }, [searchOpen])
 
   return (
-    <div className="flex h-[32px] items-center justify-between mb-3 gap-2">
+    <div className="flex min-h-[32px] flex-wrap items-center justify-between mb-3 gap-2">
       {onToggleCollapsed ? (
         <button
           onClick={onToggleCollapsed}
@@ -44,7 +45,8 @@ export function SectionHeader({ title, count, search, onSearchChange, sortKey, o
           )}
         </div>
       )}
-      <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+        {beforeSearch}
         {onSearchChange && (
           searchOpen ? (
             <div className="relative">

@@ -114,6 +114,7 @@ Reference for AI agents. Check here before suggesting new features or claiming s
 ## Tool Library
 
 - Search by name
+- Edit free-form tool tags and filter library/project tool lists by searchable tags alongside name/status
 - Sort by date or alphabetical
 - Inline rename
 - Delete tools
