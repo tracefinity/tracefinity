@@ -17,8 +17,9 @@ Smoothing/simplification runs BEFORE clearance (`prepare_for_generation`), never
 
 ## Auto-size and the stacking lip
 
-Tool pockets clip to the rounded inner wall and extend through overlapping
-parts of the raised rim and lip. Pocket depth still starts at the wall top.
+Tool pockets and finger cutouts extend through overlapping parts of the
+raised rim and lip. Both clip to the rounded inner wall unless
+`allow_wall_cutouts` is enabled. Pocket depth still starts at the wall top.
 Bin creation, browser auto-size, and adding tools reserve the configured
 wall thickness, clearance and 0.5 mm total shell tolerance. Manually selected
 undersized grids can still clip pockets at the wall.

@@ -1,5 +1,4 @@
-"""test that tool polygons extending beyond the bin wall are clipped
-at the interior boundary, not punched through the wall."""
+"""Measure how cutouts meet the side wall, rim and stacking lip."""
 
 from pathlib import Path
 
@@ -8,7 +7,7 @@ import trimesh
 from shapely.geometry import Point, Polygon
 
 from app.models.schemas import GenerateRequest
-from app.services.polygon_scaler import ScaledPolygon
+from app.services.polygon_scaler import ScaledFingerHole, ScaledPolygon
 from app.services.stl_generator_manifold import (
     GF_GRID,
     ManifoldSTLGenerator,
@@ -145,3 +144,44 @@ def test_overflow_at_rounded_corners_preserves_wall(tmp_path):
         )
         assert outer.covers(opening)
         assert outer.boundary.distance(opening.boundary) == pytest.approx(0.8, abs=0.01)
+
+
+@pytest.mark.parametrize("cutout", ["outline", "circle", "cylinder", "square", "rectangle", "filleted_rectangle"])
+@pytest.mark.parametrize(("stacking_lip", "rim_units"), [(False, 0), (True, 0), (True, 1)])
+def test_side_openings_require_opt_in(tmp_path, cutout, stacking_lip, rim_units):
+    config = GenerateRequest(
+        grid_x=1, grid_y=2, height_units=2, magnets=False, stacking_lip=stacking_lip,
+        rim_units=rim_units, cutout_depth=7, cutout_chamfer=2,
+    )
+    points = [(16, 36), (29, 36), (29, 48), (16, 48)]
+    holes = []
+    if cutout == "outline":
+        points = [(16, 36), (48, 36), (48, 48), (16, 48)]
+    elif cutout == "circle":
+        holes = [ScaledFingerHole("side-access", 35, 42, 7.4, cutout)]
+    else:
+        holes = [ScaledFingerHole("side-access", 21, 42, 23, cutout, width_mm=50, height_mm=20)]
+    tool = ScaledPolygon(id="tool", label="Tool", points_mm=points, finger_holes=holes)
+    levels = [13.9]
+    if stacking_lip:
+        levels.extend((14.3, 14 + 7 * rim_units + 4.2))
+
+    for allow in (False, True):
+        path = tmp_path / f"side-cutout-{allow}.stl"
+        request = config.model_copy(update={"allow_wall_cutouts": allow}) if allow else config
+        ManifoldSTLGenerator().generate_bin([tool], request, str(path))
+        mesh = trimesh.load(path, force="mesh")
+        assert mesh.is_watertight
+        assert len(mesh.split()) == 1
+
+        for z in (6.95, *levels):
+            section = mesh.section(plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
+            assert section is not None
+            loops = [Polygon(loop[:, :2]) for loop in section.discrete]
+
+            def has_material(y):
+                point = Point(20.7, y)
+                return sum(loop.covers(point) for loop in loops) % 2 == 1
+
+            assert has_material(0) == (z < 7 or not allow)
+            assert has_material(30)

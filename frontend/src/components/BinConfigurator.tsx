@@ -44,6 +44,8 @@ function Toggle({ checked, onChange, label, help, disabled }: { checked: boolean
       </span>
       <button
         type="button"
+        aria-label={label}
+        aria-pressed={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={`relative inline-flex h-5 w-9 items-center rounded transition-colors ${
@@ -368,6 +370,12 @@ export function BinConfigurator({ config, onChange, autoSize, onAutoSizeChange }
             />
           </>
         )}
+        <Toggle
+          checked={config.allow_wall_cutouts}
+          onChange={(v) => update({ allow_wall_cutouts: v })}
+          label="Allow wall cutouts"
+          help="Lets tool outlines and finger cutouts that extend past the bin edge open the side wall, raised rim and stacking lip."
+        />
       </div>
 
       <div className="border-t border-border mt-2 pt-1">

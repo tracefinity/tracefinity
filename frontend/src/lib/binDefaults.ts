@@ -20,6 +20,7 @@ export const FACTORY_BIN_CONFIG: BinConfig = {
   cutout_clearance: 1.0,
   cutout_chamfer: 0,
   insert_enabled: false,
+  allow_wall_cutouts: false,
   insert_height: 1.0,
   insert_clearance: 0.2,
   half_grid_base: false,

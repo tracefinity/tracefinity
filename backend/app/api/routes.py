@@ -2245,6 +2245,7 @@ def _generate_bin_stl(bin_id: str, user_id: str, user_tools: ToolStore, user_bin
         wall_thickness=bc.wall_thickness,
         cutout_depth=bc.cutout_depth,
         cutout_clearance=bc.cutout_clearance,
+        allow_wall_cutouts=bc.allow_wall_cutouts,
         insert_enabled=bc.insert_enabled,
         insert_height=bc.insert_height,
         insert_clearance=bc.insert_clearance,
