@@ -1,7 +1,7 @@
 # Default values for tracefinity.
 # This YAML file declares values passed into the chart templates.
 
-# This application is currently designed to run with a single replica, as it uses local storage for data persistence. 
+# One writer per storage volume; values above 1 are rejected (issue #155).
 replicaCount: 1
 
 image:

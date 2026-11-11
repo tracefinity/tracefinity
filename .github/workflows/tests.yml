@@ -29,6 +29,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - run: cd backend && pip install -r requirements.txt pytest
+      - uses: azure/setup-helm@v4
       - run: cd backend && python -m pytest
 
   frontend-tests:

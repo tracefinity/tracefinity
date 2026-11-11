@@ -44,6 +44,21 @@ A volume with 1GB free is plenty for a personal tool library of a few hundred to
 
 ## Docker Resource Limits
 
+### One process per storage volume
+
+Run one backend process and one application instance per storage volume.
+Stores cache their JSON in memory and rewrite the whole file on save; separate
+processes have separate locks and can overwrite each other's acknowledged
+writes. Generation locks are also process-local. Shared or networked storage
+does not make multiple writers safe. See [#155](https://github.com/tracefinity/tracefinity/issues/155).
+
+The container pins `--workers 1`, so a platform-provided `WEB_CONCURRENCY` does
+not start additional workers. From-source launches must also use one worker.
+Do not run another container or source process against the same storage.
+
+The model RAM figures above are per process. Additional workers would load
+their own model copies; they do not share the documented memory allowance.
+
 Sensible `--memory` defaults based on tracer choice:
 
 ```bash
@@ -76,6 +91,12 @@ full manifold is generated before bed-size splitting, so printer bed size does
 not reduce peak generation memory.
 
 ### Kubernetes / Helm
+
+The chart rejects `replicaCount > 1` and uses `strategy: Recreate` so the old
+pod stops before its replacement starts. Keep that strategy in hand-written
+manifests too: RollingUpdate can briefly run two pods with `replicas: 1`, and
+ReadWriteOnce permits both pods to mount a volume on the same node. Neither
+ReadWriteMany nor a load balancer fixes the JSON stores' single-writer limit.
 
 Set `resources.requests.memory` to match the tracer. Example for IS-Net:
 
