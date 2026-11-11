@@ -17,13 +17,12 @@ Smoothing/simplification runs BEFORE clearance (`prepare_for_generation`), never
 
 ## Auto-size and the stacking lip
 
-Pocket clipping reserves the larger of the configured wall and the stacking
-lip's 2.6 mm inset. Bin creation, browser auto-size, and adding tools must use
-that same inset plus clearance and the outer shell's 0.5 mm total tolerance.
-Using wall thickness alone can select a grid that cuts off the tool ends.
-`test_bin_autosize_accuracy.py` measures actual exported cavities at this
-boundary, and the browser accuracy suite covers reducing clearance with
-auto-size enabled. Manually selected undersized grids can still clip pockets.
+Tool pockets and finger cutouts extend through overlapping parts of the
+raised rim and lip. Both clip to the rounded inner wall unless
+`allow_wall_cutouts` is enabled. Pocket depth still starts at the wall top.
+Bin creation, browser auto-size, and adding tools reserve the configured
+wall thickness, clearance and 0.5 mm total shell tolerance. Manually selected
+undersized grids can still clip pockets at the wall.
 
 ## EXIF orientation
 

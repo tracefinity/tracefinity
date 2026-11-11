@@ -443,7 +443,7 @@ export default function BinPage() {
   return (
     <div className="h-[calc(100vh-44px)] flex">
       {/* config sidebar - always open */}
-      <div className="w-[200px] flex-shrink-0 bg-surface border-r border-border flex flex-col">
+      <div className="w-56 flex-shrink-0 bg-surface border-r border-border flex flex-col">
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 space-y-3">
           <div className="glass rounded-[10px] px-3 py-3">
             <div className="flex items-center gap-2 mb-3">

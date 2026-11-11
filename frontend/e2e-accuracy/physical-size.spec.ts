@@ -80,7 +80,7 @@ test('default Smooth output fits the known physical tool without excessive enlar
   expect(measurement.minimum_clearance_mm).toBeGreaterThan(0)
 })
 
-test('auto-size preserves the cavity inside the stacking lip after reducing clearance', async ({ page }, testInfo) => {
+test('auto-size preserves the cavity through the stacking lip after reducing clearance', async ({ page }, testInfo) => {
   await createScannedBin(page)
   const binId = page.url().split('/bins/')[1]
   const clearance = clearanceInput(page)
@@ -94,7 +94,7 @@ test('auto-size preserves the cavity inside the stacking lip after reducing clea
   expect(Math.abs(measurement.dimensions_mm[1] - 80.2)).toBeLessThan(1)
   expect(measurement.boundary_error_mm).toBeLessThan(1)
   const bin = await (await page.request.get(`/api/bins/${binId}`)).json()
-  expect(bin.bin_config.grid_x).toBe(3)
+  expect(bin.bin_config.grid_x).toBe(2)
 })
 
 test('export uses current clearance after a slow settings save', async ({ page }, testInfo) => {

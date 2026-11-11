@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 from app.constants import GF_GRID
 
 # Bump when geometry changes so saved previews and exports regenerate.
-STL_GEOMETRY_VERSION = 2
+STL_GEOMETRY_VERSION = 4
 
 GF_HALF_GRID = GF_GRID / 2  # 21mm
 GF_HEIGHT_UNIT = 7.0
@@ -605,6 +605,7 @@ def _make_filleted_rectangle_cutter(
     rotation: float,
     x: float,
     y: float,
+    above_wall: float,
 ):
     """Full-depth rectangle cutter with large bottom fillets along its length."""
     import manifold3d as mf
@@ -612,7 +613,7 @@ def _make_filleted_rectangle_cutter(
     w = max(width, 0.01)
     h = max(height, 0.01)
     z_margin = 0.005
-    profile_depth = pocket_depth + z_margin * 2.0
+    profile_depth = pocket_depth + above_wall + z_margin * 2.0
     length = h
     r = _filleted_rect_radius(w, pocket_depth)
     profile = _rounded_bottom_rect_profile_pts(w, profile_depth, r)
@@ -750,60 +751,21 @@ def _shapely_to_cross_sections(shifted_pts: list[tuple], interior_rings: list[li
     return rings
 
 
-def _clip_to_interior(
-    shifted: list[tuple],
-    shifted_holes: list[list[tuple]],
-    interior_rect,
-) -> tuple[list[tuple], list[list[tuple]]]:
-    """clip a shifted polygon (+ holes) to the bin interior boundary.
-
-    returns (clipped_exterior, clipped_holes). if the polygon is entirely
-    outside the interior, returns empty lists.
-    """
-    from shapely.geometry import MultiPolygon as _SMPoly
-    from shapely.geometry import Polygon as _SPoly
-
-    poly = _SPoly(shifted, holes=shifted_holes if shifted_holes else [])
-    if not poly.is_valid:
-        poly = poly.buffer(0)
-    clipped = poly.intersection(interior_rect)
-    if clipped.is_empty:
-        return [], []
-
-    # intersection can return LineString/Point/GeometryCollection when
-    # a polygon only touches the clip rect at an edge or corner
-    if not isinstance(clipped, (_SPoly, _SMPoly)):
-        return [], []
-
-    # intersection can produce MultiPolygon; take the largest piece
-    if isinstance(clipped, _SMPoly):
-        clipped = max(clipped.geoms, key=lambda g: g.area)
-
-    ext = list(clipped.exterior.coords[:-1])
-    holes = [list(ring.coords[:-1]) for ring in clipped.interiors if len(ring.coords) >= 4]
-    return ext, holes
-
-
-def bin_interior_inset(wall_thickness: float, stacking_lip: bool) -> float:
-    """Wall/lip space reserved by both auto-sizing and pocket clipping."""
-    return max(wall_thickness, LIP_D0 + LIP_D2 if stacking_lip else 0.0)
-
-
-def _interior_clip_rect(config):
-    """clip boundary for the bin interior in manifold coordinates (centred at origin).
-
-    when the stacking lip is enabled its inner profile protrudes inward by
-    LIP_D0+LIP_D2 (2.6mm) from the outer wall -- wider than typical wall_thickness.
-    use the larger of the two so cutouts never breach the lip zone.
-    """
-    from shapely.geometry import Polygon as _SPoly
+def _clip_cutouts_to_inner_wall(cutters: list, config: GenerateRequest, wall_top_z: float):
+    """Trim the joined pockets and chamfers to the rounded inner wall."""
+    import manifold3d as mf
 
     outer_w = config.grid_x * GF_GRID - 0.5
     outer_h = config.grid_y * GF_GRID - 0.5
-    inset = bin_interior_inset(config.wall_thickness, getattr(config, "stacking_lip", False))
-    hw = outer_w / 2 - inset
-    hh = outer_h / 2 - inset
-    return _SPoly([(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)])
+    outer = _cs(_rounded_rect_pts(outer_w, outer_h, GF_CORNER_R))
+    interior = outer.offset(-config.wall_thickness)
+    if interior.is_empty():
+        return None
+    # Intersect once so the pocket and chamfer share the same wall boundary.
+    guard = mf.Manifold.extrude(interior, _bin_top_z(config, wall_top_z) + 0.02).translate(
+        (0.0, 0.0, -0.01)
+    )
+    return mf.Manifold.batch_boolean(cutters, mf.OpType.Add) ^ guard
 
 
 def _make_polygon_cutouts(
@@ -817,7 +779,7 @@ def _make_polygon_cutouts(
     """Batch union of all polygon cutout extrusions."""
     import manifold3d as mf
 
-    interior_rect = _interior_clip_rect(config)
+    above_wall = _bin_top_z(config, wall_top_z) - wall_top_z
 
     cutters = []
     for poly in polygons:
@@ -837,11 +799,6 @@ def _make_polygon_cutouts(
             if len(shifted_hole) >= 3:
                 shifted_holes.append(shifted_hole)
 
-        # clip to bin interior so oversized tools don't breach walls
-        shifted, shifted_holes = _clip_to_interior(shifted, shifted_holes, interior_rect)
-        if len(shifted) < 3:
-            continue
-
         try:
             rings = _shapely_to_cross_sections(shifted, shifted_holes)
             if not rings:
@@ -856,7 +813,7 @@ def _make_polygon_cutouts(
                 cs = mf.CrossSection([r[::-1] for r in rings], mf.FillRule.EvenOdd if has_holes else mf.FillRule.Positive)
             if cs.area() > 0:
                 pocket_depth = _resolve_pocket_depth(poly.depth_override, config, max_depth)
-                cutter = mf.Manifold.extrude(cs, pocket_depth + 0.01).translate(
+                cutter = mf.Manifold.extrude(cs, pocket_depth + above_wall + 0.01).translate(
                     (0.0, 0.0, wall_top_z - pocket_depth)
                 )
                 cutters.append(cutter)
@@ -888,8 +845,6 @@ def _make_chamfer_cutouts(
     """
     import manifold3d as mf
 
-    interior_rect = _interior_clip_rect(config)
-
     cutters = []
     for poly in polygons:
         shifted = [
@@ -903,11 +858,6 @@ def _make_chamfer_cutouts(
             sh = [(p[0] + offset_x, -(p[1] + offset_y)) for p in hole]
             if len(sh) >= 3:
                 shifted_holes.append(sh)
-
-        # clip to bin interior so oversized tools don't breach walls
-        shifted, shifted_holes = _clip_to_interior(shifted, shifted_holes, interior_rect)
-        if len(shifted) < 3:
-            continue
 
         pocket_depth = _resolve_pocket_depth(poly.depth_override, config, max_depth)
         eff_chamfer = min(chamfer_size, max(0.0, pocket_depth - 1))
@@ -977,9 +927,11 @@ def _make_finger_holes(
     """Batch union of all finger hole cutters.
 
     Per-feature depth: each hole resolves to its own depth_override, falling
-    back to the parent polygon's override, then the global cutout_depth."""
+    back to the parent polygon's override, then the global cutout_depth.
+    Continue each opening through the rim and lip above the wall top."""
     import manifold3d as mf
 
+    above_wall = _bin_top_z(config, wall_top_z) - wall_top_z
     cutters = []
     for poly in polygons:
         for fh in poly.finger_holes:
@@ -989,44 +941,48 @@ def _make_finger_holes(
             rotation = getattr(fh, 'rotation', 0.0)
             override = fh.depth_override if fh.depth_override is not None else poly.depth_override
             pocket_depth = _resolve_pocket_depth(override, config, max_depth)
+            flat_height = pocket_depth + above_wall + 0.01
+            flat_center_z = wall_top_z + (above_wall - pocket_depth) / 2
             try:
                 if shape == 'circle':
                     r = fh.radius_mm
                     pocket_floor_z = wall_top_z - pocket_depth
                     sphere_z = max(wall_top_z, pocket_floor_z + r)
-                    # approximate sphere as a cylinder with hemispheric top
-                    # using a simple cylinder for speed; close enough for slicer
                     cutter = mf.Manifold.sphere(r, circular_segments=ROUND_SEGS).translate(
                         (fh_x, fh_y, sphere_z)
                     )
+                    if above_wall > 0:
+                        # Carry the mouth of the relief upward while keeping its rounded floor.
+                        mouth = cutter.slice(wall_top_z)
+                        cutters.append(mf.Manifold.extrude(mouth, above_wall + 0.01).translate(
+                            (0.0, 0.0, wall_top_z)
+                        ))
                 elif shape == 'cylinder':
                     r = fh.radius_mm
                     cutter = (
-                        mf.Manifold.cylinder(pocket_depth + 0.01, r, circular_segments=ROUND_SEGS)
+                        mf.Manifold.cylinder(flat_height, r, circular_segments=ROUND_SEGS)
                         .translate((fh_x, fh_y, wall_top_z - pocket_depth))
                     )
                 elif shape == 'square':
                     size = fh.radius_mm * 2
-                    cut_z = wall_top_z - pocket_depth / 2
                     cutter = (
-                        mf.Manifold.cube((size, size, pocket_depth + 0.01), center=True)
+                        mf.Manifold.cube((size, size, flat_height), center=True)
                         .rotate((0.0, 0.0, rotation))
-                        .translate((fh_x, fh_y, cut_z))
+                        .translate((fh_x, fh_y, flat_center_z))
                     )
                 elif shape == 'rectangle':
                     w = fh.width_mm if fh.width_mm else fh.radius_mm * 2
                     h = fh.height_mm if fh.height_mm else fh.radius_mm * 2
-                    cut_z = wall_top_z - pocket_depth / 2
                     cutter = (
-                        mf.Manifold.cube((w, h, pocket_depth + 0.01), center=True)
+                        mf.Manifold.cube((w, h, flat_height), center=True)
                         .rotate((0.0, 0.0, rotation))
-                        .translate((fh_x, fh_y, cut_z))
+                        .translate((fh_x, fh_y, flat_center_z))
                     )
                 elif shape == 'filleted_rectangle':
                     w = fh.width_mm if fh.width_mm else fh.radius_mm * 2
                     h = fh.height_mm if fh.height_mm else fh.radius_mm * 2
                     cutter = _make_filleted_rectangle_cutter(
-                        w, h, pocket_depth, wall_top_z, rotation, fh_x, fh_y
+                        w, h, pocket_depth, wall_top_z, rotation, fh_x, fh_y, above_wall
                     )
                 else:
                     continue
@@ -1391,7 +1347,7 @@ class ManifoldSTLGenerator:
         pocket_depth = 5
         if polygons:
             floor_z = GF_BASE_HEIGHT
-            # Pockets start at the wall top; the lip and raised rim sit above it.
+            # Measure depth from the wall top even when cutters extend through the lip.
             # Retain the base and 2mm of material beneath every pocket.
             max_depth = wall_top_z - floor_z - 2
             # Default pocket_depth still tracks the global cutout_depth; per-cutout
@@ -1400,14 +1356,13 @@ class ManifoldSTLGenerator:
 
             t1 = time.monotonic()
             cutouts = _make_polygon_cutouts(polygons, config, wall_top_z, max_depth, offset_x, offset_y)
-            if cutouts:
-                cutters.append(cutouts)
+            pocket_cutters = [cutouts] if cutouts else []
             logger.info("polygon cutouts (%d): %.2fs", len(polygons), time.monotonic() - t1)
 
             t1 = time.monotonic()
             fholes = _make_finger_holes(polygons, config, wall_top_z, max_depth, offset_x, offset_y)
             if fholes:
-                cutters.append(fholes)
+                pocket_cutters.append(fholes)
             logger.info("finger holes: %.2fs", time.monotonic() - t1)
 
             chamfer_size = getattr(config, 'cutout_chamfer', 0.0)
@@ -1415,11 +1370,17 @@ class ManifoldSTLGenerator:
                 t1 = time.monotonic()
                 chamfers = _make_chamfer_cutouts(polygons, config, wall_top_z, chamfer_size, max_depth, offset_x, offset_y)
                 if chamfers:
-                    cutters.append(chamfers)
+                    pocket_cutters.append(chamfers)
                 fh_chamfers = _make_finger_hole_chamfers(polygons, config, wall_top_z, chamfer_size, max_depth, offset_x, offset_y)
                 if fh_chamfers:
-                    cutters.append(fh_chamfers)
+                    pocket_cutters.append(fh_chamfers)
                 logger.info("chamfer cutouts: %.2fs", time.monotonic() - t1)
+            if config.allow_wall_cutouts:
+                cutters.extend(pocket_cutters)
+            elif pocket_cutters:
+                clipped = _clip_cutouts_to_inner_wall(pocket_cutters, config, wall_top_z)
+                if clipped:
+                    cutters.append(clipped)
 
         # text labels (recessed cutters + embossed body additions).
         text_body = None

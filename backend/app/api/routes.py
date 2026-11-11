@@ -108,7 +108,7 @@ from app.services.project_service import (
 )
 from app.services.project_store import ProjectStore
 from app.services.session_store import SessionStore
-from app.services.stl_generator_manifold import STL_GEOMETRY_VERSION, ManifoldSTLGenerator, bin_interior_inset
+from app.services.stl_generator_manifold import STL_GEOMETRY_VERSION, ManifoldSTLGenerator
 from app.services.store_errors import StoreClosedError
 from app.services.tool_namer import name_polygons
 from app.services.tool_store import ToolStore
@@ -574,7 +574,7 @@ def _build_bin_from_tools(
         tool_height = max(all_ys) - min(all_ys)
 
         clearance = bc.cutout_clearance
-        inset = bin_interior_inset(bc.wall_thickness, bc.stacking_lip)
+        inset = bc.wall_thickness
         needed_w = tool_width + 2 * clearance + 2 * inset + 0.5
         needed_h = tool_height + 2 * clearance + 2 * inset + 0.5
 
@@ -2245,6 +2245,7 @@ def _generate_bin_stl(bin_id: str, user_id: str, user_tools: ToolStore, user_bin
         wall_thickness=bc.wall_thickness,
         cutout_depth=bc.cutout_depth,
         cutout_clearance=bc.cutout_clearance,
+        allow_wall_cutouts=bc.allow_wall_cutouts,
         insert_enabled=bc.insert_enabled,
         insert_height=bc.insert_height,
         insert_clearance=bc.insert_clearance,

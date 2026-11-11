@@ -36,6 +36,8 @@ same physical maximum.
 
 **Contrast insert** -- generates a separate STL to print in a different colour. The pocket is deepened automatically to accommodate the insert thickness.
 
+**Allow wall cutouts** -- lets tool outlines and finger cutouts that cross a bin edge open the side wall, raised rim and stacking lip. It is off by default, so the side walls stay intact. The setting is saved with the bin and can be saved in global or project defaults. Turn off **Auto-size grid** if you want to hold the bin at a specific size while arranging side openings.
+
 **Partial Bins** -- disables individual grid cells, removing them from the shell.
 
 **Connect Base** -- disabled cells keep the base plate connected instead of being fully removed.

@@ -146,6 +146,7 @@ class BinParams(BaseModel):
     wall_thickness: float = 1.6
     cutout_depth: float = 20.0
     cutout_clearance: float = 1.0
+    allow_wall_cutouts: bool = False
     insert_enabled: bool = False
     insert_height: float = 1.0
     insert_clearance: float = 0.2  # mm shaved off the insert so it fits the pocket
