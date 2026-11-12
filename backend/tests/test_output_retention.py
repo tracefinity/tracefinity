@@ -23,10 +23,12 @@ HOUR = 3600.0
 
 FAMILY = [
     "e1.stl",
+    "e1.step",
     "e1.hash",
     "e1.3mf",
     "e1_parts.zip",
     "e1_insert.stl",
+    "e1_insert.step",
     "e1_part1.stl",
     "e1_part2.stl",
 ]

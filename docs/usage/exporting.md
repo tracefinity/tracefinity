@@ -14,11 +14,19 @@ If the bin is too large for the configured bed size or the bin is separated by t
 
 Compressed format with multi-body support. Only generated when the bin has text labels, because the label geometry is stored as a separate body for multi-colour printing. The bin body and text body are exported as distinct objects in the 3MF file.
 
-Internally uses trimesh for the 3MF scene assembly. The bin and text manifolds are converted to trimesh meshes and exported as named geometries.
+Internally uses trimesh for the 3MF scene assembly. The bin and text meshes are exported as named geometries.
+
+### STEP
+
+Choose **STEP** to open the full bin as editable solids in a CAD app. The
+file uses the same geometry as the generated preview and STL, including
+tool pockets, walls, stacking lip, base, and labels.
 
 ### Insert STL
 
 Available when **Contrast Insert** is enabled in the bin configuration. This is a separate STL of just the insert piece, intended for printing in a contrasting colour. Download it from the export menu alongside the main bin STL.
+
+Choose **Insert STEP** for an editable CAD version of that separate piece.
 
 ## Tool export
 

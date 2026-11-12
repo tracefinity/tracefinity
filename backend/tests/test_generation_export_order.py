@@ -43,7 +43,7 @@ def test_late_generation_cannot_replace_newer_geometry(tmp_path, monkeypatch, ki
 
     def observed_lock(user_path, entity_id):
         lock = generation_lock(user_path, entity_id)
-        if old_entered.is_set():
+        if old_entered.is_set() and not newer_waiting.is_set():
             assert lock.locked(), "the first export must still own the lock"
             newer_waiting.set()
         return lock
@@ -69,8 +69,14 @@ def test_late_generation_cannot_replace_newer_geometry(tmp_path, monkeypatch, ki
             assert not newer.done()
         finally:
             release_old.set()
-        assert old.result(timeout=5).status_code == 200
-        assert newer.result(timeout=5).status_code == 200
+        old_result = old.result(timeout=5)
+        new_result = newer.result(timeout=5)
+        assert old_result.status_code == new_result.status_code == 200
+        if kind == "bin":
+            for extension in ("stl", "step"):
+                url = f"/api/files/bins/race/bin.{extension}"
+                assert client.get(url, params={"revision": old_result.json()["geometry_revision"]}).status_code == 409
+                assert client.get(url, params={"revision": new_result.json()["geometry_revision"]}).status_code == 200
         download = client.get("/api/files/bins/race/bin.stl" if kind == "bin" else "/api/files/race/bin.stl")
         assert download.status_code == 200
         path = tmp_path / "download.stl"

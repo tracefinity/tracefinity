@@ -119,6 +119,7 @@ export interface TraceResponse {
 
 export interface GenerateResponse {
   stl_url: string
+  geometry_revision?: string | null
   stl_urls?: string[]
   threemf_url?: string
   split_count?: number

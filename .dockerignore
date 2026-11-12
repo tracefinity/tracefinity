@@ -24,3 +24,5 @@ logo.svg
 Makefile
 .github
 .claude
+
+backend/geometry/target

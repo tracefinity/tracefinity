@@ -6,7 +6,6 @@ numpy>=2.0.0
 google-genai>=1.0.0
 httpx>=0.27.0
 shapely>=2.0.7
-manifold3d>=3.0.0
 trimesh>=4.0.0
 lxml>=4.0.0
 pydantic>=2.6.0

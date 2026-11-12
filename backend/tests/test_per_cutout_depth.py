@@ -1,6 +1,6 @@
-"""Tests for per-cutout depth override in stl_generator_manifold."""
+"""Tests for per-cutout depth override in the bin generator."""
 from app.models.schemas import BinParams
-from app.services.stl_generator_manifold import _resolve_pocket_depth
+from app.services.bin_profiles import _resolve_pocket_depth
 
 
 class TestResolvePocketDepth:

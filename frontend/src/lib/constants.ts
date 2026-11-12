@@ -17,7 +17,7 @@ export const MAX_GRID_UNITS = 25
 export const MAX_GRID_CELLS = 100
 
 export function binFitMargin(config: Pick<BinConfig, 'wall_thickness' | 'stacking_lip' | 'cutout_clearance'>): number {
-  // Match bin_interior_inset in stl_generator_manifold.py (LIP_D0 + LIP_D2).
+  // Match bin_interior_inset in bin_profiles.py (LIP_D0 + LIP_D2).
   const inset = Math.max(config.wall_thickness, config.stacking_lip ? 2.6 : 0)
   return 2 * (inset + config.cutout_clearance) + 0.5
 }

@@ -26,6 +26,10 @@ jobs:
       - name: Install backend
         run: cd backend && python -m venv venv && . venv/bin/activate && pip install -r requirements.txt
 
+      - name: Build CAD worker
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal
+          RUSTUP_TOOLCHAIN=1.98.1 make geometry
       - name: Install frontend
         run: cd frontend && pnpm install --frozen-lockfile
 

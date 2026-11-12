@@ -105,6 +105,7 @@ class ScaledPolygon:
         self.finger_holes = finger_holes or []
         self.interior_rings_mm = interior_rings_mm or []
         self.depth_override = depth_override
+        self.smoothed = False
 
 
 class PolygonScaler:

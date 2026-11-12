@@ -4,7 +4,7 @@ Hard-won lessons. Read before making changes to coordinate mapping, 3D preview, 
 
 ## Y-axis inversion
 
-SVG/layout/bin-space is Y-down (0 = top edge). Manifold3d is Y-up. Always negate Y when mapping: `-(y + offset_y)`.
+SVG/layout/bin-space is Y-down (0 = top edge). The native CAD model is Y-up. Always negate Y when mapping: `-(y + offset_y)`.
 
 - Flipping Y reverses polygon winding -- remove any `reversed()` calls if adding a Y-flip
 - Text labels use a flipped Plane (z_dir down) so they negate Y separately
@@ -55,13 +55,12 @@ Single container runs both frontend and backend via supervisor. Key details:
 - nginx logs errors to stderr, which supervisor passes to the container log. A 502 while the backend starts or after it dies, a 504 or a 413 answered by nginx would otherwise only reach a file inside the container
 - Container runs as non-root user `tracefinity` (UID 1000) by default. Supports `--user "$(id -u):$(id -g)"` for arbitrary UIDs. Runtime-writable dirs (`/app/storage`, `/app/.u2net`, `/app/.next`, `/tmp/nginx`, `/tmp/supervisor`, `/var/lib/nginx`) are world-writable. `U2NET_HOME` and `HOME` are set to `/app` paths so model downloads and nginx/supervisor state work without root.
 
-## Manifold3d boolean performance
+## CAD generation performance
 
-The generator batches polygon cutters before subtracting them from the bin. Keep
-that batching: performing a separate mesh boolean for every cutout is much
-slower. Manifold3d replaced the original build123d/OCCT generator because its
-mesh booleans were measured at 10-100x faster for this workload. See
-[stl-generation.md](stl-generation.md) for the current pipeline.
+Independent interior pockets are built in small local solids and attached to
+the bin with shared boundary edges. Cutters that overlap a wall or rim use
+the full native solid. Measure complex bins as well as blanks when changing
+these operations. See [stl-generation.md](stl-generation.md).
 
 ## Frontend patterns
 

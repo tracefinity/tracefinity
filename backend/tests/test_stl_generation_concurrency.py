@@ -100,6 +100,7 @@ def test_cached_request_bypasses_saturated_queue(monkeypatch, tmp_path):
     outputs = tmp_path / "outputs"
     outputs.mkdir()
     (outputs / "cached.stl").write_bytes(b"stl")
+    (outputs / "cached.step").write_bytes(b"step")
     (outputs / "cached.hash").write_text(f"{routes.STL_GEOMETRY_VERSION}:same")
 
     class QueueMustNotBeUsed:
@@ -121,6 +122,7 @@ def test_request_uses_cache_populated_while_waiting(monkeypatch, tmp_path):
     class CachePopulatingQueue:
         def acquire(self, **kwargs):
             (outputs / "queued.stl").write_bytes(b"stl")
+            (outputs / "queued.step").write_bytes(b"step")
             (outputs / "queued.hash").write_text(f"{routes.STL_GEOMETRY_VERSION}:same")
             return True
 
@@ -177,9 +179,7 @@ def test_uncached_generation_writes_output_and_hash(monkeypatch, tmp_path, legac
             assert request == GenerateRequest()
             assert threemf_path.endswith("generated.3mf")
             Path(output_path).write_bytes(b"stl")
-            return object(), None
-
-        def export_split_parts(self, *args):
+            Path(output_path).with_suffix(".step").write_bytes(b"step")
             return []
 
     monkeypatch.setattr(routes, "stl_generator", FakeGenerator())
@@ -190,6 +190,7 @@ def test_uncached_generation_writes_output_and_hash(monkeypatch, tmp_path, legac
 
     assert response.stl_url.endswith("/generated.stl")
     assert (outputs / "generated.stl").read_bytes() == b"stl"
+    assert (outputs / "generated.step").read_bytes() == b"step"
     assert (outputs / "generated.hash").read_text() == f"{routes.STL_GEOMETRY_VERSION}:input-hash"
     routes._run_generate(
         [], GenerateRequest(), "generated", tmp_path, "input-hash", "default", _OpenStore()

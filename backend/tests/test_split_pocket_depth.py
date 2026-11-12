@@ -88,22 +88,23 @@ def test_late_split_cannot_replace_zip_with_previous_depth(split_bin_config, mon
     old_splitting = threading.Event()
     release_old = threading.Event()
     newer_waiting = threading.Event()
-    split = routes.stl_generator.export_split_parts
+    generate_bin = routes.stl_generator.generate_bin
 
-    def hold_old_split(body, text, request, *args):
+    def hold_old_split(polygons, request, *args):
+        parts = generate_bin(polygons, request, *args)
         if request.cutout_depth == 17.45:
             old_splitting.set()
             assert release_old.wait(5)
-        return split(body, text, request, *args)
+        return parts
 
     def observed_lock(user_path, entity_id):
         lock = generation_lock(user_path, entity_id)
-        if old_splitting.is_set():
+        if old_splitting.is_set() and not newer_waiting.is_set():
             assert lock.locked(), "the old export must own the lock until splitting finishes"
             newer_waiting.set()
         return lock
 
-    monkeypatch.setattr(routes.stl_generator, "export_split_parts", hold_old_split)
+    monkeypatch.setattr(routes.stl_generator, "generate_bin", hold_old_split)
     monkeypatch.setattr(routes, "generation_lock", observed_lock)
     with TestClient(app) as client, ThreadPoolExecutor(2) as pool:
         def generate(params):

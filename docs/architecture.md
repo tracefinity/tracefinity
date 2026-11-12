@@ -8,7 +8,7 @@
 - Manual mask upload as alternative
 - Session persistence (JSON files)
 - Tool library, bin, and bin project persistence (JSON files)
-- STL/3MF generation with manifold3d
+- STL, 3MF, and STEP generation from the Rust CAD worker
 
 ## Frontend (Next.js 16/React/TypeScript)
 - Dashboard with project, tool library, and bin management

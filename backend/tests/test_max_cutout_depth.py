@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.models.schemas import GenerateRequest
 from app.services.polygon_scaler import ScaledFingerHole, ScaledPolygon
-from app.services.stl_generator_manifold import ManifoldSTLGenerator
+from tests.geometry_support import render
 
 
 def _surface_z(mesh, x=0, y=0):
@@ -30,10 +30,10 @@ def _generate(tmp_path, config, override=None, finger_depth=None):
         depth_override=override, finger_holes=holes,
     )
     output = tmp_path / "bin.stl"
-    body, _ = ManifoldSTLGenerator().generate_bin([poly], config, str(output))
+    body, _ = render([poly], config, str(output))
     mesh = trimesh.load_mesh(output)
     assert mesh.is_watertight
-    assert body.volume() > 0
+    assert body.volume > 0
     return mesh
 
 
