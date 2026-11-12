@@ -7,12 +7,12 @@ from pydantic import ValidationError
 
 from app.constants import GF_GRID
 from app.models.schemas import BinParams, GenerateRequest
-from app.services.stl_generator_manifold import (
+from app.services.bin_profiles import (
     GF_HALF_GRID,
-    ManifoldSTLGenerator,
     _base_cell_layout,
-    _make_magnet_holes,
+    _magnet_centres,
 )
+from tests.geometry_support import render, rings_at
 
 # ── validation ───────────────────────────────────────────────────────────────
 
@@ -102,9 +102,8 @@ def test_half_unit_bin_generates(tmp_path: Path):
         grid_x=3.5, grid_y=2.5,
         height_units=3, magnets=False, stacking_lip=False, bed_size=0,
     )
-    gen = ManifoldSTLGenerator()
-    body, _ = gen.generate_bin([], config, str(tmp_path / "half.stl"))
-    assert body.volume() > 0
+    body, _ = render([], config, str(tmp_path / "half.stl"))
+    assert body.volume > 0
     out = tmp_path / "half.stl"
     assert out.exists()
 
@@ -115,9 +114,8 @@ def test_half_grid_base_generates(tmp_path: Path):
         height_units=3, magnets=False, stacking_lip=False,
         half_grid_base=True, bed_size=0,
     )
-    gen = ManifoldSTLGenerator()
-    body, _ = gen.generate_bin([], config, str(tmp_path / "hgb.stl"))
-    assert body.volume() > 0
+    body, _ = render([], config, str(tmp_path / "hgb.stl"))
+    assert body.volume > 0
 
 
 def test_half_grid_base_more_cells_than_standard(tmp_path: Path):
@@ -129,16 +127,23 @@ def test_half_grid_base_more_cells_than_standard(tmp_path: Path):
     )
     half = standard.model_copy(update={"half_grid_base": True})
 
-    gen = ManifoldSTLGenerator()
-    s_body, _ = gen.generate_bin([], standard, str(tmp_path / "s.stl"))
-    h_body, _ = gen.generate_bin([], half, str(tmp_path / "h.stl"))
+    s_body, _ = render([], standard, str(tmp_path / "s.stl"))
+    h_body, _ = render([], half, str(tmp_path / "h.stl"))
 
     # both should produce valid geometry
-    assert s_body.volume() > 0
-    assert h_body.volume() > 0
-    # volumes should be very close (same outer dimensions, just different base pattern)
-    ratio = h_body.volume() / s_body.volume()
-    assert 0.95 < ratio < 1.05
+    assert s_body.volume > 0
+    assert h_body.volume > 0
+    # Blank bins now generate as container cavities, so the base pattern can
+    # account for more of the remaining material than it did for solid shells.
+    # The invariant for half-grid bases is the shared outer envelope.
+    s_bb = s_body.bounds.ravel()
+    h_bb = h_body.bounds.ravel()
+    assert h_bb[3] - h_bb[0] == pytest.approx(s_bb[3] - s_bb[0])
+    assert h_bb[4] - h_bb[1] == pytest.approx(s_bb[4] - s_bb[1])
+    assert h_bb[5] - h_bb[2] == pytest.approx(s_bb[5] - s_bb[2])
+    # Below the shared floor each pad must remain a distinct base cell.
+    assert len(rings_at(s_body, 0.4)) == 4
+    assert len(rings_at(h_body, 0.4)) == 16
 
 
 def test_half_unit_bin_correct_outer_dimensions(tmp_path: Path):
@@ -146,10 +151,9 @@ def test_half_unit_bin_correct_outer_dimensions(tmp_path: Path):
         grid_x=3.5, grid_y=2,
         height_units=3, magnets=False, stacking_lip=False, bed_size=0,
     )
-    gen = ManifoldSTLGenerator()
-    body, _ = gen.generate_bin([], config, str(tmp_path / "dim.stl"))
+    body, _ = render([], config, str(tmp_path / "dim.stl"))
 
-    bb = body.bounding_box()  # (min_x, min_y, min_z, max_x, max_y, max_z)
+    bb = body.bounds.ravel()  # (min_x, min_y, min_z, max_x, max_y, max_z)
     expected_w = 3.5 * GF_GRID - 0.5  # 146.5mm
     expected_h = 2 * GF_GRID - 0.5    # 83.5mm
     actual_w = bb[3] - bb[0]
@@ -164,9 +168,8 @@ def test_magnets_on_half_unit_bin(tmp_path: Path):
         grid_x=3.5, grid_y=2,
         height_units=3, magnets=True, stacking_lip=False, bed_size=0,
     )
-    gen = ManifoldSTLGenerator()
-    body, _ = gen.generate_bin([], config, str(tmp_path / "mag.stl"))
-    assert body.volume() > 0
+    body, _ = render([], config, str(tmp_path / "mag.stl"))
+    assert body.volume > 0
 
 
 def test_half_grid_base_skips_magnets(tmp_path: Path):
@@ -181,11 +184,8 @@ def test_half_grid_base_skips_magnets(tmp_path: Path):
     # defence-in-depth early return inside _make_magnet_holes itself
     half = standard.model_copy(update={"half_grid_base": True})
 
-    s_holes = _make_magnet_holes(standard)
-    h_holes = _make_magnet_holes(half)
-
-    assert s_holes.volume() > 0
-    assert h_holes.is_empty()
+    assert len(list(_magnet_centres(standard))) == 16
+    assert not list(_magnet_centres(half))
 
 
 def test_half_grid_base_model_validator_forces_magnets_off():
@@ -210,7 +210,6 @@ def test_half_grid_base_model_validator_forces_magnets_off():
 def test_half_grid_base_full_generate_no_magnet_holes(tmp_path: Path):
     """end-to-end: generate_bin with half_grid_base produces identical volume
     regardless of the magnets flag (validator forces it off)."""
-    gen = ManifoldSTLGenerator()
     with_flag = GenerateRequest(
         grid_x=2, grid_y=2, height_units=3,
         magnets=True, stacking_lip=False,
@@ -221,9 +220,9 @@ def test_half_grid_base_full_generate_no_magnet_holes(tmp_path: Path):
         magnets=False, stacking_lip=False,
         half_grid_base=True, bed_size=0,
     )
-    body_w, _ = gen.generate_bin([], with_flag, str(tmp_path / "w.stl"))
-    body_wo, _ = gen.generate_bin([], without_flag, str(tmp_path / "wo.stl"))
-    assert abs(body_w.volume() - body_wo.volume()) < 0.01
+    body_w, _ = render([], with_flag, str(tmp_path / "w.stl"))
+    body_wo, _ = render([], without_flag, str(tmp_path / "wo.stl"))
+    assert abs(body_w.volume - body_wo.volume) < 0.01
 
 
 def test_stacking_lip_on_half_unit_bin(tmp_path: Path):
@@ -231,9 +230,8 @@ def test_stacking_lip_on_half_unit_bin(tmp_path: Path):
         grid_x=2.5, grid_y=2.5,
         height_units=4, magnets=False, stacking_lip=True, bed_size=0,
     )
-    gen = ManifoldSTLGenerator()
-    body, _ = gen.generate_bin([], config, str(tmp_path / "lip.stl"))
-    assert body.volume() > 0
+    body, _ = render([], config, str(tmp_path / "lip.stl"))
+    assert body.volume > 0
 
 
 def test_split_half_unit_bin(tmp_path: Path):
@@ -242,7 +240,5 @@ def test_split_half_unit_bin(tmp_path: Path):
         grid_x=5.5, grid_y=2,
         height_units=3, magnets=False, stacking_lip=False, bed_size=100,
     )
-    gen = ManifoldSTLGenerator()
-    body, text = gen.generate_bin([], config, str(tmp_path / "big.stl"))
-    parts = gen.split_bin(body, text, config, 100, str(tmp_path), "test")
+    _, parts = render([], config, tmp_path / "big.stl")
     assert len(parts) >= 2

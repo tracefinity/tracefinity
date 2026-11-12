@@ -146,6 +146,7 @@ class BinParams(BaseModel):
     wall_thickness: float = 1.6
     cutout_depth: float = 20.0
     cutout_clearance: float = 1.0
+    allow_wall_cutouts: bool = False
     insert_enabled: bool = False
     insert_height: float = 1.0
     insert_clearance: float = 0.2  # mm shaved off the insert so it fits the pocket
@@ -256,6 +257,7 @@ class GenerateRequest(BinDefaults):
 
 class GenerateResponse(BaseModel):
     stl_url: str
+    geometry_revision: str | None = None
     stl_urls: list[str] = []
     threemf_url: str | None = None
     split_count: int = 1

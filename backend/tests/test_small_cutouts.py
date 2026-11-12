@@ -4,12 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from app.models.schemas import BinParams, GenerateRequest
+from app.models.schemas import GenerateRequest
 from app.services.polygon_scaler import ScaledFingerHole, ScaledPolygon
-from app.services.stl_generator_manifold import (
-    ManifoldSTLGenerator,
-    _make_finger_holes,
-)
+from tests.geometry_support import render
 
 
 def _poly_with_rect_hole(shape: str, width: float, height: float, hole_x=42.0, hole_y=17.0):
@@ -49,46 +46,25 @@ def _config():
 
 
 @pytest.mark.parametrize("shape", ["rectangle", "filleted_rectangle"])
-class TestSmallRectangleCutter:
-    def test_25x5_cutter_has_correct_extents(self, shape):
-        poly = _poly_with_rect_hole(shape, width=25.0, height=5.0)
-        config = BinParams(cutout_depth=10.0)
-        cutter = _make_finger_holes(
-            [poly], config, wall_top_z=25.0, max_depth=15.0,
-            offset_x=0.0, offset_y=0.0,
-        )
-        assert cutter is not None
-        assert cutter.volume() > 0
-        bb = cutter.bounding_box()
-        assert abs((bb[3] - bb[0]) - 25.0) < 0.1
-        assert abs((bb[4] - bb[1]) - 5.0) < 0.1
-
-    def test_1mm_floor_cutter_is_valid(self, shape):
-        poly = _poly_with_rect_hole(shape, width=1.0, height=1.0)
-        config = BinParams(cutout_depth=10.0)
-        cutter = _make_finger_holes(
-            [poly], config, wall_top_z=25.0, max_depth=15.0,
-            offset_x=0.0, offset_y=0.0,
-        )
-        assert cutter is not None
-        assert cutter.volume() > 0
+def test_1mm_floor_cutout_is_valid(shape, tmp_path):
+    mesh, _ = render([_poly_with_rect_hole(shape, width=1, height=1)], _config(), tmp_path / "small.stl")
+    assert mesh.is_watertight and mesh.volume > 0
 
 
 @pytest.mark.parametrize("shape", ["rectangle", "filleted_rectangle"])
 def test_25x5_cutout_generates_valid_bin(shape, tmp_path: Path):
     """Reporter's exact case: 25x5mm cutout straddling the polygon edge."""
-    gen = ManifoldSTLGenerator()
     config = _config()
 
-    with_hole, _ = gen.generate_bin(
+    with_hole, _ = render(
         [_poly_with_rect_hole(shape, width=25.0, height=5.0)],
         config, str(tmp_path / "with.stl"),
     )
-    without_hole, _ = gen.generate_bin(
+    without_hole, _ = render(
         [_poly_without_hole()], config, str(tmp_path / "without.stl"),
     )
 
-    assert with_hole.volume() > 0
+    assert with_hole.volume > 0
     assert (tmp_path / "with.stl").exists()
     # hole straddles the polygon edge, so it must remove extra material
-    assert with_hole.volume() < without_hole.volume()
+    assert with_hole.volume < without_hole.volume

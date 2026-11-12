@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     gemini_label_model: str = "gemini-2.0-flash"
     max_upload_mb: int = 20
     max_image_pixels: int = Field(default=64_000_000, gt=0)
+    geometry_worker_path: Optional[Path] = None
     stl_generation_concurrency: Optional[int] = Field(default=None, gt=0)
     # hours generated export artefacts are kept; 0 keeps them forever
     stl_retention_hours: float = Field(default=24, ge=0)

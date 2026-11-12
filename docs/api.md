@@ -59,7 +59,8 @@ administrator session keeps all of it. See [auth.md](auth.md).
 - `POST /api/sessions/{id}/trace` - AI trace tool outlines
 - `POST /api/sessions/{id}/trace-mask` - trace from uploaded mask
 - `PUT /api/sessions/{id}/polygons` - save polygon edits
-- `POST /api/sessions/{id}/generate` - generate STL/3MF from traced polygons
+- `POST /api/sessions/{id}/generate` - generate STL/3MF and STEP from traced polygons
+- `POST /api/sessions/{id}/export/step` - download a STEP solid from traced polygons using the same generation request. Set `?insert=true` for a configured contrast insert.
 - `POST /api/sessions/{id}/save-tools` - convert traced polygons to library tools
 - `GET /api/sessions` - list sessions
 - `GET /api/sessions/{id}` - get session state
@@ -81,7 +82,7 @@ Trace and mask-trace responses include the final visible `Polygon.label` values 
 - `POST /api/bins` - create bin (optionally with tool_ids for auto-sizing and bin_config defaults)
 - `PUT /api/bins/{id}` - update bin
 - `DELETE /api/bins/{id}` - delete bin + output files
-- `POST /api/bins/{id}/generate` - generate STL/3MF from bin
+- `POST /api/bins/{id}/generate` - generate STL/3MF and STEP from bin
 
 Both generation endpoints may return `503 Service Unavailable` with
 `Retry-After: 5` when `STL_GENERATION_CONCURRENCY` is configured and every
@@ -124,6 +125,8 @@ Response fields:
 - `GET /api/files/{session_id}/bin.3mf` - session 3MF
 - `GET /api/files/{session_id}/bin_parts.zip` - session split parts
 - `GET /api/files/bins/{bin_id}/bin.stl` - bin STL
+- `GET /api/files/bins/{bin_id}/bin.step` - download the bin's editable CAD solid
+- `GET /api/files/bins/{bin_id}/bin_insert.step` - generate and download the configured contrast insert as STEP
 - `GET /api/files/bins/{bin_id}/bin.3mf` - bin 3MF
 - `GET /api/files/bins/{bin_id}/bin_parts.zip` - bin split parts
 

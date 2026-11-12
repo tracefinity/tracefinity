@@ -1,8 +1,33 @@
 # STL Generation
 
-## How it works
+## Native bin geometry
 
-STL generation uses manifold3d (mesh booleans, 10-100x faster than OCCT B-rep). The gridfinity shell is constructed from first principles using `CrossSection` extrusions and `batch_boolean` operations. Polygon cutouts, finger holes, magnet holes and text labels are subtracted from the bin body in one pass. Filleted rectangle cutouts use a full-depth rounded-bottom cutter profile with a dynamic fillet radius clamped by both one-third of the rectangle width and half the pocket depth.
+The Rust worker builds one boundary-representation solid from the bin settings
+and prepared photo outlines. It writes editable STEP and tessellates the same
+solid for the editor preview and STL. Contrast inserts also produce matching
+STEP and STL files. Print-bed splitting operates on the CAD solid before
+meshing the pieces, and 3MF packages the tessellated base and label materials.
+
+Docker builds the worker as part of the image. Source installs can use
+`make geometry`, which builds the release binary with Cargo. The build applies an edge-index
+fix to the locked CAD dependency to keep STEP writing fast on dense outlines. Set
+`GEOMETRY_WORKER_PATH` to the built executable if installing it elsewhere.
+
+The bin editor passes the revision of its generated preview when downloading
+STL or STEP. An export request for an older revision prompts the user to
+refresh. Disconnected solids are represented individually within a STEP
+assembly.
+
+The worker checks the STL after accounting for its 32-bit coordinates. If
+tessellation leaves an open or non-manifold edge, it retries with finer
+sampling. At point contacts between pocket outlines, a 0.005 mm offset removes
+the pinched seam. If a bin with cylindrical cutters still fails tessellation,
+the worker retries once with 0.005 mm added to their radii. Both export formats
+use the resulting solid.
+
+If nearly coincident rotated cutters prevent a Boolean from closing, the
+worker retries at 0.001° angle precision where this moves a cutter corner by
+at most 0.001 mm. The saved layout keeps its original angles.
 
 ## Generation concurrency
 
@@ -29,7 +54,7 @@ deletes export files older than `STL_RETENTION_HOURS` (default 24). Set it to
 `0` to keep exports forever.
 
 The sweep only removes files directly inside each user's `outputs/` directory
-with an export suffix: `.stl`, `.3mf`, `.zip`, and the `.hash` cache marker.
+with an export suffix: `.stl`, `.step`, `.3mf`, `.zip`, and the `.hash` cache marker.
 Photos, traces, tools, bins, projects, and session data are never touched.
 
 Opening a bin page re-requests generation, which either refreshes the existing
@@ -81,7 +106,7 @@ Optional per-cell shell trimming controlled by `partial_bins`, `partial_bins_val
 
 ### Cut mode (`partial_bins_connect = false`)
 
-Disabled cells are removed with full-height 42×42mm cutters (`_make_disabled_cell_cutters`) from below the bin top through the base. Adjacent enabled cells that share an edge stay one connected manifold volume; separated islands are exported individually (see below). Bed splitting uses the bounding span of **enabled** cells only (`_effective_grid_span`).
+Disabled cells are removed with full-height 42×42mm cutters from below the bin top through the base. Adjacent enabled cells that share an edge stay connected. Where two diagonally adjacent enabled cells would meet along a zero-width seam, a 0.01 mm corner bevel separates them. Separated islands are exported individually (see below). Bed splitting uses the bounding span of **enabled** cells only (`_effective_grid_span`).
 
 ### Connect mode (`partial_bins_connect = true`)
 
@@ -144,7 +169,7 @@ limit.
 
 ## Bin Splitting
 
-Large bins are split along grid boundaries using manifold3d `split_by_plane`. Diagonal fit check: `(W + H) / sqrt(2) <= bed_size`. Split parts exported as ZIP.
+Large bins are split along grid boundaries using planar cuts on the CAD solid. Diagonal fit check: `(W + H) / sqrt(2) <= bed_size`. Split parts exported as ZIP.
 
 The full bin manifold is generated before splitting, so bed size controls the
 exported piece size rather than the maximum logical bin size or generation

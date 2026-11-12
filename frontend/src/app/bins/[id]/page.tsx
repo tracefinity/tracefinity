@@ -6,7 +6,7 @@ import { BinEditor } from '@/components/BinEditor'
 import { BinConfigurator, calcMaxCutoutDepth } from '@/components/BinConfigurator'
 import { BinPreview3D } from '@/components/BinPreview3D'
 import { ToolBrowser } from '@/components/ToolBrowser'
-import { getBin, updateBin, generateBinStl, getBinStlUrl, getBinZipUrl, getBinThreemfUrl, getBinInsertUrl, getImageUrl, listTools, updateTool } from '@/lib/api'
+import { getAvailableKeys, getBin, updateBin, generateBinStl, getBinStlUrl, getBinZipUrl, getBinThreemfUrl, getBinInsertUrl, getBinStepUrl, getImageUrl, listTools, updateTool } from '@/lib/api'
 import { buildBinConfig, createPartialBinsValues, getDefaultBinConfig, resetDefaultBinConfig, saveDefaultBinConfig } from '@/lib/binDefaults'
 import { downloadExport } from '@/lib/download'
 import type { BinConfig, BinData, PlacedTool, TextLabel } from '@/types'
@@ -54,6 +54,7 @@ export default function BinPage() {
   const [insertStlUrl, setInsertStlUrl] = useState<string | null>(null)
   const [splitCount, setSplitCount] = useState(1)
   const [stlVersion, setStlVersion] = useState(0)
+  const [geometryRevision, setGeometryRevision] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -70,6 +71,8 @@ export default function BinPage() {
   const [autoSize, setAutoSize] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [stepAvailable, setStepAvailable] = useState(false)
+  const [exportingStep, setExportingStep] = useState(false)
   const [defaultsStatus, setDefaultsStatus] = useState<string | null>(null)
   const defaultsStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const exportRef = useRef<HTMLDivElement>(null)
@@ -117,6 +120,10 @@ export default function BinPage() {
   }, [exportOpen])
 
   useEffect(() => {
+    let cancelled = false
+    void getAvailableKeys().then(({ step_export }) => {
+      if (!cancelled) setStepAvailable(step_export)
+    }).catch(() => {})
     async function load() {
       try {
         const [data, tools] = await Promise.all([getBin(binId), listTools()])
@@ -154,6 +161,7 @@ export default function BinPage() {
       }
     }
     load()
+    return () => { cancelled = true }
   }, [binId])
 
   const { saving, saved, error: saveError, flush: flushSave } = useDebouncedSave(
@@ -204,6 +212,7 @@ export default function BinPage() {
       if (controller.signal.aborted) return
       const result = await generateBinStl(binId, controller.signal)
       if (controller.signal.aborted) return
+      setGeometryRevision(result.geometry_revision ?? null)
       setStlUrl(getImageUrl(result.stl_url))
       setStlUrls((result.stl_urls || []).map(u => getImageUrl(u)))
       setThreemfUrl(result.threemf_url ? getImageUrl(result.threemf_url) : null)
@@ -378,8 +387,12 @@ export default function BinPage() {
     }
   }, [doGenerate])
 
+  function revisionUrl(url: string) {
+    return geometryRevision ? `${url}?revision=${encodeURIComponent(geometryRevision)}` : url
+  }
+
   function handleDownload() {
-    handleExport(getBinStlUrl(binId))
+    handleExport(revisionUrl(getBinStlUrl(binId)))
   }
 
   function handleDownloadZip() {
@@ -391,7 +404,20 @@ export default function BinPage() {
   }
 
   function handleDownloadInsert() {
-    handleExport(getBinInsertUrl(binId))
+    handleExport(revisionUrl(getBinInsertUrl(binId)))
+  }
+
+  async function handleDownloadStep(insert = false) {
+    setExportOpen(false)
+    setExportingStep(true)
+    setError(null)
+    try {
+      await handleExport(revisionUrl(getBinStepUrl(binId, insert)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'STEP export failed')
+    } finally {
+      setExportingStep(false)
+    }
   }
 
   function showDefaultsStatus(message: string) {
@@ -430,15 +456,21 @@ export default function BinPage() {
     )
   }
 
-  const stlUrlWithVersion = stlUrl && !gridLimitError ? `${stlUrl}?v=${stlVersion}` : null
+  const stlUrlWithVersion = stlUrl && !gridLimitError
+    ? geometryRevision ? revisionUrl(getBinStlUrl(binId)) : `${stlUrl}?v=${stlVersion}`
+    : null
   const splitUrlsWithVersion = stlUrls.length > 0 && !gridLimitError ? stlUrls.map(u => `${u}?v=${stlVersion}`) : null
-  const insertUrlWithVersion = insertStlUrl && !gridLimitError ? `${insertStlUrl}?v=${stlVersion}` : null
+  const insertUrlWithVersion = insertStlUrl && !gridLimitError
+    ? geometryRevision ? revisionUrl(getBinInsertUrl(binId)) : `${insertStlUrl}?v=${stlVersion}`
+    : null
   const binW = config.grid_x * GRID_UNIT
   const binH = config.grid_y * GRID_UNIT
   const effectiveRimUnits = config.stacking_lip ? config.rim_units : 0
-  const hasExports = !gridLimitError && !saving && !generating
+  const exportReady = !gridLimitError && !saving && !generating
+  const hasMeshExports = exportReady
     && generationKey === lastGenerateRef.current
     && (stlUrl || zipUrl || threemfUrl || insertStlUrl)
+  const hasStepExport = hasMeshExports && stepAvailable
 
   return (
     <div className="h-[calc(100vh-44px)] flex">
@@ -510,19 +542,20 @@ export default function BinPage() {
           {splitCount > 1 && (
             <InfoBanner>Split into {splitCount} pieces</InfoBanner>
           )}
-          {hasExports && (
+          {(hasMeshExports || hasStepExport) && (
             <div className="relative" ref={exportRef}>
               <button
                 onClick={() => setExportOpen(p => !p)}
+                disabled={exportingStep}
                 className="btn-primary w-full py-2 text-[11px] font-medium inline-flex items-center justify-center gap-1 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
-                Export
+                {exportingStep ? 'Exporting STEP…' : 'Export'}
                 <ChevronDown className="w-3 h-3" />
               </button>
               {exportOpen && (
                 <div className="absolute bottom-full left-0 right-0 mb-1.5 bg-surface border border-border rounded-lg py-1 z-30 shadow-xl">
-                  {stlUrl && (
+                  {hasMeshExports && stlUrl && (
                     <button
                       onClick={() => { handleDownload(); setExportOpen(false) }}
                       className="w-full text-left px-3 py-1.5 text-[11px] text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer flex items-center gap-2"
@@ -531,7 +564,7 @@ export default function BinPage() {
                       {zipUrl ? 'Full STL' : 'STL'}
                     </button>
                   )}
-                  {zipUrl && (
+                  {hasMeshExports && zipUrl && (
                     <button
                       onClick={() => { handleDownloadZip(); setExportOpen(false) }}
                       className="w-full text-left px-3 py-1.5 text-[11px] text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer flex items-center gap-2"
@@ -540,7 +573,7 @@ export default function BinPage() {
                       ZIP ({splitCount} parts)
                     </button>
                   )}
-                  {threemfUrl && (
+                  {hasMeshExports && threemfUrl && (
                     <button
                       onClick={() => { handleDownloadThreemf(); setExportOpen(false) }}
                       className="w-full text-left px-3 py-1.5 text-[11px] text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer flex items-center gap-2"
@@ -549,13 +582,31 @@ export default function BinPage() {
                       3MF
                     </button>
                   )}
-                  {insertStlUrl && (
+                  {hasStepExport && (
+                    <button
+                      onClick={() => handleDownloadStep()}
+                      className="w-full text-left px-3 py-1.5 text-[11px] text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer flex items-center gap-2"
+                    >
+                      <Package className="w-3 h-3" />
+                      STEP
+                    </button>
+                  )}
+                  {hasMeshExports && insertStlUrl && (
                     <button
                       onClick={() => { handleDownloadInsert(); setExportOpen(false) }}
                       className="w-full text-left px-3 py-1.5 text-[11px] text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer flex items-center gap-2"
                     >
                       <Package className="w-3 h-3" />
                       Insert STL
+                    </button>
+                  )}
+                  {hasStepExport && insertStlUrl && (
+                    <button
+                      onClick={() => handleDownloadStep(true)}
+                      className="w-full text-left px-3 py-1.5 text-[11px] text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer flex items-center gap-2"
+                    >
+                      <Package className="w-3 h-3" />
+                      Insert STEP
                     </button>
                   )}
                 </div>

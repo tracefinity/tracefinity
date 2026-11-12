@@ -7,7 +7,7 @@ implementations.
 
 ## Coordinate systems
 
-SVG and layout coordinates have Y increasing downwards. Manifold3d has Y
+SVG and layout coordinates have Y increasing downwards. The CAD model has Y
 increasing upwards. Negate Y whenever data crosses that boundary. See
 [docs/gotchas.md](docs/gotchas.md) for the consequences and regression traps.
 

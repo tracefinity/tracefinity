@@ -56,3 +56,5 @@ htmlcov/
 
 # playwright
 .playwright-mcp
+
+/backend/geometry/target/

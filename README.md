@@ -24,7 +24,7 @@
 5. Save traced tools to your library
 6. Group tools into projects when planning a drawer or workspace
 7. Create bins from project tools, arrange the layout
-8. Download STL/3MF for 3D printing
+8. Download STL or 3MF for printing, or STEP for CAD
 
 | Dashboard | Tool Editor | Bin Editor |
 |-|-|-|
@@ -147,7 +147,7 @@ helm install tracefinity oci://ghcr.io/tracefinity/charts/tracefinity \
 
 ### From Source
 
-Prerequisites: Python 3.11+, Node.js 20+, [pnpm](https://pnpm.io/installation)
+Prerequisites: Python 3.11+, Node.js 20+, [pnpm](https://pnpm.io/installation), and [stable Rust](https://rustup.rs/).
 
 ```bash
 git clone https://github.com/tracefinity/tracefinity
@@ -246,6 +246,7 @@ No API key and prefer not to use the local model? Upload a mask manually:
 - **Gridfinity compatible** -- Proper base profile, magnet holes, stacking lip
 - **Live 3D preview** -- See your bin in three.js before printing
 - **STL and 3MF export** -- 3MF supports multi-colour printing for embossed text
+- **STEP export** -- Editable CAD solids for bins and contrast inserts, generated from the same model as the print preview.
 - **SVG export** -- Individual tool outlines as SVG, with smoothing applied
 - **Bed splitting** -- Large bins auto-split into printable pieces with diagonal fit detection
 - **Landscape and portrait** -- Paper orientation auto-detected from corner positions

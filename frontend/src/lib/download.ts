@@ -21,13 +21,17 @@ function fallbackFilename(url: string): string {
   return path.split('/').pop() || 'download'
 }
 
-export async function downloadExport(url: string, regenerate: () => Promise<void>): Promise<void> {
+export async function downloadExport(url: string, regenerate?: () => Promise<void>): Promise<void> {
   let response = await fetch(url)
-  if (response.status === 404) {
+  if (response.status === 404 && regenerate) {
     await regenerate()
     response = await fetch(url)
   }
   if (!response.ok) {
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      const body = await response.json()
+      if (typeof body.detail === 'string') throw new Error(body.detail)
+    }
     throw new Error(`export download failed (${response.status})`)
   }
   const blob = await response.blob()

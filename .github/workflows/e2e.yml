@@ -7,7 +7,8 @@ on:
 
 jobs:
   e2e:
-    runs-on: ubuntu-latest
+    # The Playwright version in the lockfile supports Chromium on Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -26,6 +27,10 @@ jobs:
       - name: Install backend
         run: cd backend && python -m venv venv && . venv/bin/activate && pip install -r requirements.txt
 
+      - name: Build CAD worker
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal
+          RUSTUP_TOOLCHAIN=1.98.1 make geometry
       - name: Install frontend
         run: cd frontend && pnpm install --frozen-lockfile
 
@@ -37,7 +42,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          key: pw-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
 
       - name: Install Playwright
         timeout-minutes: 5

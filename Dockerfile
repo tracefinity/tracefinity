@@ -16,6 +16,12 @@ ENV NEXT_PUBLIC_API_URL=
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm run build
 
+FROM rust:1.98-bookworm AS geometry-build
+RUN apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*
+WORKDIR /geometry
+COPY backend/geometry/ ./
+RUN python3 build.py
+
 FROM python:3.12-slim
 
 RUN apt-get update && \
@@ -41,8 +47,8 @@ RUN pip install --no-cache-dir --upgrade pip
 # cpu-only torch; its deps resolve from pypi below, since the cpu index lags (pillow, filelock)
 RUN pip install --no-cache-dir --no-deps torch torchvision --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r backend/requirements.txt
-
 COPY backend/ ./backend/
+COPY --from=geometry-build /geometry/target/release/tracefinity-geometry /app/backend/geometry/target/release/tracefinity-geometry
 
 # frontend (built)
 COPY --from=frontend-build /frontend/.next ./.next

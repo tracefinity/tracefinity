@@ -1,19 +1,9 @@
-"""manifold3d's booleans can leave a seam where two near-identical vertices
-land ~1e-4mm apart instead of exactly coincident. trimesh's default
-merge_vertices() tolerance is tighter than that gap, so the later
-nondegenerate_faces() pass drops the resulting sliver triangle without first
-welding its vertices into their neighbors -- opening a small boundary hole
-that slicers report as non-manifold geometry.
-
-Reproduced deterministically on a plain stacking-lip bin at grid_y=6 -- see
-the test below.
-"""
 from pathlib import Path
 
 import numpy as np
 
 from app.models.schemas import GenerateRequest
-from app.services.stl_generator_manifold import ManifoldSTLGenerator, _manifold_to_trimesh
+from tests.geometry_support import render
 
 
 def _boundary_edge_count(mesh) -> int:
@@ -29,8 +19,8 @@ def test_a_stacking_lip_bin_at_six_grid_units_has_no_boundary_holes(tmp_path: Pa
     config = GenerateRequest(
         grid_x=2, grid_y=6, height_units=4, magnets=False, stacking_lip=True,
     )
-    body, _ = ManifoldSTLGenerator().generate_bin([], config, str(tmp_path / "bin.stl"))
-    tm = _manifold_to_trimesh(body)
+    body, _ = render([], config, str(tmp_path / "bin.stl"))
+    tm = body
 
     assert _boundary_edge_count(tm) == 0
     assert tm.is_watertight

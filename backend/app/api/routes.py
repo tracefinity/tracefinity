@@ -6,6 +6,7 @@ import math
 import os
 import re
 import shutil
+import tempfile
 import threading
 import time
 import uuid
@@ -14,8 +15,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from PIL import Image
+from starlette.background import BackgroundTask
 from starlette.requests import Request
 
 logger = logging.getLogger(__name__)
@@ -81,10 +83,18 @@ from app.models.schemas import (
     UploadResponse,
 )
 from app.services.ai_tracer import AITracer
+from app.services.bin_profiles import bin_interior_inset
 from app.services.bin_service import sync_placed_tools
 from app.services.bin_store import BinStore
 from app.services.generation_lock import generation_lock
 from app.services.geometry import optimal_rotation_angle as _optimal_rotation_angle
+from app.services.geometry_generator import (
+    STL_GEOMETRY_VERSION,
+    GeometryError,
+    GeometryGenerator,
+    GeometryUnavailable,
+    geometry_available,
+)
 from app.services.image_ingest import ImageTooLargeError, ingest_image
 from app.services.image_processor import ImageProcessor
 from app.services.image_service import generate_tool_thumbnail
@@ -108,7 +118,6 @@ from app.services.project_service import (
 )
 from app.services.project_store import ProjectStore
 from app.services.session_store import SessionStore
-from app.services.stl_generator_manifold import STL_GEOMETRY_VERSION, ManifoldSTLGenerator, bin_interior_inset
 from app.services.store_errors import StoreClosedError
 from app.services.tool_namer import name_polygons
 from app.services.tool_store import ToolStore
@@ -268,7 +277,7 @@ def _get_tracer(tracer_id: str | None = None) -> AITracer:
 
 
 polygon_scaler = PolygonScaler()
-stl_generator = ManifoldSTLGenerator()
+stl_generator = GeometryGenerator()
 STL_GENERATION_QUEUE_TIMEOUT_SECONDS = 5.0
 _stl_generation_semaphore = (
     threading.BoundedSemaphore(settings.stl_generation_concurrency)
@@ -642,12 +651,20 @@ def _run_generate(
     insert_path = user_path / "outputs" / f"{entity_id}_insert.stl"
 
     def cached_response() -> GenerateResponse | None:
-        if not (output_path.exists() and hash_path.exists() and hash_path.read_text() == input_hash):
+        try:
+            cached_hash = hash_path.read_text()
+        except FileNotFoundError:
+            return None
+        if (cached_hash != input_hash or not output_path.is_file()
+                or not output_path.with_suffix(".step").is_file()):
+            return None
+        if insert_path.is_file() != insert_path.with_suffix(".step").is_file():
             return None
         part_paths = sorted(user_path.glob(f"outputs/{entity_id}_part*.stl"))
         # cache hits rewrite nothing, so refresh mtimes or the retention
         # sweep could purge artefacts a live page was just handed urls for
-        for artefact in (output_path, hash_path, threemf_path, zip_path, insert_path, *part_paths):
+        for artefact in (output_path, output_path.with_suffix(".step"), hash_path, threemf_path,
+                         zip_path, insert_path, insert_path.with_suffix(".step"), *part_paths):
             try:
                 os.utime(artefact)
             except FileNotFoundError:
@@ -668,6 +685,7 @@ def _run_generate(
             zip_url=f"/storage/{user_id}/outputs/{entity_id}_parts.zip" if zip_path.exists() else None,
             insert_stl_url=insert_stl_url,
             warning=cached_warning,
+            geometry_revision=input_hash,
         )
 
     cached = cached_response()
@@ -705,6 +723,7 @@ def _run_generate(
                 threemf_path,
                 zip_path,
                 insert_path,
+                store,
             )
         finally:
             _stl_generation_semaphore.release()
@@ -721,6 +740,7 @@ def _run_generate(
         threemf_path,
         zip_path,
         insert_path,
+        store,
     )
 
 
@@ -736,69 +756,56 @@ def _generate_uncached(
     threemf_path: Path,
     zip_path: Path,
     insert_path: Path,
+    store: SessionStore | BinStore,
 ) -> GenerateResponse:
-    """Generate and persist an STL after cache and concurrency checks."""
-    threemf_path.unlink(missing_ok=True)
-    for old in user_path.glob(f"outputs/{entity_id}_part*.stl"):
-        old.unlink(missing_ok=True)
-    zip_path.unlink(missing_ok=True)
-    insert_path.unlink(missing_ok=True)
-
-    bin_body, text_body = stl_generator.generate_bin(scaled, gen_req, str(output_path), str(threemf_path))
-
-    stl_urls: list[str] = []
-    zip_url = None
-    output_dir = str(user_path / "outputs")
-    part_paths = stl_generator.export_split_parts(
-        bin_body, text_body, gen_req, gen_req.bed_size, output_dir, entity_id
-    )
-    if part_paths:
-        stl_urls = [f"/storage/{user_id}/outputs/{Path(p).name}" for p in part_paths]
-        part_bytes = [(Path(p).name, Path(p).read_bytes()) for p in part_paths]
-        with zipfile.ZipFile(str(zip_path), 'w', zipfile.ZIP_DEFLATED) as zf:
-            for fname, data in part_bytes:
-                zf.writestr(fname, data)
-        zip_url = f"/storage/{user_id}/outputs/{entity_id}_parts.zip"
-
-    insert_stl_url = None
+    """Publish matching formats from the same CAD build after generation succeeds."""
+    outputs = output_path.parent
     warning = None
-    if getattr(gen_req, 'insert_enabled', False) and scaled:
-        bin_width = gen_req.grid_x * GF_GRID
-        bin_depth = gen_req.grid_y * GF_GRID
-        offset_x = -bin_width / 2
-        offset_y = -bin_depth / 2
+    with tempfile.TemporaryDirectory(prefix=".geometry-", dir=outputs) as directory:
+        work = Path(directory)
+        full = work / output_path.name
         try:
-            success = stl_generator.generate_insert(scaled, gen_req, str(insert_path), offset_x, offset_y)
-        except Exception:
-            logger.exception("insert generation crashed")
-            success = False
-        if success:
-            insert_stl_url = f"/storage/{user_id}/outputs/{entity_id}_insert.stl"
-            if zip_path.exists():
-                with zipfile.ZipFile(str(zip_path), 'a') as zf:
-                    zf.write(str(insert_path), f"{entity_id}_insert.stl")
-            else:
-                with zipfile.ZipFile(str(zip_path), 'w', zipfile.ZIP_DEFLATED) as zf:
-                    zf.write(str(output_path), f"{entity_id}.stl")
-                    zf.write(str(insert_path), f"{entity_id}_insert.stl")
-                zip_url = f"/storage/{user_id}/outputs/{entity_id}_parts.zip"
-        else:
+            parts = [Path(path) for path in stl_generator.generate_bin(
+                scaled, gen_req, str(full), str(work / threemf_path.name),
+            )]
+        except GeometryError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except GeometryUnavailable as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+        insert = work / insert_path.name
+        if gen_req.insert_enabled and not insert.exists():
             warning = "Insert generation failed. Try re-tracing the tools or adjusting their placement."
 
-    hash_path.write_text(input_hash)
+        if parts or insert.exists():
+            with zipfile.ZipFile(work / zip_path.name, "w", zipfile.ZIP_DEFLATED) as archive:
+                for piece in parts or [full]:
+                    archive.write(piece, piece.name)
+                if insert.exists():
+                    archive.write(insert, insert.name)
 
-    threemf_url = None
-    if threemf_path.exists():
-        threemf_url = f"/storage/{user_id}/outputs/{entity_id}.3mf"
+        store.ensure_open()
+        replacement = {path.name for path in work.iterdir()}
+        previous = [threemf_path, zip_path, insert_path, insert_path.with_suffix(".step"),
+                    *outputs.glob(f"{entity_id}_part*.stl")]
+        for path in previous:
+            if path.name not in replacement:
+                path.unlink(missing_ok=True)
+        hash_path.unlink(missing_ok=True)
+        for path in work.iterdir():
+            path.replace(outputs / path.name)
+        hash_path.write_text(input_hash)
 
+    base = f"/storage/{user_id}/outputs"
     return GenerateResponse(
-        stl_url=f"/storage/{user_id}/outputs/{entity_id}.stl",
-        stl_urls=stl_urls,
-        threemf_url=threemf_url,
-        split_count=max(1, len(stl_urls)),
-        zip_url=zip_url,
-        insert_stl_url=insert_stl_url,
+        stl_url=f"{base}/{output_path.name}",
+        stl_urls=[f"{base}/{part.name}" for part in parts],
+        threemf_url=f"{base}/{threemf_path.name}" if threemf_path.exists() else None,
+        split_count=max(1, len(parts)),
+        zip_url=f"{base}/{zip_path.name}" if zip_path.exists() else None,
+        insert_stl_url=f"{base}/{insert_path.name}" if insert_path.exists() else None,
         warning=warning,
+        geometry_revision=input_hash,
     )
 
 
@@ -1143,6 +1150,7 @@ async def get_available_keys(user_id: str = Depends(get_user_id)):
             for t in tracers
         ],
         "photo_stations": settings.photo_stations,
+        "step_export": geometry_available(),
     }
 
 
@@ -1299,21 +1307,10 @@ def generate_stl(request: Request, session_id: str, req: GenerateRequest, user_i
 
 
 def _generate_session_stl(session_id: str, req: GenerateRequest, user_id: str, user_sessions: SessionStore, up: Path):
-    session = user_sessions.get(session_id)
-    if not session or not session.scale_factor:
-        raise HTTPException(status_code=400, detail="must trace tools first")
-
-    polygons = req.polygons if req.polygons else session.polygons
-    if not polygons:
-        raise HTTPException(status_code=400, detail="no polygons to generate from")
-
-    input_hash = hashlib.md5(json.dumps(req.model_dump(), sort_keys=True, default=str).encode()).hexdigest()
-
-    scaled = polygon_scaler.scale_to_mm(polygons, session.scale_factor)
-    scaled = [
-        polygon_scaler.prepare_for_generation(p, req.cutout_clearance, smoothed=False)
-        for p in scaled
-    ]
+    scaled = _prepare_session_geometry(session_id, req, user_sessions)
+    input_hash = hashlib.md5(json.dumps(
+        [req.model_dump(), scaled], sort_keys=True, default=vars,
+    ).encode()).hexdigest()
 
     response = _run_generate(scaled, req, session_id, up, input_hash, user_id, user_sessions)
 
@@ -1324,6 +1321,29 @@ def _generate_session_stl(session_id: str, req: GenerateRequest, user_id: str, u
         user_sessions.set(session_id, fresh_session)
 
     return response
+
+
+def _prepare_session_geometry(session_id: str, req: GenerateRequest, sessions: SessionStore):
+    session = sessions.get(session_id)
+    if not session or not session.scale_factor:
+        raise HTTPException(status_code=400, detail="must trace tools first")
+
+    polygons = req.polygons if req.polygons else session.polygons
+    if not polygons:
+        raise HTTPException(status_code=400, detail="no polygons to generate from")
+    scaled = polygon_scaler.scale_to_mm(polygons, session.scale_factor)
+    return [polygon_scaler.prepare_for_generation(p, req.cutout_clearance, smoothed=False) for p in scaled]
+
+
+@router.post("/sessions/{session_id}/export/step")
+def export_session_step(
+    session_id: str, req: GenerateRequest, insert: bool = False, user_id: str = Depends(get_user_id),
+):
+    sessions, _, _ = get_stores(user_id)
+    up = _user_path(user_id)
+    with generation_lock(up, session_id):
+        _generate_session_stl(session_id, req, user_id, sessions, up)
+        return _step_file(up, session_id, f"tracefinity-{session_id[:8]}", insert)
 
 
 @router.get("/sessions", response_model=SessionListResponse)
@@ -1381,6 +1401,14 @@ async def update_session(request: Request, session_id: str, req: SessionUpdateRe
     return StatusResponse(status="ok")
 
 
+def _remove_geometry_outputs(user_path: Path, entity_id: str):
+    output = user_path / "outputs"
+    for suffix in (".stl", ".step", ".3mf", ".hash", "_parts.zip", "_insert.stl", "_insert.step"):
+        (output / f"{entity_id}{suffix}").unlink(missing_ok=True)
+    for part in output.glob(f"{entity_id}_part*.stl"):
+        part.unlink(missing_ok=True)
+
+
 @router.delete("/sessions/{session_id}", response_model=StatusResponse)
 async def delete_session(request: Request, session_id: str, user_id: str = Depends(get_user_id)):
     user_sessions, _, _ = get_stores(user_id)
@@ -1397,12 +1425,7 @@ async def delete_session(request: Request, session_id: str, user_id: str = Depen
     ]:
         _safe_unlink(rel)
 
-    if session.stl_path:
-        Path(_abs(session.stl_path)).with_suffix(".3mf").unlink(missing_ok=True)
-        for part_file in up.glob(f"outputs/{session_id}_part*.stl"):
-            part_file.unlink(missing_ok=True)
-        zip_path = up / "outputs" / f"{session_id}_parts.zip"
-        zip_path.unlink(missing_ok=True)
+    _remove_geometry_outputs(up, session_id)
 
     return StatusResponse(status="deleted")
 
@@ -2167,15 +2190,8 @@ async def delete_bin(request: Request, bin_id: str, user_id: str = Depends(get_u
     remove_bin_from_project(project_store, bin_data.project_id, bin_id)
     remove_bin_from_all_projects(project_store, bin_id)
 
-    if bin_data.stl_path:
-        stl_abs = Path(_abs(bin_data.stl_path))
-        stl_abs.unlink(missing_ok=True)
-        stl_abs.with_suffix(".3mf").unlink(missing_ok=True)
-        stl_abs.with_suffix(".hash").unlink(missing_ok=True)
-    for f in up.glob(f"outputs/{bin_id}_part*.stl"):
-        f.unlink(missing_ok=True)
-    (up / "outputs" / f"{bin_id}_parts.zip").unlink(missing_ok=True)
-    (up / "outputs" / f"{bin_id}_insert.stl").unlink(missing_ok=True)
+    _safe_unlink(bin_data.stl_path)
+    _remove_geometry_outputs(up, bin_id)
 
     return StatusResponse(status="deleted")
 
@@ -2189,6 +2205,42 @@ def generate_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_u
         return _generate_bin_stl(bin_id, user_id, user_tools, user_bins, up)
 
 
+def _bin_smoothing(bin_data: BinModel, user_tools: ToolStore) -> dict:
+    smoothing = {}
+    for placement in bin_data.placed_tools:
+        tool = user_tools.get(placement.tool_id)
+        smoothing[placement.tool_id] = {
+            "smoothed": tool.smoothed if tool else False,
+            "smooth_level": tool.smooth_level if tool else 0.5,
+        }
+    return smoothing
+
+
+def _prepare_bin_geometry(bin_data: BinModel, smoothing: dict) -> tuple[list[ScaledPolygon], GenerateRequest]:
+    bc = bin_data.bin_config
+    scaled = []
+    for placement in bin_data.placed_tools:
+        polygon = ScaledPolygon(
+            placement.id,
+            [(p.x, p.y) for p in placement.points],
+            placement.name,
+            [ScaledFingerHole.from_finger_hole(hole) for hole in placement.finger_holes],
+            [[(p.x, p.y) for p in ring] for ring in placement.interior_rings],
+            depth_override=placement.depth_override,
+        )
+        prepared = polygon_scaler.prepare_for_generation(
+            polygon, bc.cutout_clearance, **smoothing[placement.tool_id],
+        )
+        prepared.smoothed = smoothing[placement.tool_id]["smoothed"]
+        scaled.append(prepared)
+
+    config = GenerateRequest(
+        **bc.model_dump(exclude={"text_labels"}),
+        text_labels=bc.text_labels + bin_data.text_labels,
+    )
+    return scaled, config
+
+
 def _generate_bin_stl(bin_id: str, user_id: str, user_tools: ToolStore, user_bins: BinStore, up: Path):
     bin_data = user_bins.get(bin_id)
     if not bin_data:
@@ -2198,14 +2250,7 @@ def _generate_bin_stl(bin_id: str, user_id: str, user_tools: ToolStore, user_bin
 
     bc = bin_data.bin_config
 
-    # include source tool smoothed state in hash so toggling invalidates cache
-    smoothed_flags = {}
-    for pt in bin_data.placed_tools:
-        src = user_tools.get(pt.tool_id)
-        smoothed_flags[pt.tool_id] = {
-            "smoothed": src.smoothed if src else False,
-            "smooth_level": src.smooth_level if src else 0.5,
-        }
+    smoothed_flags = _bin_smoothing(bin_data, user_tools)
     input_data = {
         "bin_config": bc.model_dump(),
         "placed_tools": [pt.model_dump() for pt in bin_data.placed_tools],
@@ -2213,50 +2258,7 @@ def _generate_bin_stl(bin_id: str, user_id: str, user_tools: ToolStore, user_bin
         "smoothed_flags": smoothed_flags,
     }
     input_hash = hashlib.md5(json.dumps(input_data, sort_keys=True, default=str).encode()).hexdigest()
-
-    scaled = []
-    for pt in bin_data.placed_tools:
-        points_mm = [(p.x, p.y) for p in pt.points]
-        fholes = [ScaledFingerHole.from_finger_hole(fh) for fh in pt.finger_holes]
-        interior_rings_mm = [
-            [(p.x, p.y) for p in ring]
-            for ring in pt.interior_rings
-        ]
-        sp = ScaledPolygon(pt.id, points_mm, pt.name, fholes, interior_rings_mm, depth_override=pt.depth_override)
-        source_tool = user_tools.get(pt.tool_id)
-        sp = polygon_scaler.prepare_for_generation(
-            sp,
-            bc.cutout_clearance,
-            smoothed=bool(source_tool and source_tool.smoothed),
-            smooth_level=source_tool.smooth_level if source_tool else 0.5,
-        )
-        scaled.append(sp)
-
-    gen_req = GenerateRequest(
-        grid_x=bc.grid_x,
-        grid_y=bc.grid_y,
-        height_units=bc.height_units,
-        magnets=bc.magnets,
-        magnet_diameter=bc.magnet_diameter,
-        magnet_depth=bc.magnet_depth,
-        magnet_corners_only=bc.magnet_corners_only,
-        stacking_lip=bc.stacking_lip,
-        rim_units=bc.rim_units,
-        wall_thickness=bc.wall_thickness,
-        cutout_depth=bc.cutout_depth,
-        cutout_clearance=bc.cutout_clearance,
-        insert_enabled=bc.insert_enabled,
-        insert_height=bc.insert_height,
-        insert_clearance=bc.insert_clearance,
-        cutout_chamfer=bc.cutout_chamfer,
-        partial_bins=bc.partial_bins,
-        partial_bins_values=bc.partial_bins_values,
-        partial_bins_connect=bc.partial_bins_connect,
-        partial_bins_retain_wall=bc.partial_bins_retain_wall,
-        text_labels=bc.text_labels + bin_data.text_labels,
-        bed_size=bc.bed_size,
-        half_grid_base=bc.half_grid_base,
-    )
+    scaled, gen_req = _prepare_bin_geometry(bin_data, smoothed_flags)
 
     response = _run_generate(scaled, gen_req, bin_id, up, input_hash, user_id, user_bins)
 
@@ -2280,20 +2282,81 @@ def _bin_stem(bin_data) -> str:
 
 
 # bin file downloads
+@router.get("/files/bins/{bin_id}/bin.step")
+def download_bin_step(bin_id: str, revision: str | None = None, user_id: str = Depends(get_user_id)):
+    return _download_saved_bin_step(bin_id, user_id, revision=revision)
+
+
+@router.get("/files/bins/{bin_id}/bin_insert.step")
+def download_bin_insert_step(bin_id: str, revision: str | None = None, user_id: str = Depends(get_user_id)):
+    return _download_saved_bin_step(bin_id, user_id, insert=True, revision=revision)
+
+
+def _download_saved_bin_step(bin_id: str, user_id: str, *, insert: bool = False, revision: str | None = None):
+    _, user_tools, bins = get_stores(user_id)
+    up = _user_path(user_id)
+    with generation_lock(up, bin_id):
+        bins.ensure_open()
+        bin_data = bins.get(bin_id)
+        if bin_data is None:
+            raise HTTPException(status_code=404, detail="bin not found")
+        if revision is None:
+            _generate_bin_stl(bin_id, user_id, user_tools, bins, up)
+        else:
+            _require_geometry_revision(up, bin_id, revision)
+        return _step_file(up, bin_id, _bin_stem(bin_data), insert)
+
+
+def _step_file(user_path: Path, entity_id: str, stem: str, insert: bool):
+    name = f"{entity_id}_insert.step" if insert else f"{entity_id}.step"
+    path = user_path / "outputs" / name
+    if not path.is_file():
+        detail = "Contrast insert is unavailable." if insert else "STEP export expired. Please regenerate the preview."
+        raise HTTPException(status_code=404, detail=detail)
+    suffix = "-insert.step" if insert else ".step"
+    return _geometry_file(path, stem+suffix, "application/octet-stream")
+
+
+def _require_geometry_revision(user_path: Path, entity_id: str, revision: str):
+    try:
+        current = (user_path / "outputs" / f"{entity_id}.hash").read_text()
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Bin export expired. Please regenerate the preview.") from exc
+    if current != revision:
+        raise HTTPException(status_code=409, detail="This bin has a newer preview. Refresh the preview before exporting.")
+
+
+def _geometry_file(path: Path, filename: str, media_type: str):
+    # Open the file while the generation lock is held. A later atomic replacement
+    # cannot change which revision is streamed to this request.
+    try:
+        file = path.open("rb")
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Bin export expired. Please regenerate the preview.") from exc
+    headers = FileResponse(path, filename=filename).headers
+
+    def chunks():
+        with file:
+            while chunk := file.read(1024 * 1024):
+                yield chunk
+
+    return StreamingResponse(chunks(), media_type=media_type, background=BackgroundTask(file.close), headers={
+        "Content-Disposition": headers["Content-Disposition"],
+        "Cache-Control": "no-store",
+    })
+
+
 @router.get("/files/bins/{bin_id}/bin.stl")
-async def download_bin_stl(request: Request, bin_id: str, user_id: str = Depends(get_user_id)):
-    _, _, user_bins = get_stores(user_id)
-    bin_data = user_bins.get(bin_id)
-    if not bin_data or not bin_data.stl_path:
-        raise HTTPException(status_code=404, detail="stl not found")
-    stl_abs = _abs(bin_data.stl_path)
-    if not Path(stl_abs).exists():
-        raise HTTPException(status_code=404, detail="stl expired; regenerate the bin")
-    return FileResponse(
-        stl_abs,
-        media_type="application/sla",
-        filename=f"{_bin_stem(bin_data)}.stl",
-    )
+def download_bin_stl(request: Request, bin_id: str, revision: str | None = None, user_id: str = Depends(get_user_id)):
+    _, _, bins = get_stores(user_id)
+    up = _user_path(user_id)
+    with generation_lock(up, bin_id):
+        bin_data = bins.get(bin_id)
+        if not bin_data or not bin_data.stl_path:
+            raise HTTPException(status_code=404, detail="stl not found")
+        if revision is not None:
+            _require_geometry_revision(up, bin_id, revision)
+        return _geometry_file(Path(_abs(bin_data.stl_path)), f"{_bin_stem(bin_data)}.stl", "application/sla")
 
 
 @router.get("/files/bins/{bin_id}/bin_parts.zip")
@@ -2331,21 +2394,20 @@ async def download_bin_threemf(request: Request, bin_id: str, user_id: str = Dep
 
 
 @router.get("/files/bins/{bin_id}/bin_insert.stl")
-async def download_bin_insert(request: Request, bin_id: str, user_id: str = Depends(get_user_id)):
+def download_bin_insert(request: Request, bin_id: str, revision: str | None = None, user_id: str = Depends(get_user_id)):
     _, _, user_bins = get_stores(user_id)
     up = _user_path(user_id)
-    bin_data = user_bins.get(bin_id)
-    insert_path = up / "outputs" / f"{bin_id}_insert.stl"
-    if not insert_path.exists():
-        if bin_data and bin_data.stl_path:
-            raise HTTPException(status_code=404, detail="insert stl expired; regenerate the bin")
-        raise HTTPException(status_code=404, detail="insert stl not found")
-    fname = f"{_bin_stem(bin_data)}-insert.stl" if bin_data else f"{bin_id[:8]}-insert.stl"
-    return FileResponse(
-        str(insert_path),
-        media_type="application/sla",
-        filename=fname,
-    )
+    with generation_lock(up, bin_id):
+        bin_data = user_bins.get(bin_id)
+        if revision is not None:
+            _require_geometry_revision(up, bin_id, revision)
+        insert_path = up / "outputs" / f"{bin_id}_insert.stl"
+        if not insert_path.exists():
+            if bin_data and bin_data.stl_path:
+                raise HTTPException(status_code=404, detail="insert stl expired; regenerate the bin")
+            raise HTTPException(status_code=404, detail="insert stl not found")
+        fname = f"{_bin_stem(bin_data)}-insert.stl" if bin_data else f"{bin_id[:8]}-insert.stl"
+        return _geometry_file(insert_path, fname, "application/sla")
 
 
 def _dir_size(path: Path) -> int:

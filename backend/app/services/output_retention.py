@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 SWEEP_INTERVAL_SECONDS = 15 * 60
 
 # every file _run_generate writes ends in one of these
-_ARTEFACT_SUFFIXES = {".stl", ".3mf", ".zip", ".hash"}
+_ARTEFACT_SUFFIXES = {".stl", ".step", ".3mf", ".zip", ".hash"}
 
 
 def sweep_expired_outputs(storage_path: Path, retention_hours: float, now: float | None = None) -> int:

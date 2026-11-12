@@ -80,6 +80,7 @@ Before submitting:
 
 ```bash
 make lint
+make geometry
 
 cd backend
 venv/bin/python -m pytest

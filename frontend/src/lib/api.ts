@@ -157,6 +157,7 @@ export async function getAvailableKeys(): Promise<{
   provider_label: string | null
   tracers: TracerInfo[]
   photo_stations: boolean
+  step_export: boolean
 }> {
   return fetchApi('/api/api-keys')
 }
@@ -510,6 +511,10 @@ export function getBinZipUrl(binId: string): string {
 
 export function getBinThreemfUrl(binId: string): string {
   return `${API_URL}/api/files/bins/${binId}/bin.3mf`
+}
+
+export function getBinStepUrl(binId: string, insert = false): string {
+  return `${API_URL}/api/files/bins/${binId}/${insert ? 'bin_insert.step' : 'bin.step'}`
 }
 
 export function getBinInsertUrl(binId: string): string {

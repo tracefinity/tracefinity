@@ -1,6 +1,9 @@
-.PHONY: dev test-e2e test-e2e-ui test-e2e-accuracy lint lint-backend lint-frontend lint-fix
+.PHONY: geometry dev test-e2e test-e2e-ui test-e2e-accuracy lint lint-backend lint-frontend lint-fix
 
-dev:
+geometry:
+	python3 backend/geometry/build.py
+
+dev: geometry
 	@trap 'kill 0' EXIT; \
 	(cd backend && . venv/bin/activate && uvicorn app.main:app --reload --port 8000) & \
 	(cd frontend && pnpm run dev) & \
