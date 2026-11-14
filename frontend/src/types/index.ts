@@ -307,6 +307,7 @@ export interface BinData {
   id: string
   name: string | null
   project_id: string | null
+  auto_size: boolean
   bin_config: BinConfig
   placed_tools: PlacedTool[]
   text_labels: TextLabel[]

@@ -121,6 +121,7 @@ export default function BinPage() {
       try {
         const [data, tools] = await Promise.all([getBin(binId), listTools()])
         setBinData(data)
+        setAutoSize(data.auto_size)
 
         const toolMap = new Map(tools.map(t => [t.id, t]))
         const synced = data.placed_tools.map(pt => {
@@ -161,12 +162,13 @@ export default function BinPage() {
       if (!binData) return
       await updateBin(binId, {
         name: name || undefined,
+        auto_size: autoSize,
         bin_config: config,
         placed_tools: placedTools,
         text_labels: textLabels,
       })
     },
-    [binData, binId, name, config, placedTools, textLabels],
+    [binData, binId, name, autoSize, config, placedTools, textLabels],
     150,
     { skipInitial: true }
   )

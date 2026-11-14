@@ -478,6 +478,7 @@ export async function updateBin(
   updates: {
     name?: string
     project_id?: string | null
+    auto_size?: boolean
     bin_config?: BinConfig
     placed_tools?: PlacedTool[]
     text_labels?: TextLabel[]
