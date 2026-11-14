@@ -51,6 +51,7 @@ used for bins and SVG exports. This preference is saved with the tool.
 - Flip horizontally or vertically.
 - Auto-rotate: finds the rotation angle that minimises the bounding box. Runs on the backend.
 - Free-rotate by dragging the rotation handle near the centroid.
+- Size: the width and height fields show the outline's bounding box in mm. Typing a measured width or height scales the whole outline to match, keeping its proportions; the percentage field scales it relative to its current size and then returns to 100. Cutouts move with the outline but keep their own size.
 
 ## Grid snap
 

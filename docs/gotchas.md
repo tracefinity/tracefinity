@@ -75,10 +75,14 @@ mesh booleans were measured at 10-100x faster for this workload. See
 - Undo/redo uses the `useHistory` hook (deep-clone, Cmd+Z handling). The `set()` method pushes to history; `undo()`/`redo()` call the `onChange` callback.
 - The tool editor's Detail slider derives from the latest edited outline. Keep
   its full-detail base and slider level in undo history with the points. Manual
-  vertex edits establish a new base; rotation and reflection transform the base
-  with the displayed outline; changing Detail alone preserves it. Retaining the
-  mount-time base can silently undo a saved size correction. An edit after undo
-  must create a new history entry and replace the redo branch.
+  vertex edits establish a new base; rotation, reflection and scaling transform
+  the base with the displayed outline; changing Detail alone preserves it.
+  Retaining the mount-time base can silently undo a saved size correction. An
+  edit after undo must create a new history entry and replace the redo branch.
+- `NumericInput` calls `onChange` on Enter and again on the blur that follows,
+  and on any blur even when the text is unchanged. A handler that is not
+  idempotent must drop the repeat. The tool editor's Size fields apply one
+  scale per render and ignore an unchanged reading.
 - ToolEditor and BinEditor are split into orchestrator + toolbar + canvas sub-components. `CutoutOverlay` renders finger holes in both.
 
 ## AVX / ONNX requirement

@@ -4,8 +4,8 @@ import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } fr
 import { Plus, Circle, Disc, Square, RectangleHorizontal, Fingerprint, ImageIcon, Eye, EyeOff } from 'lucide-react'
 import type { Point, FingerHole, ToolImageContext, AffineMatrix } from '@/types'
 import { simplifyPolygon, smoothEpsilon, simplifyEpsilon, snapToGrid as snapToGridUtil } from '@/lib/svg'
-import { rotateAround, flipAround } from '@/lib/affine'
-import { rotateGeometry, centroidOf } from '@/lib/geometry'
+import { rotateAround, flipAround, scaleAround } from '@/lib/affine'
+import { rotateGeometry, scaleGeometry, centroidOf, sizeOf } from '@/lib/geometry'
 import {
   symmetrize, reflectPoint, reflectHole, constrainToAxis, partnerIndex,
   insertMirroredVertex, deleteMirroredVertex, findHolePartner, isHoleOnAxis,
@@ -454,6 +454,25 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
       onImageTransformRef.current?.(nextTransform)
     }
   }, [pushHistory, onInteriorRingsChange])
+
+  const scaleAll = useCallback((factor: number) => {
+    const pts = pointsRef.current
+    if (pts.length === 0 || !Number.isFinite(factor) || factor <= 0 || factor === 1) return
+    const centre = centroidOf(pts)
+    const scaled = scaleGeometry(pts, holesRef.current, currentRingsRef.current, factor, centre)
+    // scale the photo about the same centre so it stays under the outline
+    const m = imageTransformRef.current
+    const nextTransform = m ? scaleAround(m, factor, centre.x, centre.y) : null
+    const detailBase = scaleGeometry(baseRef.current ?? pts, [], [], factor, centre).points
+    pushHistory(scaled, nextTransform, detailBase)
+    onPointsRef.current(scaled.points)
+    onHolesRef.current(scaled.fingerHoles)
+    onRingsRef.current?.(scaled.interiorRings)
+    if (nextTransform) {
+      imageTransformRef.current = nextTransform
+      onImageTransformRef.current?.(nextTransform)
+    }
+  }, [pushHistory])
 
   const handleRotatePolygonMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -908,6 +927,8 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
           displayPointsCount={displayPoints.length}
           rotateAll={rotateAll}
           flipAll={flipAll}
+          outlineSize={sizeOf(points)}
+          scaleAll={scaleAll}
           onAutoRotate={handleAutoRotateWrapped}
           autoRotating={autoRotating}
           hasInteriorRings={currentRings.length > 0}
