@@ -197,3 +197,42 @@ test('Detail preserves a manual size correction through saved STL export', async
   expect(measurement.dimensions_mm[0]).toBeCloseTo(30.2, 1)
   expect(measurement.dimensions_mm[1]).toBeCloseTo(72.2, 1)
 })
+
+test('typed outline width scales the saved tool and its STL pocket', async ({ page }, testInfo) => {
+  await createScannedBin(page)
+  const binId = page.url().split('/bins/')[1]
+  const bin = await (await page.request.get(`/api/bins/${binId}`)).json()
+  const toolId = bin.placed_tools[0].tool_id
+  const span = (outline: { x: number; y: number }[], axis: 'x' | 'y') =>
+    Math.max(...outline.map(p => p[axis])) - Math.min(...outline.map(p => p[axis]))
+  const traced = await (await page.request.get(`/api/tools/${toolId}`)).json()
+  expect(Math.abs(span(traced.points, 'x') - 80)).toBeLessThan(1)
+  expect(Math.abs(span(traced.points, 'y') - 30)).toBeLessThan(1)
+
+  await page.goto(`/tools/${toolId}`)
+  // autosave ignores changes made in its first 100 ms, so let the page settle
+  await page.waitForLoadState('networkidle')
+  const width = page.getByTitle(/^Outline width \(mm\)/)
+  await expect(width).toBeVisible()
+  // the editor can also save on load; wait for the save carrying the resized outline
+  const saved = page.waitForResponse(response =>
+    response.url().endsWith(`/api/tools/${toolId}`)
+    && response.request().method() === 'PUT'
+    && Math.abs(span(response.request().postDataJSON().points, 'x') - 64) < 1e-6)
+  await width.fill('64')
+  await width.press('Enter')
+  await expect(page.getByText(/ · 64\.0×\d+\.\d mm$/)).toBeVisible()
+  expect((await saved).ok()).toBeTruthy()
+  const resized = await (await page.request.get(`/api/tools/${toolId}`)).json()
+  const factor = 64 / span(traced.points, 'x')
+  expect(span(resized.points, 'x')).toBeCloseTo(64, 6)
+  expect(span(resized.points, 'y')).toBeCloseTo(span(traced.points, 'y') * factor, 6)
+  // the photo underlay is saved at the same scale
+  expect(resized.source_image_transform[0]).toBeCloseTo(traced.source_image_transform[0] * factor, 6)
+
+  await page.goto(`/bins/${binId}`)
+  // the pocket is the resized outline, about 64 x 24 mm, plus 1 mm clearance a side
+  const measurement = await downloadPocket(page, testInfo, 'resized-tool')
+  expect(Math.abs(measurement.dimensions_mm[0] - (span(resized.points, 'y') + 2))).toBeLessThan(1)
+  expect(Math.abs(measurement.dimensions_mm[1] - 66)).toBeLessThan(1)
+})

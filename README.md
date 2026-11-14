@@ -234,7 +234,7 @@ No API key and prefer not to use the local model? Upload a mask manually:
 - **Selective saving** -- Choose which traced outlines to keep before saving to your library
 - **Tool library** -- Save traced tools and reuse them across multiple bins
 - **Bin projects** -- Plan a group of tools and bins together, track which tools still need bins, and create project-scoped bins
-- **Tool editor** -- Rotate tools, add/remove vertices, adjust outlines, snap to grid
+- **Tool editor** -- Rotate tools, add/remove vertices, adjust outlines, scale to a measured size, snap to grid
 - **Smooth or accurate** -- Toggle Chaikin subdivision for smooth curves, or keep the raw trace; SVG and STL exports both respect this
 - **Finger holes** -- Circular, square, or rectangular cutouts for easy tool removal
 - **Interior rings** -- Hollow tools (e.g. spanners) traced correctly with holes preserved

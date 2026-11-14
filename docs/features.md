@@ -28,6 +28,7 @@ Reference for AI agents. Check here before suggesting new features or claiming s
 - 90-degree rotation (clockwise/counter-clockwise)
 - Flip/mirror (horizontal and vertical)
 - Auto-rotate (minimise bounding box)
+- Uniform scaling (typed width, height or percentage; cutouts keep their size)
 - Interior rings / fill-in mode for donut shapes
 - Undo/redo (Ctrl+Z / Ctrl+Shift+Z)
 - Source image overlay with opacity control

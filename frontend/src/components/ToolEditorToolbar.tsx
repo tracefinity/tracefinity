@@ -1,10 +1,10 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
 import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Disc, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, FlipHorizontal2, FlipVertical2, ChevronDown, PaintBucket, Locate, Columns2, Rows2, ArrowLeftRight, Waypoints } from 'lucide-react'
 import type { AxisOrientation, KeepSide } from '@/lib/symmetry'
 import type { FingerHole } from '@/types'
-import { SNAP_GRID_MIN, SNAP_GRID_MAX } from '@/lib/constants'
+import { SNAP_GRID_MIN, SNAP_GRID_MAX, OUTLINE_SIZE_MIN, OUTLINE_SIZE_MAX, OUTLINE_SCALE_MIN, OUTLINE_SCALE_MAX } from '@/lib/constants'
 import { NumericInput } from '@/components/NumericInput'
 
 export type EditMode = 'select' | 'add-vertex' | 'delete-vertex' | 'finger-hole' | 'circle' | 'cylinder' | 'square' | 'rectangle' | 'filleted_rectangle' | 'fill-ring'
@@ -13,6 +13,77 @@ export type Selection =
   | { type: 'vertex'; pointIdx: number }
   | { type: 'hole'; holeId: string }
   | null
+
+interface SizeFieldsProps {
+  width: number
+  height: number
+  scaleAll: (factor: number) => void
+}
+
+const sizeInput = 'w-12 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent disabled:opacity-30 disabled:cursor-not-allowed'
+
+// the fields scale on Enter only. a drag snapshots the outline on mousedown,
+// before the blur that mousedown causes, so a scale committed on blur would
+// be overwritten by the drag while the photo and Detail base stayed scaled
+function SizeFields({ width, height, scaleAll }: SizeFieldsProps) {
+  // remounts the percentage field, which then reads 100 again
+  const [percentKey, setPercentKey] = useState(0)
+  // one decimal, as in the footer readout
+  const shownWidth = Number(width.toFixed(1))
+  const shownHeight = Number(height.toFixed(1))
+  // Enter on an untouched field commits its own reading, which must not rescale
+  const resize = (mm: number, shown: number, current: number) => {
+    if (mm !== shown) scaleAll(mm / current)
+  }
+
+  // min and max widen to the current reading so Enter never clamps it
+  return (
+    <div className="flex items-center gap-1 text-[10px] text-text-muted">
+      <span>Size</span>
+      <NumericInput
+        value={shownWidth}
+        onChange={mm => resize(mm, shownWidth, width)}
+        min={Math.min(OUTLINE_SIZE_MIN, shownWidth)}
+        max={Math.max(OUTLINE_SIZE_MAX, shownWidth)}
+        step={0.1}
+        disabled={!(width > 0)}
+        commitOnBlur={false}
+        title="Outline width (mm). Type a size and press Enter to scale the whole outline."
+        className={sizeInput}
+      />
+      <span>&times;</span>
+      <NumericInput
+        value={shownHeight}
+        onChange={mm => resize(mm, shownHeight, height)}
+        min={Math.min(OUTLINE_SIZE_MIN, shownHeight)}
+        max={Math.max(OUTLINE_SIZE_MAX, shownHeight)}
+        step={0.1}
+        disabled={!(height > 0)}
+        commitOnBlur={false}
+        title="Outline height (mm). Type a size and press Enter to scale the whole outline."
+        className={sizeInput}
+      />
+      <span>mm</span>
+      <NumericInput
+        key={percentKey}
+        value={100}
+        onChange={percent => {
+          if (percent === 100) return
+          scaleAll(percent / 100)
+          setPercentKey(key => key + 1)
+        }}
+        min={OUTLINE_SCALE_MIN}
+        max={OUTLINE_SCALE_MAX}
+        step={0.1}
+        disabled={!(width > 0 || height > 0)}
+        commitOnBlur={false}
+        title="Outline scale (%). Type a percentage and press Enter. It applies once, then returns to 100."
+        className={sizeInput}
+      />
+      <span>%</span>
+    </div>
+  )
+}
 
 interface Props {
   editMode: EditMode
@@ -53,6 +124,8 @@ interface Props {
   displayPointsCount: number
   rotateAll: (angleDeg: number) => void
   flipAll: (axis: 'horizontal' | 'vertical') => void
+  outlineSize: { width: number; height: number }
+  scaleAll: (factor: number) => void
   onAutoRotate?: () => void
   autoRotating?: boolean
   hasInteriorRings: boolean
@@ -68,7 +141,7 @@ export function ToolEditorToolbar({
   cutoutOpen, setCutoutOpen,
   isCutoutMode, cutoutModeIcon, cutoutModeLabel,
   selection, selectedHole, handleDeleteHole,
-  displayPointsCount, rotateAll, flipAll, onAutoRotate, autoRotating, hasInteriorRings,
+  displayPointsCount, rotateAll, flipAll, outlineSize, scaleAll, onAutoRotate, autoRotating, hasInteriorRings,
 }: Props) {
   return (
     <>
@@ -204,6 +277,8 @@ export function ToolEditorToolbar({
             </button>
           )}
         </div>
+
+        <SizeFields width={outlineSize.width} height={outlineSize.height} scaleAll={scaleAll} />
 
         <div className="h-4 w-px bg-border-subtle mx-0.5" />
 

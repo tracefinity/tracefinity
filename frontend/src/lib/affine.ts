@@ -23,3 +23,15 @@ export function flipAround(m: AffineMatrix, axis: 'horizontal' | 'vertical', cx:
   }
   return [a, -b, c, -d, e, -f + 2 * cy]
 }
+
+export function scaleAround(m: AffineMatrix, factor: number, cx: number, cy: number): AffineMatrix {
+  const [a, b, c, d, e, f] = m
+  return [
+    factor * a,
+    factor * b,
+    factor * c,
+    factor * d,
+    factor * e + cx * (1 - factor),
+    factor * f + cy * (1 - factor),
+  ]
+}
