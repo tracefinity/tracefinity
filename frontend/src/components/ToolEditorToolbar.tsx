@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode, useRef, useState } from 'react'
+import { ReactNode, useState } from 'react'
 import { MousePointer2, Plus, Minus, Undo2, Redo2, Trash2, Circle, Disc, Square, RectangleHorizontal, Fingerprint, Magnet, RotateCw, RotateCcw, FlipHorizontal2, FlipVertical2, ChevronDown, PaintBucket, Locate, Columns2, Rows2, ArrowLeftRight, Waypoints } from 'lucide-react'
 import type { AxisOrientation, KeepSide } from '@/lib/symmetry'
 import type { FingerHole } from '@/types'
@@ -22,29 +22,21 @@ interface SizeFieldsProps {
 
 const sizeInput = 'w-12 px-1 py-1 bg-elevated border border-border-subtle rounded-[6px] text-text-primary text-[10px] text-center outline-none focus:border-accent disabled:opacity-30 disabled:cursor-not-allowed'
 
+// the fields scale on Enter only. a drag snapshots the outline on mousedown,
+// before the blur that mousedown causes, so a scale committed on blur would
+// be overwritten by the drag while the photo and Detail base stayed scaled
 function SizeFields({ width, height, scaleAll }: SizeFieldsProps) {
-  // NumericInput commits on Enter and again on the blur that follows, so only
-  // the first commit of a render may scale
-  const [applied, setApplied] = useState(0)
-  const appliedRef = useRef(0)
-  const apply = (factor: number) => {
-    if (appliedRef.current !== applied) return false
-    appliedRef.current = applied + 1
-    setApplied(applied + 1)
-    scaleAll(factor)
-    return true
-  }
   // remounts the percentage field, which then reads 100 again
   const [percentKey, setPercentKey] = useState(0)
   // one decimal, as in the footer readout
   const shownWidth = Number(width.toFixed(1))
   const shownHeight = Number(height.toFixed(1))
-  // an untouched field commits its own reading, which must not rescale
+  // Enter on an untouched field commits its own reading, which must not rescale
   const resize = (mm: number, shown: number, current: number) => {
-    if (mm !== shown) apply(mm / current)
+    if (mm !== shown) scaleAll(mm / current)
   }
 
-  // min and max widen to the current reading so a blur never clamps it
+  // min and max widen to the current reading so Enter never clamps it
   return (
     <div className="flex items-center gap-1 text-[10px] text-text-muted">
       <span>Size</span>
@@ -55,7 +47,8 @@ function SizeFields({ width, height, scaleAll }: SizeFieldsProps) {
         max={Math.max(OUTLINE_SIZE_MAX, shownWidth)}
         step={0.1}
         disabled={!(width > 0)}
-        title="Outline width (mm). Scales the whole outline."
+        commitOnBlur={false}
+        title="Outline width (mm). Type a size and press Enter to scale the whole outline."
         className={sizeInput}
       />
       <span>&times;</span>
@@ -66,19 +59,25 @@ function SizeFields({ width, height, scaleAll }: SizeFieldsProps) {
         max={Math.max(OUTLINE_SIZE_MAX, shownHeight)}
         step={0.1}
         disabled={!(height > 0)}
-        title="Outline height (mm). Scales the whole outline."
+        commitOnBlur={false}
+        title="Outline height (mm). Type a size and press Enter to scale the whole outline."
         className={sizeInput}
       />
       <span>mm</span>
       <NumericInput
         key={percentKey}
         value={100}
-        onChange={percent => { if (percent !== 100 && apply(percent / 100)) setPercentKey(key => key + 1) }}
+        onChange={percent => {
+          if (percent === 100) return
+          scaleAll(percent / 100)
+          setPercentKey(key => key + 1)
+        }}
         min={OUTLINE_SCALE_MIN}
         max={OUTLINE_SCALE_MAX}
         step={0.1}
         disabled={!(width > 0 || height > 0)}
-        title="Outline scale (%). Applies once, then returns to 100."
+        commitOnBlur={false}
+        title="Outline scale (%). Type a percentage and press Enter. It applies once, then returns to 100."
         className={sizeInput}
       />
       <span>%</span>

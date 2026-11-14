@@ -11,7 +11,7 @@ import {
   insertMirroredVertex, deleteMirroredVertex, findHolePartner, isHoleOnAxis,
   type SymmetryAxis, type KeepSide,
 } from '@/lib/symmetry'
-import { DISPLAY_SCALE, SNAP_GRID, ZOOM_FACTOR } from '@/lib/constants'
+import { DISPLAY_SCALE, SNAP_GRID, ZOOM_FACTOR, OUTLINE_SIZE_MIN, OUTLINE_SIZE_MAX } from '@/lib/constants'
 import { cutoutShapeLabel, isRectangularCutout, resizeRectCutout, resizeRoundCutout } from '@/lib/cutouts'
 import { useHistory } from '@/hooks/useHistory'
 import { ToolEditorToolbar } from '@/components/ToolEditorToolbar'
@@ -457,7 +457,13 @@ export function ToolEditor({ points, fingerHoles, interiorRings, smoothed, smoot
 
   const scaleAll = useCallback((factor: number) => {
     const pts = pointsRef.current
-    if (pts.length === 0 || !Number.isFinite(factor) || factor <= 0 || factor === 1) return
+    if (pts.length === 0 || !Number.isFinite(factor) || factor <= 0) return
+    // repeated percentages must stay inside the sizes the fields accept
+    const size = sizeOf(pts)
+    const longest = Math.max(size.width, size.height)
+    if (!(longest > 0)) return
+    factor = Math.min(Math.max(factor, OUTLINE_SIZE_MIN / longest), OUTLINE_SIZE_MAX / longest)
+    if (Math.abs(factor - 1) < 1e-9) return
     const centre = centroidOf(pts)
     const scaled = scaleGeometry(pts, holesRef.current, currentRingsRef.current, factor, centre)
     // scale the photo about the same centre so it stays under the outline

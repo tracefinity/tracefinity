@@ -222,7 +222,7 @@ describe('ToolEditor outline size', () => {
       latest, slider, field, onPointsChange, onImageTransformChange,
       undo: () => button('Undo (Ctrl+Z)'),
       redo: () => button('Redo (Ctrl+Shift+Z)'),
-      // a focused field blurs on Enter, so NumericInput commits twice, as in a browser
+      // Enter commits the field and blurs it
       type(name: 'width' | 'height' | 'scale', value: string) {
         const input = field(name)
         input.focus()
@@ -291,15 +291,42 @@ describe('ToolEditor outline size', () => {
     expect(editor.undo().disabled).toBe(true)
   })
 
-  it('keeps focus when moving from an edited field into the percentage', () => {
+  it('discards typed text when the field loses focus without Enter', () => {
+    // a drag reads the outline on mousedown, before the blur it causes: a
+    // scale applied on that blur would be overwritten by the drag
     const editor = setup()
     const height = editor.field('height')
     height.focus()
     fireEvent.change(height, { target: { value: '61' } })
-    // the height commits on the blur this causes
     act(() => editor.field('scale').focus())
-    expect(span(editor.latest.points, 'y')).toBeCloseTo(61, 9)
-    expect(document.activeElement).toBe(editor.field('scale'))
+    expect(editor.onPointsChange).not.toHaveBeenCalled()
+    expect(editor.field('height').value).toBe('30.5')
+    expect(editor.undo().disabled).toBe(true)
+  })
+
+  it('discards typed text on Escape', () => {
+    const editor = setup()
+    for (const name of ['width', 'height', 'scale'] as const) {
+      const input = editor.field(name)
+      input.focus()
+      fireEvent.change(input, { target: { value: '55' } })
+      fireEvent.keyDown(input, { key: 'Escape' })
+    }
+    expect(editor.onPointsChange).not.toHaveBeenCalled()
+    expect(editor.field('width').value).toBe('80')
+    expect(editor.field('scale').value).toBe('100')
+    expect(editor.undo().disabled).toBe(true)
+  })
+
+  it('stops a repeated percentage at the largest size the fields accept', () => {
+    const editor = setup()
+    editor.type('scale', '500')
+    editor.type('scale', '500')
+    expect(span(editor.latest.points, 'x')).toBeCloseTo(2000, 6)
+    editor.onPointsChange.mockClear()
+    editor.type('scale', '500')
+    expect(editor.onPointsChange).not.toHaveBeenCalled()
+    expect(span(editor.latest.points, 'x')).toBeCloseTo(2000, 6)
   })
 
   it('keeps the new size when Detail moves afterwards', () => {

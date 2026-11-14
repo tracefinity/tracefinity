@@ -79,10 +79,10 @@ mesh booleans were measured at 10-100x faster for this workload. See
   the base with the displayed outline; changing Detail alone preserves it.
   Retaining the mount-time base can silently undo a saved size correction. An
   edit after undo must create a new history entry and replace the redo branch.
-- `NumericInput` calls `onChange` on Enter and again on the blur that follows,
-  and on any blur even when the text is unchanged. A handler that is not
-  idempotent must drop the repeat. The tool editor's Size fields apply one
-  scale per render and ignore an unchanged reading.
+- The tool editor's Size fields scale on Enter only (`commitOnBlur={false}` on `NumericInput`). A drag
+  snapshots the outline on mousedown, before the blur that mousedown causes, so a
+  scale committed on blur would be overwritten by the drag while the photo matrix
+  and Detail base stayed scaled.
 - ToolEditor and BinEditor are split into orchestrator + toolbar + canvas sub-components. `CutoutOverlay` renders finger holes in both.
 
 ## AVX / ONNX requirement

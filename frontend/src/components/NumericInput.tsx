@@ -11,6 +11,8 @@ interface Props {
   className?: string
   disabled?: boolean
   title?: string
+  // false discards typed text on blur, so only Enter commits
+  commitOnBlur?: boolean
 }
 
 export function clampNumericValue(raw: string, min: number, max: number, step: number, fallback: number): number {
@@ -22,9 +24,12 @@ export function clampNumericValue(raw: string, min: number, max: number, step: n
 }
 
 // defers min/max clamping to blur or Enter -- lets users type freely
-export function NumericInput({ value, min, max, step = 1, onChange, className, disabled, title }: Props) {
+export function NumericInput({ value, min, max, step = 1, onChange, className, disabled, title, commitOnBlur = true }: Props) {
   const [text, setText] = useState(String(value))
   const committedRef = useRef(value)
+  // Enter and Escape settle the field themselves. the blur they cause must
+  // not commit the text a second time, or commit what Escape discarded
+  const settledRef = useRef(false)
 
   useEffect(() => {
     // sync display when value changes externally (e.g. slider drag)
@@ -56,14 +61,24 @@ export function NumericInput({ value, min, max, step = 1, onChange, className, d
       disabled={disabled}
       title={title}
       onChange={(e) => setText(e.target.value)}
-      onBlur={(e) => commit(e.target.value)}
+      onFocus={() => { settledRef.current = false }}
+      onBlur={(e) => {
+        if (settledRef.current) {
+          settledRef.current = false
+          return
+        }
+        if (commitOnBlur) commit(e.target.value)
+        else setText(String(committedRef.current))
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
           commit(e.currentTarget.value)
+          settledRef.current = true
           e.currentTarget.blur()
         }
         if (e.key === 'Escape') {
           setText(String(committedRef.current))
+          settledRef.current = true
           e.currentTarget.blur()
         }
       }}

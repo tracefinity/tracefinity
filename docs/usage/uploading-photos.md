@@ -29,7 +29,7 @@ To get the size right:
 
 1. Lay the object on its flattest side, so the traced edge is as low as it can be.
 2. Shoot from as far as is practical and zoom in until the page fills about half the frame.
-3. Measure one dimension of the object, open the tool in the [tool editor](tool-editor.md#transforms) and type that measurement into the matching Size field. The whole outline scales to fit.
+3. Measure one dimension of the object, open the tool in the [tool editor](tool-editor.md#transforms) and type that measurement into the matching Size field and press Enter. The whole outline scales to fit.
 
 One scale suits an object whose outline forms at a single height. Where parts of the outline sit at different heights, set the size from the main body and adjust the rest by moving vertices.
 

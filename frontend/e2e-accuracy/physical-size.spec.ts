@@ -212,7 +212,7 @@ test('typed outline width scales the saved tool and its STL pocket', async ({ pa
   await page.goto(`/tools/${toolId}`)
   // autosave ignores changes made in its first 100 ms, so let the page settle
   await page.waitForLoadState('networkidle')
-  const width = page.getByTitle('Outline width (mm). Scales the whole outline.')
+  const width = page.getByTitle(/^Outline width \(mm\)/)
   await expect(width).toBeVisible()
   // the editor can also save on load; wait for the save carrying the resized outline
   const saved = page.waitForResponse(response =>
