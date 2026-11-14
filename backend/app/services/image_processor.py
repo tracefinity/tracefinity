@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 PX_PER_MM = 10
 # a saliency mask this large is the sheet, not a tool lying on it (#213)
 TOOL_MASK_MAX_FRACTION = 0.4
+# a tool does not cover most of its sheet. a mask that fills the detected
+# sheet is the sheet, however small a share of the frame it is (#254)
+SHEET_MASK_MAX_COVERAGE = 0.5
+# grey levels from just inside a sheet edge to just outside it
+EDGE_STEP_MIN = 20
 
 
 def _quad_aspect_ratio(
@@ -153,11 +158,26 @@ class ImageProcessor:
                 masked = img.copy()
                 masked[tool_mask > 0] = [0, 0, 0]
                 corners = self._detect_paper(masked)
-                if corners:
+                if corners and not self._mask_fills(tool_mask, corners):
                     return corners
+                if corners:
+                    # these corners follow the mask, not the paper. they are
+                    # only kept when the sheet cannot be found without it
+                    logger.info("tool mask fills the detected sheet, likely the sheet itself; detecting unmasked")
+                    return self._detect_paper(img) or corners
                 logger.info("paper not found with tools masked; retrying unmasked")
 
         return self._detect_paper(img)
+
+    def _mask_fills(self, tool_mask: np.ndarray, corners: list[tuple[float, float]]) -> bool:
+        """true when the tool mask covers most of the quad the corners enclose."""
+        region = np.zeros(tool_mask.shape[:2], dtype=np.uint8)
+        cv2.fillPoly(region, [np.asarray(corners, dtype=np.int32)], 255)
+        area = cv2.countNonZero(region)
+        if not area:
+            return False
+        covered = cv2.countNonZero(region[tool_mask > 0])
+        return covered / area > SHEET_MASK_MAX_COVERAGE
 
     def _detect_paper(self, img: np.ndarray) -> list[tuple[float, float]] | None:
         """core paper detection on an image (possibly with tools blacked out)."""
@@ -178,7 +198,7 @@ class ImageProcessor:
 
         bright_result = self._detect_bright_region(img, gray, min_area, max_area, edge_margin, h, w)
         if bright_result:
-            return bright_result
+            return self._best_supported(img, gray, bright_result, min_area, max_area, edge_margin, h, w)
 
         strategies = [
             edge_candidates[0],
@@ -196,6 +216,53 @@ class ImageProcessor:
                 return result
 
         return None
+
+    def _best_supported(
+        self, img: np.ndarray, gray: np.ndarray, bright_result: list[tuple[float, float]],
+        min_area: float, max_area: float, margin: int, h: int, w: int,
+    ) -> list[tuple[float, float]]:
+        """the brightness result is a bounding rectangle, and bright floor
+        beside the sheet widens it. a closed contour of paper with more of
+        its boundary on the sheet's edge replaces it (#254)."""
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        best, best_support = bright_result, self._edge_support(blur, bright_result)
+        rivals = [
+            self._detect_saturation(img),
+            self._detect_adaptive_threshold(gray),
+            self._detect_canny(gray, 30, 100),
+        ]
+        for edges in rivals:
+            result = self._find_paper_contour(edges, min_area, max_area, margin, h, w)
+            if result and self._has_paper_fill(gray, result):
+                support = self._edge_support(blur, result)
+                if support > best_support:
+                    best, best_support = result, support
+        return best
+
+    def _edge_support(self, gray: np.ndarray, corners: list[tuple[float, float]], reach: int = 6) -> float:
+        """share of a quad's boundary on a step from brighter inside to darker
+        outside, sampled a few pixels either side of each edge."""
+        pts = np.asarray(corners, dtype=np.float64)
+        centre = pts.mean(axis=0)
+        h, w = gray.shape[:2]
+        hits = total = 0
+        for i in range(4):
+            a, b = pts[i], pts[(i + 1) % 4]
+            side = b - a
+            length = np.linalg.norm(side)
+            if length == 0:
+                continue
+            normal = np.array([-side[1], side[0]]) / length
+            if np.dot(centre - (a + b) / 2, normal) < 0:
+                normal = -normal
+            along = a + np.linspace(0.1, 0.9, 40)[:, None] * side
+            inside = np.rint(along + normal * reach).astype(int)
+            outside = np.rint(along - normal * reach).astype(int)
+            ok = np.all((inside >= 0) & (inside < (w, h)) & (outside >= 0) & (outside < (w, h)), axis=1)
+            step = gray[inside[ok, 1], inside[ok, 0]].astype(int) - gray[outside[ok, 1], outside[ok, 0]].astype(int)
+            hits += int(np.count_nonzero(step >= EDGE_STEP_MIN))
+            total += int(np.count_nonzero(ok))
+        return hits / total if total else 0.0
 
     def _has_paper_fill(self, gray: np.ndarray, corners: list[tuple[float, float]]) -> bool:
         """A strong tool outline must not displace a faint paper boundary."""

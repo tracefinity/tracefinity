@@ -93,7 +93,7 @@ Uses a two-stage approach: U2-Net Portable generates a rough tool mask (~0.17s),
 
 Closed quadrilateral contours from Canny edges take priority when at least 35% of their interior is bright. They preserve the sheet's perspective without treating an unevenly lit patch or adjacent bright tabletop as paper. The brightness check prevents a strong dark-tool outline from replacing a faint paper boundary.
 
-Brightness detection remains a fallback. It tries multiple thresholds (200, 190, 180), picks the largest valid candidate, and validates against bounding-rectangle aspect ratio (0.55-0.85, covering A-series, Letter, and Tabloid) and bright fill ratio (at least 35%). A convex hull merge step handles cases where the paper is split into fragments. Its bounding rectangle approximates the sheet and may need manual corner adjustment. A quadrilateral fitted to a brightness region can also cut across shadows; do not assume its vertices are the physical paper corners.
+Brightness detection remains a fallback. It tries multiple thresholds (200, 190, 180), picks the largest valid candidate, and validates against bounding-rectangle aspect ratio (0.55-0.85, covering A-series, Letter, and Tabloid) and bright fill ratio (at least 35%). A convex hull merge step handles cases where the paper is split into fragments. Its bounding rectangle approximates the sheet and may need manual corner adjustment. A quadrilateral fitted to a brightness region can also cut across shadows; do not assume its vertices are the physical paper corners. Bright floor beside the sheet widens the rectangle, so when brightness succeeds, closed contours from the saturation, adaptive-threshold and low-threshold Canny strategies that pass the same fill check are compared with it. The candidate with the largest share of its boundary on a step from brighter inside to darker outside is returned (#254).
 
 `test_paper_corners_photos.py` checks the visible sheet corners in four
 maintainer photos. The synthetic API and browser tests measure the resulting
@@ -108,7 +108,7 @@ bounding dimensions alone cannot pass the fit test.
 
 Difficult cases: hands in the frame, sticks/rods crossing the paper, very heavy tool overflow with minimal visible paper. These may need manual corner adjustment.
 
-On a bright sheet against a dark background U2-Net returns the sheet, not the tool. A mask over `TOOL_MASK_MAX_FRACTION` of the frame is ignored, and a masked miss retries unmasked; before that the upload came back with no corners at all (#213).
+On a bright sheet against a dark background U2-Net returns the sheet, not the tool. A mask over `TOOL_MASK_MAX_FRACTION` of the frame is ignored, and a masked miss retries unmasked; before that the upload came back with no corners at all (#213). A sheet that is small in the frame gives a mask under that share. Corners enclosing an area the mask mostly fills (`SHEET_MASK_MAX_COVERAGE`) follow the mask, not the paper, so detection reruns unmasked and keeps them only if that finds nothing (#254).
 
 ## Saliency crop
 

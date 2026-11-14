@@ -16,6 +16,7 @@ from app.services.image_processor import ImageProcessor
         ("rafter-square.jpg", [(305, 271), (1259, 263), (1290, 1626), (306, 1633)]),
         ("shadowed-pliers.jpg", [(222, 472), (1191, 429), (1254, 1807), (273, 1842)]),
         ("line-level.jpg", [(181, 266), (1265, 255), (1293, 1794), (189, 1807)]),
+        ("distant-sheet.jpg", [(386, 586), (1043, 650), (997, 1111), (347, 1051)]),
     ],
 )
 def test_detected_corners_follow_the_visible_sheet(filename, expected):
