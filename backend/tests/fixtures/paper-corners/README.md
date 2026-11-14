@@ -9,6 +9,7 @@ including location metadata.
 | `rafter-square.jpg` | `IMG_2786.jpeg` | Bright tabletop joins the paper region and moves the proposed bottom edge beyond the sheet. |
 | `shadowed-pliers.jpg` | `IMG_2904.jpeg` | A brightness contour clips a shaded paper corner. |
 | `line-level.jpg` | `IMG_2780.jpeg` | A brightness contour places the top edge inside the shaded sheet, stretching the traced level. |
+| `distant-sheet.jpg` | `IMG_0742.HEIC` | The sheet covers a tenth of the frame on a light wooden floor. The brightness rectangle takes in floor beside it, and a saliency mask of the sheet moves the corners with it. The object in the photo is painted over. |
 
 `test_paper_corners_photos.py` compares detected corners with manually annotated
 visible sheet corners. These are calibration regressions, not claims about the
