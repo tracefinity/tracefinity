@@ -112,7 +112,7 @@ On a bright sheet against a dark background U2-Net returns the sheet, not the to
 
 ## Saliency crop
 
-Local and remote saliency tracers run on the paper rect from `_detect_paper_rect`, not the full corrected image, because on the full image the bright sheet is the salient object. Two traps follow. A tool crossing the sheet splits the bright region, so fragments that line up with the sheet across a tool-sized gap are merged before cropping. A tool overhanging the sheet is outside the crop, so the crop grows on any side the mask touches and runs again; without that the mask is cut flat at the paper edge (#212). Gemini does not crop.
+Local and remote saliency tracers run on the paper rect from `_detect_paper_rect`, not the full corrected image, because on the full image the bright sheet is the salient object. Two traps follow. A tool crossing the sheet splits the bright region, so fragments that line up with the sheet across a tool-sized gap are merged before cropping. A tool overhanging the sheet is outside the crop, so the crop grows on any side the mask touches and runs again; without that the mask is cut flat at the paper edge (#212). The sheet and the smallest traced region are sized from the paper size and scale factor, not as a share of the frame: a sheet photographed from further away covers a few percent of the corrected image, and a frame-share floor discards it (#253). Gemini does not crop.
 
 ## Gemini mask quirks
 

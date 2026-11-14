@@ -70,12 +70,21 @@ _NEEDS_ALIGNMENT = {"gemini-2.5-flash-image"}
 # alignment: one is geometry, the other phrasing (#223)
 _STENCIL_PROMPT_MODELS = {"gemini-2.5-flash-image"}
 
-# saliency crop: bright fragments smaller than this share of the image are
+# saliency crop: bright fragments smaller than this share of the sheet are
 # noise, and fragments of one sheet split by a tool sit no further apart
 # than this share of the sheet's long side. they also share the sheet's
 # brightness and saturation, which keeps a light table beside the sheet
 # out of the crop (#212)
 PAPER_FRAGMENT_MIN_FRACTION = 0.005
+# a bright region smaller than this share of the sheet is not the sheet.
+# both shares are of the sheet's own area when the caller knows it and of
+# the frame otherwise: a distant sheet is a small part of the frame (#253)
+PAPER_RECT_MIN_FRACTION = 0.1
+# a traced region under this size is noise. the pixel figure is the
+# long-standing floor. the physical one takes over as the sheet shrinks in
+# the frame, where a real tool covers few pixels (#253)
+MIN_TOOL_AREA_PX = 5000
+MIN_TOOL_AREA_MM2 = 150.0
 PAPER_FRAGMENT_MAX_GAP = 0.25
 PAPER_FRAGMENT_MAX_GRAY_DIFF = 25
 PAPER_FRAGMENT_MAX_SAT_DIFF = 20
@@ -86,6 +95,13 @@ PAPER_FRAGMENT_MAX_SAT_DIFF = 20
 CROP_GROW_FRACTION = 0.25
 CROP_GROW_ROUNDS = 2
 CROP_GROW_MAX_AREA_RATIO = 4.0
+
+
+def _min_tool_area_px(mm_per_px: float | None) -> int:
+    """smallest traced region kept, in pixels of the corrected image."""
+    if not mm_per_px:
+        return MIN_TOOL_AREA_PX
+    return min(MIN_TOOL_AREA_PX, round(MIN_TOOL_AREA_MM2 / mm_per_px ** 2))
 
 
 def _fragment_tone(contour: np.ndarray, gray: np.ndarray, sat: np.ndarray) -> tuple[float, float]:
@@ -187,19 +203,28 @@ class AITracer:
         api_key: str,
         mask_output_path: str | None = None,
         before_mask_write: Callable[[], None] | None = None,
+        sheet_mm: tuple[float, float] | None = None,
+        mm_per_px: float | None = None,
     ) -> tuple[list[Polygon], str | None]:
         """trace tools via local model or gemini mask generation.
 
         before_mask_write runs just before the mask lands on disk; raising
         from it aborts the write. the caller uses it to stop the mask being
         written (and the user dir recreated) when the owning user was
-        deleted while the model call was in flight (issue #160)."""
+        deleted while the model call was in flight (issue #160).
+
+        sheet_mm and mm_per_px are the paper size and the corrected image's
+        scale. with them the sheet and the tools are measured at their real
+        size, not as a share of the frame."""
         import os
         if os.environ.get("E2E_TEST_MODE"):
             return self._mock_trace(mask_output_path, before_mask_write)
 
         if self.uses_saliency:
-            mask_path = await self._generate_mask_saliency(image_path, mask_output_path, before_mask_write)
+            sheet_area_px = sheet_mm[0] * sheet_mm[1] / mm_per_px ** 2 if sheet_mm and mm_per_px else None
+            mask_path = await self._generate_mask_saliency(
+                image_path, mask_output_path, before_mask_write, sheet_area_px
+            )
         else:
             mask_path = await self._generate_mask_gemini(image_path, api_key, mask_output_path, before_mask_write)
 
@@ -207,7 +232,7 @@ class AITracer:
             return [], None
 
         align = not self.uses_saliency and self.model in _NEEDS_ALIGNMENT
-        contours = self._trace_mask(mask_path, image_path, align=align)
+        contours = self._trace_mask(mask_path, image_path, min_area=_min_tool_area_px(mm_per_px), align=align)
         if not contours:
             return [], mask_output_path
 
@@ -272,16 +297,21 @@ class AITracer:
             raise ValueError(f"unsupported saliency model: {name}")
 
     @staticmethod
-    def _detect_paper_rect(img: np.ndarray) -> tuple[int, int, int, int] | None:
+    def _detect_paper_rect(
+        img: np.ndarray, sheet_area_px: float | None = None
+    ) -> tuple[int, int, int, int] | None:
         """find the axis-aligned paper rect in a corrected image.
         paper = bright AND desaturated. erodes before bounding so the rect
         lands strictly inside the paper, not on the fringe. a tool crossing
         the sheet splits it into fragments; those are merged back when they
-        line up with the sheet across a tool-sized gap (#212)."""
+        line up with the sheet across a tool-sized gap (#212).
+        sheet_area_px is the sheet's area at the image's scale. the frame's
+        area stands in when it is unknown."""
         h, w = img.shape[:2]
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         s_chan = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)[:, :, 1]
-        min_fragment = (h * w) * PAPER_FRAGMENT_MIN_FRACTION
+        reference_area = sheet_area_px if sheet_area_px else h * w
+        min_fragment = reference_area * PAPER_FRAGMENT_MIN_FRACTION
 
         best: tuple[int, int, int, int, int] | None = None
         for thresh_val in (200, 190, 180, 170):
@@ -295,7 +325,7 @@ class AITracer:
             if not fragments:
                 continue
             area, (x, y, bw, bh) = _merge_paper_fragments(fragments, gray, s_chan)
-            if area < (h * w) * 0.1:
+            if area < reference_area * PAPER_RECT_MIN_FRACTION:
                 continue
             if bw < 100 or bh < 100:
                 continue
@@ -368,6 +398,7 @@ class AITracer:
         image_path: str,
         output_path: str | None = None,
         before_mask_write: Callable[[], None] | None = None,
+        sheet_area_px: float | None = None,
     ) -> str | None:
         """generate a foreground mask using a saliency model (local or remote).
 
@@ -381,7 +412,7 @@ class AITracer:
         pil_img = Image.open(image_path).convert("RGB")
         np_bgr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
 
-        rect = self._detect_paper_rect(np_bgr)
+        rect = self._detect_paper_rect(np_bgr, sheet_area_px)
         if rect is not None:
             full = await self._saliency_within(pil_img, rect)
         else:
@@ -571,7 +602,7 @@ class AITracer:
         self,
         mask_path: str,
         original_path: str,
-        min_area: int = 5000,
+        min_area: int = MIN_TOOL_AREA_PX,
         align: bool = False,
     ) -> list[tuple[list[tuple[float, float]], list[list[tuple[float, float]]]]]:
         """trace contours from mask image. returns list of (exterior, [holes])."""

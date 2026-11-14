@@ -37,7 +37,7 @@ def _run(tmp_path, monkeypatch, img):
         return np.where(arr < 80, 255, 0).astype(np.uint8)
 
     monkeypatch.setattr(t, "_saliency_on_image", fake_saliency)
-    monkeypatch.setattr(AITracer, "_detect_paper_rect", staticmethod(lambda _img: SHEET_RECT))
+    monkeypatch.setattr(AITracer, "_detect_paper_rect", staticmethod(lambda _img, _sheet_area=None: SHEET_RECT))
     out = asyncio.run(t._generate_mask_saliency(str(path), output_path=str(tmp_path / "mask.png")))
     mask = cv2.imread(out, cv2.IMREAD_GRAYSCALE)
     return mask, crops
@@ -80,7 +80,7 @@ def test_ballooning_mask_after_growth_keeps_previous_crop(tmp_path, monkeypatch)
         return np.full(arr.shape, 255, np.uint8)
 
     monkeypatch.setattr(t, "_saliency_on_image", fake_saliency)
-    monkeypatch.setattr(AITracer, "_detect_paper_rect", staticmethod(lambda _img: SHEET_RECT))
+    monkeypatch.setattr(AITracer, "_detect_paper_rect", staticmethod(lambda _img, _sheet_area=None: SHEET_RECT))
     out = asyncio.run(t._generate_mask_saliency(str(path), output_path=str(tmp_path / "mask.png")))
     mask = cv2.imread(out, cv2.IMREAD_GRAYSCALE)
 
