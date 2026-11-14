@@ -176,7 +176,7 @@ export default function BinPage() {
   }), [placedTools, config, textLabels, smoothedToolIds, smoothLevels])
 
   const doGenerate = useCallback(async () => {
-    if (placedTools.length === 0 || gridLimitError) return
+    if (gridLimitError) return
 
     const key = generationKey
     if (key === lastGenerateRef.current) return
@@ -223,7 +223,7 @@ export default function BinPage() {
         abortRef.current = null
       }
     }
-  }, [binId, placedTools.length, generationKey, gridLimitError, flushSave])
+  }, [binId, generationKey, gridLimitError, flushSave])
 
   useEffect(() => {
     doGenerateRef.current = doGenerate
@@ -611,8 +611,10 @@ export default function BinPage() {
               <div className="flex items-center gap-2 text-[11px] text-text-muted">
                 {generating && <Loader2 className="w-3 h-3 animate-spin text-accent" />}
                 <span>{config.grid_x}x{config.grid_y} Grid ({binW} x {binH} mm)</span>
-                {placedTools.length > 0 && (
+                {placedTools.length > 0 ? (
                   <span>· {placedTools.length} tool{placedTools.length !== 1 ? 's' : ''} placed</span>
+                ) : (
+                  <span>· blank bin</span>
                 )}
               </div>
             </div>
@@ -648,8 +650,6 @@ export default function BinPage() {
                     </>
                   ) : gridLimitError ? (
                     <span className="max-w-xs px-4 text-center">Layout is too large to generate. Your edits are still saved.</span>
-                  ) : placedTools.length === 0 ? (
-                    <span>Add tools to see preview</span>
                   ) : (
                     <span>Preview will appear here</span>
                   )}
