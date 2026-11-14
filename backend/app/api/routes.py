@@ -2143,6 +2143,8 @@ async def update_bin(request: Request, bin_id: str, req: BinUpdateRequest, user_
         if req.project_id and not project_store.get(req.project_id):
             raise HTTPException(status_code=404, detail=f"project {req.project_id} not found")
         bin_data.project_id = req.project_id
+    if req.auto_size is not None:
+        bin_data.auto_size = req.auto_size
     if req.bin_config is not None:
         bin_data.bin_config = req.bin_config
     if req.placed_tools is not None:

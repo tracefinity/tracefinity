@@ -728,6 +728,7 @@ class BinModel(BaseModel):
     id: str
     name: str | None = None
     project_id: str | None = None
+    auto_size: bool = True
     bin_config: BinConfig = BinConfig()
     placed_tools: list[PlacedTool] = []
     text_labels: list[TextLabel] = []
@@ -761,6 +762,7 @@ class BinListResponse(BaseModel):
 class BinUpdateRequest(BaseModel):
     name: str | None = None
     project_id: str | None = None
+    auto_size: bool | None = None
     bin_config: BinConfig | None = None
     placed_tools: list[PlacedTool] | None = None
     text_labels: list[TextLabel] | None = None
