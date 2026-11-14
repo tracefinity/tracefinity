@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 from app.auth import get_user_id, require_instance_admin
 from app.config import ensure_user_dirs, settings
-from app.constants import GF_GRID, MAX_BIN_GRID_CELLS, MAX_BIN_GRID_UNITS
+from app.constants import GF_GRID, MAX_BIN_GRID_CELLS, MAX_BIN_GRID_UNITS, PAPER_SIZES
 from app.models.schemas import (
     DEFAULT_SKETCH_NAME,
     BinConfig,
@@ -1184,6 +1184,8 @@ async def trace_tools(
             # abort the mask write (and the dir recreation it implies) if
             # the user was deleted while the model call was in flight
             before_mask_write=user_sessions.ensure_open,
+            sheet_mm=PAPER_SIZES[session.paper_size] if session.paper_size else None,
+            mm_per_px=session.scale_factor,
         )
     except StoreClosedError:
         raise
