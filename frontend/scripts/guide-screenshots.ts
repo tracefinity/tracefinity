@@ -634,6 +634,8 @@ const shots: Shot[] = [
       await page.getByText('pipe wrench', { exact: true }).click()
       await page.getByText('1 of 1 selected').waitFor()
       await page.mouse.move(0, 300)
+      // the selected outline's fill and stroke ease in over 150 ms
+      await page.waitForTimeout(300)
       const photo = page.getByRole('img', { name: 'Corrected' })
       return photo.locator("xpath=ancestor::div[contains(@class, 'rounded-lg')][1]").screenshot()
     },
