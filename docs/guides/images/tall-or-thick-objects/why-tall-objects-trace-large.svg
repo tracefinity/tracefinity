@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Why tall objects trace large</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- table and paper -->
+  <line x1="20" y1="290" x2="620" y2="290" stroke="#2a3344" stroke-width="2"/>
+  <rect x="90" y="284" width="460" height="6" fill="#e8eaed"/>
+
+  <!-- object -->
+  <rect x="250" y="200" width="140" height="84" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+
+  <!-- phone, lens facing down -->
+  <rect x="285" y="25" width="70" height="14" rx="4" fill="#1c2230" stroke="#8b95a5" stroke-width="2"/>
+  <circle cx="320" cy="40" r="4" fill="#3b9ece"/>
+
+  <!-- lines of sight past the top edge, landing on the paper -->
+  <line x1="320" y1="40" x2="213.25" y2="284" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="320" y1="40" x2="426.75" y2="284" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="213.25" y1="284" x2="250" y2="284" stroke="#3b9ece" stroke-width="5"/>
+  <line x1="390" y1="284" x2="426.75" y2="284" stroke="#3b9ece" stroke-width="5"/>
+
+  <!-- camera height -->
+  <line x1="60" y1="40" x2="280" y2="40" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="60" y1="46" x2="60" y2="278" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M54 50 L60 40 L66 50 M54 274 L60 284 L66 274" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="74" y="160" font-size="18" fill="#8b95a5">camera height</text>
+
+  <!-- edge height -->
+  <line x1="396" y1="200" x2="486" y2="200" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="478" y1="206" x2="478" y2="278" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M472 210 L478 200 L484 210 M472 274 L478 284 L484 274" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="490" y="248" font-size="18" fill="#8b95a5">edge height</text>
+
+  <!-- real and traced size -->
+  <path d="M250 300 L250 312 M250 306 L390 306 M390 300 L390 312" fill="none" stroke="#e8eaed" stroke-width="2"/>
+  <text x="440" y="312" font-size="18" fill="#e8eaed">real size</text>
+  <path d="M213.25 324 L213.25 336 M213.25 330 L426.75 330 M426.75 324 L426.75 336" fill="none" stroke="#3b9ece" stroke-width="2"/>
+  <text x="440" y="336" font-size="18" fill="#3b9ece">traced size</text>
+</svg>

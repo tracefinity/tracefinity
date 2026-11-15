@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Raise Lip cross-section</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- lower bin, 4u with Raise Lip 2u -->
+  <polygon points="154,140.32 161.03,147.35 161.03,154.01 163.62,156.6 163.62,208.4 346.03,208.4 346.03,282.4 442.23,282.4 442.23,208.4 453.33,208.4 453.33,156.6 455.92,154.01 455.92,147.35 462.95,140.32 462.95,294.43 455,302.38 455,309.04 452.04,312 320.32,312 317.36,309.04 317.36,302.38 309.4,294.43 307.55,294.43 299.6,302.38 299.6,309.04 296.63,312 164.91,312 161.95,309.04 161.95,302.38 154,294.43" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- bin stacked on top, feet in the lip -->
+  <polygon points="154,63.91 161.03,70.94 161.03,77.6 163.62,80.19 453.33,80.19 455.92,77.6 455.92,70.94 462.95,63.91 462.95,140.32 455,148.28 455,154.94 452.04,157.9 320.32,157.9 317.36,154.94 317.36,148.28 309.4,140.32 307.55,140.32 299.6,148.28 299.6,154.94 296.63,157.9 164.91,157.9 161.95,154.94 161.95,148.28 154,140.32" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2" stroke-linejoin="round"/>
+  <text x="308.48" y="116.35" font-size="18" fill="#8b95a5" text-anchor="middle">bin on top</text>
+
+  <!-- tool in its pocket -->
+  <rect x="349.73" y="171.4" width="88.8" height="111" rx="11.1" fill="#1c2230" stroke="#e8eaed" stroke-width="2"/>
+  <text x="394.13" y="236.6" font-size="18" fill="#e8eaed" text-anchor="middle">tool</text>
+
+  <!-- heights of the lower bin -->
+  <line x1="164.91" y1="312" x2="132" y2="312" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="163.62" y1="208.4" x2="132" y2="208.4" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="163.62" y1="156.6" x2="132" y2="156.6" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="154" y1="140.32" x2="132" y2="140.32" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="138" y1="214.4" x2="138" y2="306" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M144 218.4 L138 208.4 L132 218.4 M132 302 L138 312 L144 302" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="138" y1="162.6" x2="138" y2="202.4" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M144 166.6 L138 156.6 L132 166.6 M132 198.4 L138 208.4 L144 198.4" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="138" y1="124.32" x2="138" y2="156.6" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M132 130.32 L138 140.32 L144 130.32" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="126" y="256.2" font-size="18" fill="#8b95a5" text-anchor="end">top face</text>
+  <text x="126" y="278.2" font-size="18" fill="#8b95a5" text-anchor="end">28 mm (4u)</text>
+  <text x="126" y="184.42" font-size="18" fill="#8b95a5" text-anchor="end">Raise Lip 2u</text>
+  <text x="126" y="206.42" font-size="18" fill="#8b95a5" text-anchor="end">14 mm</text>
+  <text x="126" y="131.88" font-size="18" fill="#8b95a5" text-anchor="end">stacking lip</text>
+  <text x="126" y="153.88" font-size="18" fill="#8b95a5" text-anchor="end">4.4 mm</text>
+
+  <!-- pocket, tool and the space above it -->
+  <line x1="442.23" y1="282.4" x2="484.95" y2="282.4" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="453.33" y1="208.4" x2="484.95" y2="208.4" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="440.38" y1="171.4" x2="484.95" y2="171.4" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="452.04" y1="157.9" x2="484.95" y2="157.9" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="478.95" y1="214.4" x2="478.95" y2="276.4" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M484.95 218.4 L478.95 208.4 L472.95 218.4 M472.95 272.4 L478.95 282.4 L484.95 272.4" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="478.95" y1="177.4" x2="478.95" y2="202.4" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M484.95 181.4 L478.95 171.4 L472.95 181.4 M472.95 198.4 L478.95 208.4 L484.95 198.4" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="478.95" y1="141.9" x2="478.95" y2="171.4" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M472.95 147.9 L478.95 157.9 L484.95 147.9" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="490.95" y="241.4" font-size="18" fill="#8b95a5">Cutout Depth</text>
+  <text x="490.95" y="263.4" font-size="18" fill="#8b95a5">20 mm</text>
+  <text x="490.95" y="195.9" font-size="18" fill="#8b95a5">10 mm proud</text>
+  <text x="490.95" y="170.65" font-size="18" fill="#8b95a5">3.65 mm spare</text>
+
+  <!-- clear space under the bin on top -->
+  <line x1="178.05" y1="163.9" x2="178.05" y2="202.4" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M184.05 167.9 L178.05 157.9 L172.05 167.9 M172.05 198.4 L178.05 208.4 L184.05 198.4" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="190.05" y="190.15" font-size="18" fill="#e8eaed">13.65 mm clear</text>
+
+  <!-- feet settle into the lip -->
+  <line x1="466.95" y1="148.46" x2="508.95" y2="114.8" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="514.95" y="96.36" font-size="18" fill="#8b95a5">settles</text>
+  <text x="514.95" y="118.36" font-size="18" fill="#8b95a5">0.35 mm</text>
+</svg>

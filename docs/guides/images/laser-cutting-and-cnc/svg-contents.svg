@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>What the SVG export contains</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- page: the outline's bounding box plus 1 mm each side -->
+  <rect x="60" y="101" width="520" height="112" fill="#e8eaed" stroke="#8b95a5" stroke-width="2" stroke-dasharray="7 5"/>
+
+  <!-- outline, filled black, no stroke -->
+  <path d="M64 137 A52 52 0 0 1 161.48 141 L482.75 141 A48 48 0 1 1 482.75 173 L161.48 173 A52 52 0 0 1 64 177 L120 177 A20 20 0 0 0 120 137 Z" fill="#12161d"/>
+
+  <!-- hole, a separate white shape on top -->
+  <circle cx="528" cy="157" r="22" fill="#e8eaed"/>
+
+  <!-- labels -->
+  <text x="60" y="67" font-size="18" fill="#e8eaed">outline: filled, no stroke</text>
+  <line x1="112" y1="77" x2="112" y2="125" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="580" y="67" font-size="18" fill="#e8eaed" text-anchor="end">hole: separate shape</text>
+  <line x1="528" y1="77" x2="528" y2="147" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="82" y1="217" x2="82" y2="233" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="60" y="255" font-size="18" fill="#8b95a5">page edge: outline + 1 mm each side</text>
+  <text x="60" y="303" font-size="18" fill="#e8eaed">sizes in mm</text>
+  <text x="320" y="303" font-size="18" fill="#e8eaed" text-anchor="middle">no clearance</text>
+  <text x="580" y="303" font-size="18" fill="#e8eaed" text-anchor="end">no finger holes</text>
+</svg>

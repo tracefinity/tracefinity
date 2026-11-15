@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Colour change for text labels</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- raised text: first colour below the change -->
+  <polygon points="30,266 294,266 294,186.8 30,186.8" fill="#0d2a3a"/>
+
+  <!-- raised text: second colour above the change, lip included -->
+  <polygon points="294,186.8 236.8,186.8 252.2,171.4 252.2,131.8 294,90" fill="#3b9ece"/>
+  <rect x="104.8" y="173.6" width="17.6" height="13.2" fill="#3b9ece"/>
+  <rect x="144.4" y="173.6" width="17.6" height="13.2" fill="#3b9ece"/>
+  <rect x="184" y="173.6" width="17.6" height="13.2" fill="#3b9ece"/>
+
+  <!-- raised text: exposed surfaces -->
+  <polyline points="30,186.8 104.8,186.8 104.8,173.6 122.4,173.6 122.4,186.8 144.4,186.8 144.4,173.6 162,173.6 162,186.8 184,186.8 184,173.6 201.6,173.6 201.6,186.8 236.8,186.8 252.2,171.4 252.2,131.8 294,90 294,266" fill="none" stroke="#3b9ece" stroke-width="2"/>
+
+  <!-- raised text: colour change -->
+  <line x1="18" y1="186.8" x2="308" y2="186.8" stroke="#e8eaed" stroke-width="2" stroke-dasharray="7 5"/>
+
+  <!-- recessed text: first colour below the change -->
+  <polygon points="344,266 608,266 608,200 344,200" fill="#0d2a3a"/>
+
+  <!-- recessed text: second colour above the change, lip included -->
+  <polygon points="608,186.8 550.8,186.8 566.2,171.4 566.2,131.8 608,90" fill="#3b9ece"/>
+  <rect x="344" y="186.8" width="74.8" height="13.2" fill="#3b9ece"/>
+  <rect x="436.4" y="186.8" width="22" height="13.2" fill="#3b9ece"/>
+  <rect x="476" y="186.8" width="22" height="13.2" fill="#3b9ece"/>
+  <rect x="515.6" y="186.8" width="35.2" height="13.2" fill="#3b9ece"/>
+
+  <!-- recessed text: exposed surfaces -->
+  <polyline points="344,186.8 418.8,186.8 418.8,200 436.4,200 436.4,186.8 458.4,186.8 458.4,200 476,200 476,186.8 498,186.8 498,200 515.6,200 515.6,186.8 550.8,186.8 566.2,171.4 566.2,131.8 608,90 608,266" fill="none" stroke="#3b9ece" stroke-width="2"/>
+
+  <!-- recessed text: colour change -->
+  <line x1="332" y1="200" x2="622" y2="200" stroke="#e8eaed" stroke-width="2" stroke-dasharray="7 5"/>
+
+  <!-- labels -->
+  <text x="153.2" y="159.6" font-size="18" fill="#e8eaed" text-anchor="middle">raised text</text>
+  <text x="467.2" y="170.8" font-size="18" fill="#e8eaed" text-anchor="middle">recessed text</text>
+  <text x="294" y="76" font-size="18" fill="#8b95a5" text-anchor="end">stacking lip</text>
+  <text x="44" y="211.8" font-size="18" fill="#e8eaed">colour change</text>
+  <text x="44" y="234.8" font-size="18" fill="#8b95a5">top surface, 28 mm</text>
+  <text x="358" y="225" font-size="18" fill="#e8eaed">colour change</text>
+  <text x="358" y="248" font-size="18" fill="#8b95a5">bottom of the letters</text>
+
+  <!-- legend -->
+  <rect x="161.23" y="311" width="18" height="18" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+  <text x="189.23" y="326" font-size="18" fill="#8b95a5">first colour</text>
+  <rect x="326.21" y="311" width="18" height="18" fill="#3b9ece"/>
+  <text x="354.21" y="326" font-size="18" fill="#8b95a5">second colour</text>
+</svg>

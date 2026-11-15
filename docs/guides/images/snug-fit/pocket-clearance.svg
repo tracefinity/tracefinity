@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Pocket clearance</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- bin, Height 2u, cut through one pocket -->
+  <polygon points="168,165.2 186.05,183.25 186.05,200.35 192.7,207 222.62,207 251.12,235.5 251.12,273.5 479.12,273.5 479.12,235.5 507.62,207 537.55,207 544.2,200.35 544.2,183.25 562.25,165.2 562.25,294.88 541.83,315.3 541.83,332.4 534.22,340 196.02,340 188.42,332.4 188.42,315.3 168,294.88" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- tool lying on the pocket floor -->
+  <rect x="279.62" y="240.25" width="171" height="33.25" rx="14.25" fill="#1c2230" stroke="#e8eaed" stroke-width="2"/>
+  <text x="365.12" y="263.38" font-size="18" fill="#e8eaed" text-anchor="middle">tool</text>
+
+  <!-- Clearance on both sides -->
+  <text x="365.12" y="167" font-size="18" fill="#8b95a5" text-anchor="middle">Clearance 1.0 mm</text>
+  <line x1="257.12" y1="256.88" x2="273.62" y2="256.88" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M261.12 250.88 L251.12 256.88 L261.12 262.88 M269.62 262.88 L279.62 256.88 L269.62 250.88" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="286.22" y1="175" x2="265.38" y2="251.88" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="456.62" y1="256.88" x2="473.12" y2="256.88" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M460.62 250.88 L450.62 256.88 L460.62 262.88 M469.12 262.88 L479.12 256.88 L469.12 250.88" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="444.22" y1="175" x2="464.88" y2="251.88" stroke="#8b95a5" stroke-width="1.5"/>
+
+  <!-- Cutout Depth -->
+  <line x1="251.12" y1="273.5" x2="146" y2="273.5" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="168" y1="207" x2="146" y2="207" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="152" y1="213" x2="152" y2="267.5" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M158 217 L152 207 L146 217 M146 263.5 L152 273.5 L158 263.5" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="140" y="236.25" font-size="18" fill="#8b95a5" text-anchor="end">Cutout</text>
+  <text x="140" y="258.25" font-size="18" fill="#8b95a5" text-anchor="end">Depth</text>
+
+  <!-- Cutout Chamfer -->
+  <text x="244.88" y="149" font-size="18" fill="#8b95a5" text-anchor="end">Cutout Chamfer</text>
+  <line x1="236.88" y1="157" x2="236.88" y2="218.25" stroke="#8b95a5" stroke-width="1.5"/>
+
+  <!-- inset: top view, pocket edge round the outline -->
+  <rect x="390" y="14" width="236" height="126" rx="8" fill="#1c2230"/>
+  <path d="M426 47 L533.72 47 A33 33 0 0 1 592.46 51.31 L596.5 61 L561 61 L561 67 L596.5 67 L592.46 76.69 A33 33 0 0 1 533.72 81 L426 81 A17 17 0 0 1 426 47 Z" fill="none" stroke="#3b9ece" stroke-width="2" stroke-dasharray="6 4"/>
+  <path d="M426 54 L538 54 A26 26 0 0 1 586 54 L554 54 L554 74 L586 74 A26 26 0 0 1 538 74 L426 74 A10 10 0 0 1 426 54 Z" fill="none" stroke="#e8eaed" stroke-width="2"/>
+  <line x1="488" y1="31" x2="488" y2="97" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M482 37 L488 47 L494 37 M494 91 L488 81 L482 91" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="508" y="126" font-size="18" fill="#8b95a5" text-anchor="middle">outline + 2 x Clearance</text>
+</svg>

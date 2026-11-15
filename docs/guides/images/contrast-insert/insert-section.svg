@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Contrast insert cross-section</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- bin, pocket deepened by Insert Height -->
+  <polygon points="176,64 195,83 195,101 202,108 243.5,108 243.5,203 523.5,203 523.5,108 565,108 572,101 572,83 591,64 591,270.5 569.5,292 569.5,310 561.5,318 205.5,318 197.5,310 197.5,292 176,270.5" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- insert on the pocket floor, second colour -->
+  <rect x="261.5" y="178" width="244" height="25" fill="#3b9ece"/>
+  <text x="383.5" y="197" font-size="18" fill="#12161d" text-anchor="middle">insert</text>
+
+  <!-- tool lying on the insert -->
+  <rect x="283.5" y="133" width="200" height="45" rx="15" fill="#1c2230" stroke="#e8eaed" stroke-width="2"/>
+  <text x="383.5" y="162" font-size="18" fill="#e8eaed" text-anchor="middle">tool</text>
+
+  <!-- Insert Fit, left: gap between the insert and the wall -->
+  <text x="252.5" y="78" font-size="18" fill="#8b95a5" text-anchor="middle">Insert Fit</text>
+  <line x1="252.5" y1="86" x2="252.5" y2="190.5" stroke="#8b95a5" stroke-width="1.5"/>
+
+  <!-- Clearance, right: gap between the tool and the wall -->
+  <line x1="489.5" y1="155.5" x2="517.5" y2="155.5" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M493.5 149.5 L483.5 155.5 L493.5 161.5 M513.5 161.5 L523.5 155.5 L513.5 149.5" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="503.5" y="78" font-size="18" fill="#8b95a5" text-anchor="middle">Clearance</text>
+  <line x1="503.5" y1="86" x2="503.5" y2="150.5" stroke="#8b95a5" stroke-width="1.5"/>
+
+  <!-- Cutout Depth and Insert Height, left -->
+  <line x1="176" y1="108" x2="154" y2="108" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="243.5" y1="178" x2="154" y2="178" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="243.5" y1="203" x2="154" y2="203" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="160" y1="114" x2="160" y2="172" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M166 118 L160 108 L154 118 M154 168 L160 178 L166 168" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="160" y1="178" x2="160" y2="219" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M166 213 L160 203 L154 213" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="148" y="149.5" font-size="18" fill="#8b95a5" text-anchor="end">Cutout Depth</text>
+  <text x="148" y="197" font-size="18" fill="#8b95a5" text-anchor="end">Insert Height</text>
+</svg>

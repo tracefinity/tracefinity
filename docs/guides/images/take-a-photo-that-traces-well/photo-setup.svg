@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Taking the photo from above</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- table, sheet and a spanner lying on it -->
+  <line x1="16" y1="311" x2="356" y2="311" stroke="#2a3344" stroke-width="2"/>
+  <rect x="169.57" y="305" width="112.86" height="6" fill="#e8eaed"/>
+  <rect x="188" y="300" width="76" height="5" rx="2" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+
+  <!-- phone held flat, lens facing down -->
+  <rect x="191" y="62" width="70" height="14" rx="4" fill="#1c2230" stroke="#8b95a5" stroke-width="2"/>
+  <circle cx="226" cy="77" r="4" fill="#3b9ece"/>
+
+  <!-- edges of the view: through the sheet plane half a sheet beyond each end, on to the table -->
+  <line x1="226" y1="77" x2="110.17" y2="311" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="226" y1="77" x2="341.83" y2="311" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+
+  <!-- lens height -->
+  <line x1="96.17" y1="77" x2="186" y2="77" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="96.17" y1="83" x2="96.17" y2="299" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M102.17 87 L96.17 77 L90.17 87 M90.17 295 L96.17 305 L102.17 295" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="84.17" y="187" font-size="18" fill="#8b95a5" text-anchor="end">60 cm</text>
+  <text x="84.17" y="211" font-size="18" fill="#8b95a5" text-anchor="end">or more</text>
+
+  <!-- the phone's screen: table all round the sheet -->
+  <rect x="374" y="62" width="250" height="187.5" rx="10" fill="#2a3344" stroke="#8b95a5" stroke-width="2"/>
+  <rect x="436.5" y="111.56" width="125" height="88.38" fill="#e8eaed"/>
+
+  <!-- a spanner and a screwdriver on the sheet, a gap between them -->
+  <path d="M474.91 138.61 L525.09 138.61 A8 8 0 1 1 525.09 144.61 L474.91 144.61 A9 9 0 0 1 460.11 145.61 L465.91 145.61 L465.91 137.61 L460.11 137.61 A9 9 0 0 1 474.91 138.61 Z" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+  <circle cx="533.09" cy="141.61" r="3.2" fill="#e8eaed" stroke="#3b9ece" stroke-width="2"/>
+  <rect x="459.02" y="170.19" width="33.67" height="10" rx="4" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+  <rect x="492.69" y="173.69" width="46.3" height="3" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+
+  <!-- corners of the sheet, all four in the frame -->
+  <circle cx="436.5" cy="111.56" r="5" fill="none" stroke="#3b9ece" stroke-width="2"/>
+  <circle cx="561.5" cy="111.56" r="5" fill="none" stroke="#3b9ece" stroke-width="2"/>
+  <circle cx="561.5" cy="199.94" r="5" fill="none" stroke="#3b9ece" stroke-width="2"/>
+  <circle cx="436.5" cy="199.94" r="5" fill="none" stroke="#3b9ece" stroke-width="2"/>
+
+  <!-- the sheet is about half the frame's width -->
+  <path d="M436.5 259.5 L436.5 271.5 M436.5 265.5 L561.5 265.5 M561.5 259.5 L561.5 271.5" fill="none" stroke="#e8eaed" stroke-width="2"/>
+  <text x="499" y="295.5" font-size="18" fill="#e8eaed" text-anchor="middle">about half the frame's width</text>
+
+  <!-- border of table all round the sheet -->
+  <line x1="592.75" y1="54" x2="592.75" y2="99.56" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="592.75" y="48" font-size="18" fill="#8b95a5" text-anchor="end">border all round</text>
+</svg>

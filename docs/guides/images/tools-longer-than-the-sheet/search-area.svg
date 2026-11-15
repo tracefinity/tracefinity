@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>How far the search reaches past the sheet</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- A4 sheet seen from above -->
+  <rect x="198.23" y="88.9" width="243.54" height="172.2" fill="#e8eaed"/>
+  <text x="320" y="76.9" font-size="18" fill="#e8eaed" text-anchor="middle">A4 sheet</text>
+
+  <!-- search area, grown twice past each end of the sheet -->
+  <line x1="52.27" y1="88.9" x2="198.23" y2="88.9" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="52.27" y1="261.1" x2="198.23" y2="261.1" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="441.77" y1="88.9" x2="587.73" y2="88.9" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="441.77" y1="261.1" x2="587.73" y2="261.1" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="52.27" y1="88.9" x2="52.27" y2="261.1" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="141.49" y1="88.9" x2="141.49" y2="261.1" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="498.51" y1="88.9" x2="498.51" y2="261.1" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="587.73" y1="88.9" x2="587.73" y2="261.1" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+
+  <!-- the level, 700 mm, with its traced outline ending square at the search area -->
+  <rect x="33" y="158.6" width="574" height="32.8" fill="#1c2230" stroke="#8b95a5" stroke-width="2"/>
+  <rect x="52.27" y="158.6" width="535.46" height="32.8" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+
+  <!-- first step on the left end, second on the right end -->
+  <line x1="141.49" y1="84.9" x2="141.49" y2="58.9" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="198.23" y1="84.9" x2="198.23" y2="58.9" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="147.49" y1="64.9" x2="192.23" y2="64.9" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M151.49 58.9 L141.49 64.9 L151.49 70.9 M188.23 70.9 L198.23 64.9 L188.23 58.9" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="169.86" y="52.9" font-size="18" fill="#8b95a5" text-anchor="middle">about 70 mm</text>
+  <line x1="498.51" y1="84.9" x2="498.51" y2="58.9" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="587.73" y1="84.9" x2="587.73" y2="58.9" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="504.51" y1="64.9" x2="581.73" y2="64.9" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M508.51 58.9 L498.51 64.9 L508.51 70.9 M577.73 70.9 L587.73 64.9 L577.73 58.9" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="543.12" y="52.9" font-size="18" fill="#8b95a5" text-anchor="middle">about 110 mm</text>
+
+  <!-- whole search area -->
+  <path d="M52.27 277.1 L52.27 289.1 M52.27 283.1 L587.73 283.1 M587.73 277.1 L587.73 289.1" fill="none" stroke="#3b9ece" stroke-width="2"/>
+  <text x="320" y="313.1" font-size="18" fill="#3b9ece" text-anchor="middle">about 650 mm</text>
+
+  <!-- ends of the tool beyond the search are not traced -->
+  <line x1="597.37" y1="195.4" x2="597.37" y2="305.1" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="615" y="325.1" font-size="18" fill="#8b95a5" text-anchor="end">cut off</text>
+</svg>

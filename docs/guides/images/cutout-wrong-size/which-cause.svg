@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Which cause to check</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- measure first -->
+  <rect x="16" y="14" width="608" height="40" rx="6" fill="#1c2230"/>
+  <text x="320" y="40" font-size="18" fill="#e8eaed" text-anchor="middle">measure the outline <tspan fill="#8b95a5">(bottom left of the tool editor)</tspan> and the tool</text>
+
+  <!-- yes: the bin or the print -->
+  <rect x="184" y="70" width="440" height="117" rx="6" fill="#1c2230"/>
+  <text x="198" y="97" font-size="18" fill="#e8eaed">the bin or the print</text>
+  <text x="198" y="124" font-size="18" fill="#8b95a5">pocket right, fit wrong: <tspan fill="#e8eaed">change Clearance</tspan></text>
+  <text x="198" y="149" font-size="18" fill="#8b95a5">bin's walls off too: <tspan fill="#e8eaed">slicer scale or printer</tspan></text>
+  <text x="198" y="174" font-size="18" fill="#8b95a5">tight only at sharp corners: <tspan fill="#e8eaed">Output: Accurate</tspan></text>
+
+  <!-- no: the photo -->
+  <rect x="184" y="203" width="440" height="142" rx="6" fill="#1c2230"/>
+  <text x="198" y="230" font-size="18" fill="#e8eaed">the photo</text>
+  <text x="198" y="257" font-size="18" fill="#8b95a5">big one way, small the other: <tspan fill="#e8eaed">Paper Size</tspan></text>
+  <text x="198" y="282" font-size="18" fill="#8b95a5">big both ways, tall or thick tool: <tspan fill="#e8eaed">its height</tspan></text>
+  <text x="198" y="307" font-size="18" fill="#8b95a5">big both ways, flat tool: <tspan fill="#e8eaed">camera too close</tspan></text>
+  <text x="198" y="332" font-size="18" fill="#8b95a5">off more at one end: <tspan fill="#e8eaed">a corner handle</tspan></text>
+
+  <!-- do they match? -->
+  <polygon points="86,78.5 156,128.5 86,178.5 16,128.5" fill="#1c2230"/>
+  <text x="86" y="123.5" font-size="18" fill="#e8eaed" text-anchor="middle">do they</text>
+  <text x="86" y="145.5" font-size="18" fill="#e8eaed" text-anchor="middle">match?</text>
+
+  <!-- connectors -->
+  <line x1="86" y1="54" x2="86" y2="77.5" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M80 67.5 L86 77.5 L92 67.5" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="156" y1="128.5" x2="183" y2="128.5" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M173 134.5 L183 128.5 L173 122.5" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="164.5" y="112.5" font-size="18" fill="#8b95a5" text-anchor="middle">yes</text>
+  <path d="M86 178.5 L86 274 L183 274" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M173 280 L183 274 L173 268" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="96" y="208.5" font-size="18" fill="#8b95a5">no</text>
+</svg>
