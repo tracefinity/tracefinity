@@ -91,7 +91,7 @@ The **Drawer plans** section at the bottom of the project page lists every plan 
 
 ### Setting the drawer size
 
-The drawer size is optional. Click **Set drawer size** and enter the width and depth in gridfinity units (1 to 40, in 0.5 steps). The sidebar shows the equivalent millimetres, so a 420 x 336 mm drawer is 10 x 8 units. **Clear drawer size** removes the plan again.
+The drawer size is optional. Click **Set drawer size** and enter the width and depth in gridfinity units (1 to 40, in 0.5 steps). The sidebar shows the equivalent millimetres, so a 420 x 336 mm drawer is 10 x 8 units. **Clear drawer size** clears the dimensions and all bin placements, but keeps the named plan and the project bins.
 
 Bins snap to whole gridfinity units. A bin configured with a **half-grid base** snaps to half units instead, matching the 21mm cells it actually sits on -- there is nothing to switch on in the planner.
 
@@ -114,7 +114,7 @@ Each placed bin shows the outlines of the tools it contains and a small stack of
 
 ### Auto arrange
 
-**Auto arrange** packs all project bins into the drawer, largest first, rotating them when that helps. Bins that do not fit are left in the list as unplaced.
+**Auto arrange** repacks the current placements, largest first, rotating them when that helps. Placements that do not fit keep their previous positions and are marked with a dashed outline in the 2D view. If the plan is empty, it starts with one copy of each project bin; bins that do not fit are left unplaced.
 
 ### Space usage
 
