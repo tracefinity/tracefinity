@@ -81,6 +81,40 @@ async function api<T>(method: string, route: string, body?: unknown): Promise<T>
   return (response.status === 204 ? undefined : await response.json()) as T
 }
 
+// the demo library's tools and sessions, and the photos and masks they show.
+// without them a run fails part way through or captures shots with no photo
+async function missingFixtures(): Promise<string[]> {
+  const fixtures = [
+    ...Object.entries(TOOLS).map(([key, id]) => ({
+      name: `TOOLS.${key} ${id}`,
+      route: `/api/tools/${id}`,
+      files: ['source_image_path'],
+    })),
+    ...Object.entries(SESSIONS).map(([key, id]) => ({
+      name: `SESSIONS.${key} ${id}`,
+      route: `/api/sessions/${id}`,
+      files: ['original_image_path', 'corrected_image_path', 'mask_image_path'],
+    })),
+  ]
+  const missing: string[] = []
+  for (const { name, route, files } of fixtures) {
+    const response = await fetch(`${baseUrl}${route}`)
+    if (response.status === 404) {
+      missing.push(name)
+      continue
+    }
+    if (!response.ok) throw new Error(`GET ${route}: ${response.status} ${await response.text()}`)
+    const record = (await response.json()) as Record<string, unknown>
+    for (const field of files) {
+      const file = record[field]
+      if (typeof file !== 'string') continue
+      const stored = await fetch(`${baseUrl}/storage/${file.replace(/^storage\//, '')}`, { method: 'HEAD' })
+      if (!stored.ok) missing.push(`${name}: ${field} ${file}`)
+    }
+  }
+  return missing
+}
+
 // a fresh bin with known contents and settings, replacing the last run's
 async function guideBin(name: string, toolIds: string[], config: BinConfig = {}): Promise<string> {
   const { bins } = await api<{ bins: { id: string; name: string | null }[] }>('GET', '/api/bins')
@@ -862,6 +896,13 @@ async function main(): Promise<void> {
   const unknown = only.filter((file) => !shots.some((shot) => shot.file === file))
   if (unknown.length > 0) throw new Error(`no such shot: ${unknown.join(', ')}`)
   const selected = only.length > 0 ? shots.filter((shot) => only.includes(shot.file)) : shots
+
+  const missing = await missingFixtures()
+  if (missing.length > 0) {
+    console.error(`missing from the library at ${baseUrl}:\n${missing.map((entry) => `  ${entry}`).join('\n')}`)
+    process.exitCode = 1
+    return
+  }
 
   let browser: Browser | undefined
   try {

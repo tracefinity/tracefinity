@@ -36,7 +36,7 @@ Step-by-step guides, each covering one job in Tracefinity.
 
 Check a guide against the app's code, not only the usage docs: labels and limits come from `frontend/src`, tracing, sizes and exports from `backend/app`. Tracing steps differ between one tracer and several, so check both. A guide that works round a bug names its issue, such as [#273](https://github.com/tracefinity/tracefinity/issues/273) in [Make your first bin from a photo](first-bin-from-a-photo.md); update the guide when the fix ships.
 
-The SVG diagrams are drawn by hand. The PNG screenshots come from `frontend/scripts/guide-screenshots.ts`, which needs Node 22.6 or newer. It drives a running Tracefinity with `AUTH_MODE=open` over a copy of the demo library in `backend/storage/default`, whose tools and photos it picks by id, and makes its own bins, projects and uploads, named `Guide: ...`. It captures at twice the display size, so `@2x.png` files show at half their pixel size.
+The SVG diagrams are drawn by hand. The PNG screenshots come from `frontend/scripts/guide-screenshots.ts`, which needs Node 22.6 or newer. It drives a running Tracefinity with `AUTH_MODE=open` over a copy of the demo library in `backend/storage/default`, whose tools and photos it picks by id, and makes its own bins, projects and uploads, named `Guide: ...`. The photos are too large to keep in the repository, so the script needs a library that has them; it checks before taking any shots and lists whatever is missing. It captures at twice the display size, so `@2x.png` files show at half their pixel size.
 
 ```sh
 mkdir -p /tmp/guide-storage && cp -R backend/storage/default /tmp/guide-storage/
