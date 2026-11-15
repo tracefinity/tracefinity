@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Finger hole depth</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- default finger hole in the default 20 mm pocket -->
+  <path d="M20 84 L47.2 84 A102 102 0 0 0 142.4 185.77 L142.4 220 L278.4 220 L278.4 84 L305.6 84 L305.6 242.1 L303.9 242.1 L289.28 256.72 L289.28 268.96 L283.84 274.4 L41.76 274.4 L36.32 268.96 L36.32 256.72 L21.7 242.1 L20 242.1 Z" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M142.4 185.77 A102 102 0 0 0 251.2 84" fill="none" stroke="#3b9ece" stroke-width="2" stroke-dasharray="4 4"/>
+  <rect x="149.2" y="165.6" width="122.4" height="54.4" rx="10.2" fill="#1c2230" stroke="#e8eaed" stroke-width="2"/>
+  <text x="210.4" y="199.3" font-size="18" fill="#e8eaed" text-anchor="middle">tool</text>
+  <line x1="47.2" y1="82" x2="47.2" y2="58" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="251.2" y1="82" x2="251.2" y2="58" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="53.2" y1="64" x2="245.2" y2="64" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M57.2 58 L47.2 64 L57.2 70 M241.2 70 L251.2 64 L241.2 58" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="149.2" y="52" font-size="18" fill="#8b95a5" text-anchor="middle">30 mm across</text>
+  <line x1="132.2" y1="90" x2="132.2" y2="180" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M138.2 94 L132.2 84 L126.2 94 M126.2 176 L132.2 186 L138.2 176" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="142.4" y1="220" x2="126.2" y2="220" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="132.2" y1="192" x2="132.2" y2="214" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M138.2 196 L132.2 186 L126.2 196 M126.2 210 L132.2 220 L138.2 210" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="124.2" y="114.48" font-size="18" fill="#8b95a5" text-anchor="end">15 mm</text>
+  <text x="124.2" y="136.24" font-size="18" fill="#8b95a5" text-anchor="end">deep</text>
+  <text x="122.2" y="209.5" font-size="18" fill="#8b95a5" text-anchor="end">5 mm</text>
+  <text x="162.8" y="309.76" font-size="18" fill="#8b95a5" text-anchor="middle">20 mm pocket</text>
+
+  <!-- cutout Depth 15 in a 10 mm pocket, under a scraper -->
+  <path d="M334.4 84 L361.6 84 A102 102 0 0 0 539.63 152 L592.8 152 L592.8 84 L620 84 L620 242.1 L618.3 242.1 L603.68 256.72 L603.68 268.96 L598.24 274.4 L356.16 274.4 L350.72 268.96 L350.72 256.72 L336.1 242.1 L334.4 242.1 Z" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M539.63 152 A102 102 0 0 0 565.6 84" fill="none" stroke="#3b9ece" stroke-width="2" stroke-dasharray="4 4"/>
+  <rect x="463.6" y="124.8" width="122.4" height="27.2" rx="9.07" fill="#1c2230" stroke="#e8eaed" stroke-width="2"/>
+  <text x="511.2" y="112.8" font-size="18" fill="#e8eaed" text-anchor="middle">scraper</text>
+  <line x1="463.6" y1="152" x2="440.6" y2="152" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="446.6" y1="158" x2="446.6" y2="180" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M452.6 162 L446.6 152 L440.6 162 M440.6 176 L446.6 186 L452.6 176" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="456.8" y="208.82" font-size="18" fill="#8b95a5" text-anchor="middle">5 mm below the floor</text>
+  <text x="477.2" y="309.76" font-size="18" fill="#8b95a5" text-anchor="middle">10 mm pocket, Depth 15</text>
+</svg>

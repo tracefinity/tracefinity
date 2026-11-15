@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Paper size distortion</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- context -->
+  <text x="16" y="32" font-size="18" fill="#8b95a5">Letter sheet traced as A4</text>
+
+  <!-- traced outline and tool, to scale -->
+  <rect x="54.25" y="73.37" width="531.5" height="97.27" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+  <rect x="70" y="72" width="500" height="100" fill="none" stroke="#e8eaed" stroke-width="2"/>
+  <text x="320" y="116" font-size="18" fill="#e8eaed" text-anchor="middle">tool 200 × 40 mm</text>
+  <text x="320" y="144" font-size="18" fill="#3b9ece" text-anchor="middle">outline 212.6 × 38.9 mm</text>
+
+  <!-- along the long edge -->
+  <line x1="54.25" y1="69.37" x2="54.25" y2="43.37" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="585.75" y1="69.37" x2="585.75" y2="43.37" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="60.25" y1="51.37" x2="579.75" y2="51.37" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M64.25 45.37 L54.25 51.37 L64.25 57.37 M575.75 57.37 L585.75 51.37 L575.75 45.37" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="571.75" y="39.37" font-size="18" fill="#8b95a5" text-anchor="end">along the long edge: 6.3% long</text>
+
+  <!-- inset, x7 -->
+  <polygon points="436.55,282.19 435.58,278 434.7,272.7 434.18,267.36 434,262 434.18,256.64 434.7,251.3 435.58,246 436.79,240.78 438.35,235.64 440.24,230.62 442.46,225.73 444.99,221 447.82,216.44 450.95,212.08 454.35,207.93 458.02,204.02 461.93,200.35 466.08,196.95 470.44,193.82 475,190.99 479.73,188.46 484.62,186.24 489.64,184.35 494.78,182.79 500,181.58 505.3,180.7 510.64,180.18 516,180 521.36,180.18 526.7,180.7 532,181.58 537.22,182.79 542.36,184.35 547.38,186.24 552.27,188.46 557,190.99 561.56,193.82 565.92,196.95 570.07,200.35 573.98,204.02 575.49,205.62 575.49,282.19" fill="#0d2a3a"/>
+  <line x1="436.52" y1="282.19" x2="575.49" y2="282.19" stroke="#3b9ece" stroke-width="2"/>
+  <line x1="575.49" y1="282.19" x2="575.49" y2="205.56" stroke="#3b9ece" stroke-width="2"/>
+  <line x1="439.59" y1="291.75" x2="465.25" y2="291.75" stroke="#e8eaed" stroke-width="2"/>
+  <line x1="465.25" y1="291.75" x2="465.25" y2="197.59" stroke="#e8eaed" stroke-width="2"/>
+  <circle cx="516" cy="262" r="82" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <circle cx="577.25" cy="167.75" r="11.71" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <line x1="570.87" y1="177.57" x2="560.68" y2="193.24" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="584.68" y="336.68" font-size="18" fill="#8b95a5">×7</text>
+
+  <!-- across -->
+  <line x1="417.89" y1="286.97" x2="451.89" y2="286.97" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="409.89" y="292.97" font-size="18" fill="#8b95a5" text-anchor="end">across: 2.7% narrow</text>
+</svg>

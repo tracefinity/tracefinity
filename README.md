@@ -255,6 +255,7 @@ No API key and prefer not to use the local model? Upload a mask manually:
 
 Step-by-step usage guides covering each part of the workflow:
 
+- [Guides](docs/guides/README.md)
 - [Getting started](docs/usage/getting-started.md)
 - [Uploading photos](docs/usage/uploading-photos.md)
 - [Tracing](docs/usage/tracing.md)

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Size and detail limits for small tools</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- 13 mm square, to scale -->
+  <rect x="25" y="51" width="40.9" height="40.9" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+  <text x="80.9" y="77.45" font-size="18" fill="#8b95a5">13 x 13 mm</text>
+
+  <!-- 2 x 90 mm strip -->
+  <text x="24" y="130" font-size="18" fill="#8b95a5">2 x 90 mm</text>
+  <rect x="25" y="141" width="295" height="4.6" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+
+  <!-- 3 x 60 mm strip -->
+  <text x="24" y="182" font-size="18" fill="#8b95a5">3 x 60 mm</text>
+  <rect x="25" y="193" width="196" height="7.9" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+
+  <!-- 10 mm scale bar -->
+  <path d="M24 230 L24 242 M24 236 L57 236 M57 230 L57 242" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="69" y="242" font-size="18" fill="#8b95a5">10 mm</text>
+  <text x="24" y="288" font-size="18" fill="#e8eaed">each just big enough to be kept</text>
+  <text x="24" y="312" font-size="18" fill="#8b95a5">sheet filling half the frame</text>
+
+  <!-- wire width -->
+  <line x1="377.08" y1="50" x2="377.08" y2="70" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="415.08" y1="50" x2="415.08" y2="70" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="383.08" y1="56" x2="409.08" y2="56" stroke="#8b95a5" stroke-width="1.5"/>
+  <path d="M387.08 50 L377.08 56 L387.08 62 M405.08 62 L415.08 56 L405.08 50" fill="none" stroke="#8b95a5" stroke-width="1.5"/>
+  <text x="441.08" y="62" font-size="18" fill="#e8eaed">1 mm wire</text>
+
+  <!-- 0.58 mm pixels: the wire is under 2 pixels wide and is removed -->
+  <line x1="352" y1="84" x2="352" y2="172.16" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="84" x2="440.16" y2="84" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="374.04" y1="84" x2="374.04" y2="172.16" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="106.04" x2="440.16" y2="106.04" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="396.08" y1="84" x2="396.08" y2="172.16" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="128.08" x2="440.16" y2="128.08" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="418.12" y1="84" x2="418.12" y2="172.16" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="150.12" x2="440.16" y2="150.12" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="440.16" y1="84" x2="440.16" y2="172.16" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="172.16" x2="440.16" y2="172.16" stroke="#2a3344" stroke-width="1.5"/>
+  <rect x="378.08" y="74" width="36" height="108.16" fill="none" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <rect x="352" y="84" width="88.16" height="88.16" fill="none" stroke="#2a3344" stroke-width="1.5"/>
+  <text x="456.16" y="124.08" font-size="18" fill="#8b95a5">0.58 mm per pixel</text>
+  <text x="456.16" y="148.08" font-size="18" fill="#e5534b">removed</text>
+
+  <!-- 0.29 mm pixels: the wire is over 3 pixels wide and is kept -->
+  <rect x="378.08" y="210.16" width="36" height="108.16" fill="#0d2a3a"/>
+  <line x1="352" y1="220.16" x2="352" y2="308.32" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="220.16" x2="440.16" y2="220.16" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="363.02" y1="220.16" x2="363.02" y2="308.32" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="231.18" x2="440.16" y2="231.18" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="374.04" y1="220.16" x2="374.04" y2="308.32" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="242.2" x2="440.16" y2="242.2" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="385.06" y1="220.16" x2="385.06" y2="308.32" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="253.22" x2="440.16" y2="253.22" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="396.08" y1="220.16" x2="396.08" y2="308.32" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="264.24" x2="440.16" y2="264.24" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="407.1" y1="220.16" x2="407.1" y2="308.32" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="275.26" x2="440.16" y2="275.26" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="418.12" y1="220.16" x2="418.12" y2="308.32" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="286.28" x2="440.16" y2="286.28" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="429.14" y1="220.16" x2="429.14" y2="308.32" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="297.3" x2="440.16" y2="297.3" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="440.16" y1="220.16" x2="440.16" y2="308.32" stroke="#2a3344" stroke-width="1.5"/>
+  <line x1="352" y1="308.32" x2="440.16" y2="308.32" stroke="#2a3344" stroke-width="1.5"/>
+  <rect x="378.08" y="210.16" width="36" height="108.16" fill="none" stroke="#3b9ece" stroke-width="2"/>
+  <rect x="352" y="220.16" width="88.16" height="88.16" fill="none" stroke="#2a3344" stroke-width="1.5"/>
+  <text x="456.16" y="260.24" font-size="18" fill="#8b95a5">0.29 mm per pixel</text>
+  <text x="456.16" y="284.24" font-size="18" fill="#57ab5a">kept</text>
+</svg>

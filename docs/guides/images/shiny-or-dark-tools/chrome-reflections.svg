@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title>Light and reflections on chrome</title>
+  <rect width="640" height="360" fill="#12161d"/>
+
+  <!-- bare bulb overhead: ceiling, table, sheet, chrome spanner, phone -->
+  <rect x="16" y="16" width="296" height="24" fill="#2a3344"/>
+  <line x1="16" y1="290" x2="312" y2="290" stroke="#2a3344" stroke-width="2"/>
+  <rect x="64" y="284" width="200" height="6" fill="#e8eaed"/>
+  <rect x="104" y="276" width="120" height="8" rx="2" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+  <rect x="129" y="77" width="70" height="14" rx="4" fill="#1c2230" stroke="#8b95a5" stroke-width="2"/>
+  <circle cx="164" cy="92" r="4" fill="#3b9ece"/>
+
+  <!-- the bulb, hanging just above and beside the phone -->
+  <line x1="249.65" y1="40" x2="249.65" y2="51" stroke="#8b95a5" stroke-width="2"/>
+  <rect x="244.65" y="51" width="10" height="6" fill="#8b95a5"/>
+  <circle cx="249.65" cy="66" r="9" fill="#e8eaed"/>
+
+  <!-- bulb to the face and straight into the lens, equal angles -->
+  <line x1="204" y1="276" x2="247.32" y2="76.75" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="164" y1="96" x2="204" y2="276" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+
+  <!-- highlight on the face -->
+  <line x1="208" y1="276" x2="215" y2="276" stroke="#e8eaed" stroke-width="2"/>
+  <line x1="206.83" y1="278.83" x2="211.78" y2="283.78" stroke="#e8eaed" stroke-width="2"/>
+  <line x1="204" y1="280" x2="204" y2="287" stroke="#e8eaed" stroke-width="2"/>
+  <line x1="201.17" y1="278.83" x2="196.22" y2="283.78" stroke="#e8eaed" stroke-width="2"/>
+  <line x1="200" y1="276" x2="193" y2="276" stroke="#e8eaed" stroke-width="2"/>
+  <line x1="201.17" y1="273.17" x2="196.22" y2="268.22" stroke="#e8eaed" stroke-width="2"/>
+  <line x1="204" y1="272" x2="204" y2="265" stroke="#e8eaed" stroke-width="2"/>
+  <line x1="206.83" y1="273.17" x2="211.78" y2="268.22" stroke="#e8eaed" stroke-width="2"/>
+  <text x="164" y="320" font-size="18" fill="#e5534b" text-anchor="middle">bright highlight,</text>
+  <text x="164" y="344" font-size="18" fill="#e5534b" text-anchor="middle">looks like paper</text>
+
+  <!-- window light from the side: ceiling, table, sheet, chrome spanner, phone -->
+  <rect x="328" y="16" width="296" height="24" fill="#2a3344"/>
+  <line x1="328" y1="290" x2="624" y2="290" stroke="#2a3344" stroke-width="2"/>
+  <rect x="376" y="284" width="200" height="6" fill="#e8eaed"/>
+  <rect x="416" y="276" width="120" height="8" rx="2" fill="#0d2a3a" stroke="#3b9ece" stroke-width="2"/>
+  <rect x="441" y="77" width="70" height="14" rx="4" fill="#1c2230" stroke="#8b95a5" stroke-width="2"/>
+  <circle cx="476" cy="92" r="4" fill="#3b9ece"/>
+  <text x="340" y="66" font-size="18" fill="#8b95a5">dim ceiling</text>
+
+  <!-- window at the side, light falling at 45 degrees -->
+  <rect x="334" y="136" width="16" height="88" fill="#e8eaed" stroke="#8b95a5" stroke-width="2"/>
+  <line x1="334" y1="180" x2="350" y2="180" stroke="#8b95a5" stroke-width="2"/>
+  <line x1="352" y1="142" x2="486" y2="276" stroke="#8b95a5" stroke-width="2"/>
+  <line x1="352" y1="168" x2="460" y2="276" stroke="#8b95a5" stroke-width="2"/>
+  <line x1="352" y1="194" x2="434" y2="276" stroke="#8b95a5" stroke-width="2"/>
+
+  <!-- lens to the face and up to the ceiling, equal angles -->
+  <line x1="476" y1="96" x2="516" y2="276" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <line x1="516" y1="276" x2="567.3" y2="40" stroke="#3b9ece" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="476" y="320" font-size="18" fill="#57ab5a" text-anchor="middle">reflects the ceiling,</text>
+  <text x="476" y="344" font-size="18" fill="#57ab5a" text-anchor="middle">darker than the paper</text>
+</svg>
