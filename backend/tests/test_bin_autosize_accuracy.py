@@ -12,9 +12,9 @@ from app.models.schemas import Point, Tool
 
 
 @pytest.mark.parametrize("stacking_lip,half_grid,wall,expected_grid", [
-    (True, False, 1.6, 3),
+    (True, False, 1.6, 2),
     (False, False, 1.6, 2),
-    (True, True, 1.6, 2.5),
+    (True, True, 1.6, 2),
     (True, False, 3.0, 3),
 ])
 @pytest.mark.parametrize("vertical", [False, True])

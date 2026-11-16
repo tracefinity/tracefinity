@@ -142,6 +142,7 @@ export interface BinDefaults {
   cutout_clearance: number
   cutout_chamfer: number
   insert_enabled: boolean
+  allow_wall_cutouts: boolean
   insert_height: number
   insert_clearance: number
   half_grid_base: boolean

@@ -51,6 +51,12 @@ record, and `<artefact> not found` otherwise.
 - **Maximum pocket depth**: `height_units * 7 - 4.75 - 2`mm, preserving the base and a 2mm floor. The lip and raised rim do not reduce this. At 1u the physical maximum is 0.25mm and takes precedence over the usual 5mm minimum, including for per-cutout overrides and insert allowances.
 - **Pocket extrude margin**: 0.01mm epsilon for boolean cleanliness.
 
+Tool outlines and finger cutouts extend up through any overlapping raised rim
+or stacking lip. The rounded inner wall limits both cutters and their chamfers
+by default. With `allow_wall_cutouts` enabled, the cutters can reach through the
+side wall. The spherical finger cutout keeps its curved floor and continues
+its opening at the wall top upward through the lip.
+
 ## Gridfinity Constants
 
 ```
@@ -125,16 +131,13 @@ For NxM bins multiply grid centres by `(ix - (N-1)/2) * 42`.
 ## Bin Auto-Sizing
 
 ```
-inset = max(wall_thickness, 2.6 if stacking_lip else 0)
-grid_units = ceil((tool_dimension + 2*inset + 2*clearance + 0.5) / 42)
+grid_units = ceil((tool_dimension + 2*wall_thickness + 2*clearance + 0.5) / 42)
 ```
 
 Half-grid bins round up to the next 0.5 unit instead. Creation, browser
-auto-size, and adding tools reserve the same wall/lip inset used by pocket
-clipping. With the stacking lip enabled, an 80 mm tool at 0.1 mm clearance
-needs 3 whole units (2.5 with half-grid): a 2-unit bin has only 78.3 mm of
-usable interior and would shorten its cavity. Without the lip and with
-1.6 mm walls, that tool fits in 2 units.
+auto-size, and adding tools reserve the configured wall thickness.
+An 80 mm tool at 0.1 mm clearance fits in 2 units with a
+1.6 mm wall, including when the lip is enabled.
 
 Each axis is limited to 25 grid units and the footprint to
 `ceil(grid_x) * ceil(grid_y) <= 100`. The footprint limit bounds geometry

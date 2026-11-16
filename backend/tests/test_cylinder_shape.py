@@ -53,7 +53,7 @@ def _has_point(profile, x: float, y: float, tol: float = 1e-9) -> bool:
 class TestCylinderShape:
     def test_cylinder_produces_cutter(self):
         poly = _scaled_poly_with_hole("cylinder")
-        config = BinParams(cutout_depth=15.0)
+        config = BinParams(cutout_depth=15.0, stacking_lip=False)
         result = _make_finger_holes(
             [poly], config, wall_top_z=33.0, max_depth=15.0,
             offset_x=0.0, offset_y=0.0,

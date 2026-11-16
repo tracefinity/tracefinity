@@ -93,6 +93,15 @@ describe('bin defaults', () => {
     expect('text_labels' in defaults).toBe(false)
   })
 
+  it('defaults wall cutouts to off, saves the preference, and resets it', () => {
+    storage.setItem(SETTINGS_KEY, JSON.stringify({ binDefaults: { cutout_depth: 12 } }))
+    expect(getDefaultBinDefaults().allow_wall_cutouts).toBe(false)
+
+    saveDefaultBinConfig(buildBinConfig({ allow_wall_cutouts: true }))
+    expect(getDefaultBinDefaults().allow_wall_cutouts).toBe(true)
+    expect(resetDefaultBinConfig().allow_wall_cutouts).toBe(false)
+  })
+
   it('keeps the legacy bedSize setting authoritative', () => {
     storage.setItem(SETTINGS_KEY, JSON.stringify({
       bedSize: 245,

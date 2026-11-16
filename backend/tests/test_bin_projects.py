@@ -210,6 +210,7 @@ def test_project_update_round_trips_default_bin_config(tmp_path, monkeypatch):
             "magnet_diameter": 6.2,
             "magnet_depth": 2.8,
             "magnet_corners_only": True,
+            "allow_wall_cutouts": True,
             "bed_size": 220,
         },
     })
@@ -219,6 +220,7 @@ def test_project_update_round_trips_default_bin_config(tmp_path, monkeypatch):
     assert updated_config["magnet_diameter"] == 6.2
     assert updated_config["magnet_depth"] == 2.8
     assert updated_config["magnet_corners_only"] is True
+    assert updated_config["allow_wall_cutouts"] is True
     assert updated_config["bed_size"] == 220
     detail_config = client.get(f"/api/bin-projects/{project['id']}").json()["default_bin_config"]
     assert detail_config == updated_config
@@ -257,7 +259,7 @@ def test_project_create_bin_uses_request_config_before_project_default(tmp_path,
     project = client.post("/api/bin-projects", json={
         "name": "Top drawer",
         "tool_ids": ["tool-1"],
-        "default_bin_config": {"magnet_diameter": 6.2, "bed_size": 220},
+        "default_bin_config": {"magnet_diameter": 6.2, "bed_size": 220, "allow_wall_cutouts": True},
     }).json()
 
     project_default_resp = client.post(
@@ -269,16 +271,18 @@ def test_project_create_bin_uses_request_config_before_project_default(tmp_path,
         json={
             "name": "Override bin",
             "tool_ids": ["tool-1"],
-            "bin_config": {"magnet_diameter": 6.4, "bed_size": 210},
+            "bin_config": {"magnet_diameter": 6.4, "bed_size": 210, "allow_wall_cutouts": False},
         },
     )
 
     assert project_default_resp.status_code == 200
     assert project_default_resp.json()["bin_config"]["magnet_diameter"] == 6.2
     assert project_default_resp.json()["bin_config"]["bed_size"] == 220
+    assert project_default_resp.json()["bin_config"]["allow_wall_cutouts"] is True
     assert override_resp.status_code == 200
     assert override_resp.json()["bin_config"]["magnet_diameter"] == 6.4
     assert override_resp.json()["bin_config"]["bed_size"] == 210
+    assert override_resp.json()["bin_config"]["allow_wall_cutouts"] is False
 
 
 def test_project_health_reports_and_repairs_safe_link_mismatches(tmp_path):
