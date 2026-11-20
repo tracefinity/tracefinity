@@ -18,7 +18,11 @@ RUN pnpm run build
 
 FROM python:3.12-slim
 
+# a new value reruns this layer, picking up current debian security updates.
+# release builds pass one per run; other builds keep the cached layer
+ARG OS_PACKAGES_REFRESH=cached
 RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y \
     libgl1 \
     libsm6 \
