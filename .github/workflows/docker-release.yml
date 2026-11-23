@@ -66,6 +66,12 @@ jobs:
           echo "image APP_VERSION='$got' expected '${GITHUB_REF_NAME#v}'"
           test "$got" = "${GITHUB_REF_NAME#v}"
 
+      - name: Smoke test buffered uploads
+        run: |
+          docker run --rm --network none tracefinity-smoke python /app/tests/test_nginx_uploads.py
+          docker run --rm --network none -e PUID=99 -e PGID=100 tracefinity-smoke python /app/tests/test_nginx_uploads.py
+          docker run --rm --network none --user 12345:12345 tracefinity-smoke python /app/tests/test_nginx_uploads.py
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:

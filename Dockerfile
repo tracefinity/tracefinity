@@ -101,7 +101,8 @@ NGINX_EOF
 RUN sed -i 's|pid /run/nginx.pid;|pid /tmp/nginx/nginx.pid;|' /etc/nginx/nginx.conf && \
     sed -i 's|^error_log .*;|error_log stderr;|' /etc/nginx/nginx.conf && \
     grep -q '^error_log stderr;' /etc/nginx/nginx.conf && \
-    sed -i '/^user /d' /etc/nginx/nginx.conf
+    sed -i 's|^user .*;|user tracefinity;|' /etc/nginx/nginx.conf && \
+    grep -q '^user tracefinity;$' /etc/nginx/nginx.conf
 
 # supervisor config
 COPY <<SUPERVISOR_EOF /etc/supervisor/conf.d/tracefinity.conf
@@ -153,7 +154,7 @@ COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # entrypoint tests (run with: docker run --rm --entrypoint sh <image> /app/tests/test_entrypoint.sh)
-COPY tests/test_entrypoint.sh /app/tests/
+COPY tests/test_entrypoint.sh tests/test_nginx_uploads.py /app/tests/
 RUN chmod +x /app/tests/test_entrypoint.sh
 
 EXPOSE 3000

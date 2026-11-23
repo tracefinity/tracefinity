@@ -54,6 +54,7 @@ Single container runs both frontend and backend via supervisor. Key details:
 - `.dockerignore` excludes `docs/`, `node_modules/`, `venv/`, `storage/`, `.claude/`
 - Release builds pass a per-run `OS_PACKAGES_REFRESH`, which reruns the apt layer so each release ships current Debian security updates. Other builds reuse the cached layer, so a dev image can lag those updates until `python:3.12-slim` itself changes
 - nginx logs errors to stderr, which supervisor passes to the container log. A 502 while the backend starts or after it dies, a 504 or a 413 answered by nginx would otherwise only reach a file inside the container
+- Keep nginx's `user tracefinity;` directive. A root-run `nginx -t` changes temporary-directory ownership to the configured user; omitting it defaults to `nobody` and breaks buffered uploads with HTTP 500. Non-root nginx ignores this directive, so `--user` remains supported.
 - Container runs as non-root user `tracefinity` (UID 1000) by default. Supports `--user "$(id -u):$(id -g)"` for arbitrary UIDs. Runtime-writable dirs (`/app/storage`, `/app/.u2net`, `/app/.next`, `/tmp/nginx`, `/tmp/supervisor`, `/var/lib/nginx`) are world-writable. `U2NET_HOME` and `HOME` are set to `/app` paths so model downloads and nginx/supervisor state work without root.
 
 ## Manifold3d boolean performance
