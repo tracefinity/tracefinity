@@ -4,7 +4,7 @@
 # Run as host user: docker run -p 3000:3000 -v ./data:/app/storage --user "$(id -u):$(id -g)" tracefinity
 # NAS (Unraid/TrueNAS): docker run -p 3000:3000 -e PUID=99 -e PGID=100 -v ./data:/app/storage tracefinity
 
-FROM node:20-slim AS frontend-build
+FROM node:22-slim AS frontend-build
 
 RUN corepack enable pnpm
 
@@ -29,13 +29,16 @@ RUN apt-get update && \
     libxext6 \
     libxrender1 \
     libheif-dev \
-    nodejs \
     nginx \
     supervisor \
     git \
     gosu \
     && (apt-get install -y libglib2.0-0t64 2>/dev/null || apt-get install -y libglib2.0-0) \
     && rm -rf /var/lib/apt/lists/*
+
+# the node that built the frontend also serves it; debian's nodejs package is
+# an end-of-life release and brings its own unpatched node-* libraries
+COPY --from=frontend-build /usr/local/bin/node /usr/local/bin/node
 
 WORKDIR /app
 
