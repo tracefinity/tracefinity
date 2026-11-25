@@ -23,18 +23,17 @@ FROM python:3.12-slim
 ARG OS_PACKAGES_REFRESH=cached
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
     libgl1 \
     libsm6 \
     libxext6 \
     libxrender1 \
-    libheif-dev \
     nodejs \
     nginx \
     supervisor \
     git \
     gosu \
-    && (apt-get install -y libglib2.0-0t64 2>/dev/null || apt-get install -y libglib2.0-0) \
+    && (apt-get install -y --no-install-recommends libglib2.0-0t64 2>/dev/null || apt-get install -y --no-install-recommends libglib2.0-0) \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
